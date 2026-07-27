@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מעקב אימונים</title>
+<meta name="theme-color" content="#FFFFFF">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Suez+One&family=Assistant:wght@400;600;700&family=Roboto+Slab:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div id="auth-screen" class="auth-screen hidden">
+  <h1>מעקב אימונים</h1>
+  <p class="text-muted">התקדמות לחתונה — אימונים ותזונה במקום אחד.</p>
+  <button id="google-signin-btn" class="btn btn-primary">התחברות עם Google</button>
+</div>
+
+<div id="app" class="hidden"></div>
+
+<nav id="bottom-nav" class="bottom-nav hidden">
+  <a href="#/session" data-route="session"><span class="icon">🏋️</span><span>אימון</span></a>
+  <a href="#/history" data-route="history"><span class="icon">📅</span><span>היסטוריה</span></a>
+  <a href="#/dashboard" data-route="dashboard"><span class="icon">📈</span><span>התקדמות</span></a>
+  <a href="#/nutrition" data-route="nutrition"><span class="icon">🍽️</span><span>תזונה</span></a>
+  <a href="#/plan" data-route="plan"><span class="icon">💍</span><span>תוכנית</span></a>
+</nav>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

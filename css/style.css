@@ -1,0 +1,417 @@
+/* ===== Design tokens ===== */
+:root {
+  --bg: #FFFFFF;
+  --surface: #F3F6FA;
+  --surface-raised: #E8EEF5;
+  --border: #DCE3EC;
+  --text: #16233B;
+  --text-muted: #5E6B80;
+  --accent: #1E3A63;
+  --accent-hover: #2F5C9E;
+  --accent-dim: #B9C7DA;
+  --gold: #C9962C;
+  --gold-text: #3D2E0A;
+  --danger: #B5463E;
+  --success: #2F7A54;
+
+  --font-display: 'Suez One', serif;
+  --font-body: 'Assistant', sans-serif;
+  --font-numeric: 'Roboto Slab', serif;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --tap-min: 48px;
+
+  --nav-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100vh;
+  padding-bottom: calc(var(--nav-height) + var(--safe-bottom));
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  margin: 0 0 0.5em;
+}
+
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.05rem; color: var(--text-muted); }
+
+p { margin: 0 0 0.75em; line-height: 1.5; }
+
+a { color: var(--accent); }
+
+/* Numbers: weights, reps, timers, countdowns — always tabular so columns align */
+.num, .timer, .dial-value, input[type="number"] {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+button, input, select {
+  font-family: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+/* ===== Layout shell ===== */
+#app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px 16px calc(24px);
+}
+
+/* ===== Cards ===== */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  min-height: var(--tap-min);
+  min-width: var(--tap-min);
+  padding: 0 20px;
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #FFFFFF;
+}
+
+.btn-primary:hover { background: var(--accent-hover); }
+
+.btn-secondary {
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-block { width: 100%; }
+
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== Stepper (weight / reps input) ===== */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.stepper button {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  font-size: 1.3rem;
+  color: var(--accent);
+}
+
+.stepper .stepper-value {
+  min-width: 3.5ch;
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 600;
+  padding: 0 6px;
+}
+
+/* ===== Toggle group (segmented control: ק"ג/lb, טוטאל/כל צד) ===== */
+.toggle-group {
+  display: inline-flex;
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.toggle-group button {
+  min-height: var(--tap-min);
+  padding: 0 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.toggle-group button.active {
+  background: var(--accent);
+  color: #FFFFFF;
+}
+
+/* ===== Search bar (exercise picker) ===== */
+.search-bar {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 1rem;
+}
+
+.search-bar:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ===== Modal / popup (e.g. "last time" panel) ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 35, 59, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.modal-card {
+  position: relative;
+  background: var(--bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 20px;
+  max-width: 360px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* Generic small data table — used in History, the "last time" popup, and
+   Dashboard's "view as table" toggle */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+th, td {
+  text-align: start;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+th {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+/* ===== Category pills (exercise picker Push/Pull groups) ===== */
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.pill-row-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.pill {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  min-height: 36px;
+}
+
+.pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #FFFFFF;
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+/* ===== Plate dial (signature element: rest timer + wedding countdown) ===== */
+.plate-dial {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin: 0 auto;
+}
+
+.plate-dial svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+
+.plate-dial .track {
+  fill: none;
+  stroke: var(--surface-raised);
+  stroke-width: 8;
+}
+
+.plate-dial .fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s linear;
+}
+
+.plate-dial .dial-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.plate-dial .dial-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.plate-dial .dial-label {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.plate-dial.compact { width: 56px; height: 56px; }
+.plate-dial.compact .dial-value { font-size: 0.8rem; }
+.plate-dial.compact .dial-label { display: none; }
+
+/* ===== PR badge (the one deliberate gold exception in an otherwise navy/white palette) ===== */
+.pr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--gold);
+  color: var(--gold-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* ===== Bottom nav ===== */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--nav-height) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  z-index: 50;
+}
+
+.bottom-nav a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.7rem;
+  min-height: var(--tap-min);
+}
+
+.bottom-nav a.active { color: var(--accent); font-weight: 700; }
+.bottom-nav a .icon { font-size: 1.2rem; }
+
+/* ===== Desktop: promote nav to a sidebar ===== */
+@media (min-width: 900px) {
+  body { padding-bottom: 0; }
+
+  #app {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 24px 24px 24px 240px;
+  }
+
+  .bottom-nav {
+    top: 0;
+    bottom: 0;
+    right: auto;
+    width: 200px;
+    height: 100vh;
+    flex-direction: column;
+    padding: 24px 0;
+    border-top: none;
+    border-inline-end: 1px solid var(--border);
+  }
+
+  .bottom-nav a {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 0 24px;
+    font-size: 0.95rem;
+  }
+}
+
+/* ===== Auth screen ===== */
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+}
+
+/* ===== Utility ===== */
+.text-muted { color: var(--text-muted); }
+.text-accent { color: var(--accent); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hidden { display: none !important; }

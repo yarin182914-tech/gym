@@ -1,0 +1,219 @@
+import { renderPlateDial } from '../lib/plate-dial.js';
+import { addNutritionEntry, listNutritionEntries } from '../lib/firestore.js';
+import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
+
+const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
+const MEAL_LABELS = { breakfast: 'בוקר', lunch: 'צהריים', dinner: 'ערב', snack: 'נשנוש' };
+
+let container = null;
+let entries = [];
+let formOpen = false;
+let form = null;
+let aiStatus = null; // null | 'loading' | 'unavailable' | 'error'
+
+function toDate(d) { return d?.toDate ? d.toDate() : new Date(d); }
+function isToday(d) {
+  const a = toDate(d);
+  const now = new Date();
+  return a.getFullYear() === now.getFullYear() && a.getMonth() === now.getMonth() && a.getDate() === now.getDate();
+}
+
+export async function mountNutrition(rootEl) {
+  container = rootEl;
+  container.innerHTML = '<p class="text-muted">טוען נתוני תזונה...</p>';
+  entries = await listNutritionEntries(200);
+  render();
+}
+
+function todayEntries() {
+  return entries.filter((e) => isToday(e.date));
+}
+
+function todayTotals() {
+  return todayEntries().reduce((acc, e) => ({
+    calories: acc.calories + (e.calories || 0),
+    proteinG: acc.proteinG + (e.proteinG || 0),
+    carbsG: acc.carbsG + (e.carbsG || 0),
+    fatG: acc.fatG + (e.fatG || 0),
+  }), { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 });
+}
+
+function macroBar(label, value, target) {
+  const pct = Math.min(100, Math.round((value / target) * 100));
+  return `
+    <div style="margin-bottom:10px;">
+      <div class="row" style="margin-bottom:4px;">
+        <span class="text-muted" style="font-size:0.8rem;">${label}</span>
+        <span class="num" style="font-size:0.8rem;">${Math.round(value)}/${target}g</span>
+      </div>
+      <div style="height:8px; border-radius:999px; background:var(--surface-raised); overflow:hidden;">
+        <div style="height:100%; width:${pct}%; background:var(--accent); border-radius:999px;"></div>
+      </div>
+    </div>`;
+}
+
+function render() {
+  const totals = todayTotals();
+
+  container.innerHTML = `
+    <div class="card" style="text-align:center;">
+      <div id="calorie-ring" style="margin-bottom:8px;"></div>
+    </div>
+
+    <div class="card">
+      ${macroBar('חלבון', totals.proteinG, TARGETS.proteinG)}
+      ${macroBar('פחמימות', totals.carbsG, TARGETS.carbsG)}
+      ${macroBar('שומן', totals.fatG, TARGETS.fatG)}
+    </div>
+
+    ${formOpen ? renderForm() : `<button class="btn btn-primary btn-block" id="open-form-btn">+ הוספת ארוחה</button>`}
+
+    <div class="card">
+      <h3 style="color:var(--text); margin-bottom:10px;">היום</h3>
+      ${todayEntries().length === 0
+        ? '<p class="text-muted">עוד לא נרשמו ארוחות היום.</p>'
+        : todayEntries().map((e) => `
+          <div class="row" style="margin-bottom:8px;">
+            <div>
+              <div style="font-weight:600;">${e.description || 'ארוחה'}</div>
+              <div class="text-muted" style="font-size:0.75rem;">${MEAL_LABELS[e.mealType] || e.mealType}${e.source === 'photo' ? ' · 📷' : ''}</div>
+            </div>
+            <span class="num" style="font-weight:700;">${e.calories} קל'</span>
+          </div>`).join('')}
+    </div>
+  `;
+
+  renderPlateDial(container.querySelector('#calorie-ring'), {
+    progress: totals.calories / TARGETS.calories,
+    valueText: String(Math.round(totals.calories)),
+    label: `מתוך ${TARGETS.calories} קל'`,
+  });
+
+  if (formOpen) {
+    wireForm();
+  } else {
+    container.querySelector('#open-form-btn').addEventListener('click', () => {
+      form = { description: '', calories: 0, proteinG: 0, carbsG: 0, fatG: 0, mealType: 'snack', source: 'manual' };
+      aiStatus = null;
+      formOpen = true;
+      render();
+    });
+  }
+}
+
+function renderForm() {
+  const aiNote = aiStatus === 'loading'
+    ? '<p class="text-muted" style="font-size:0.85rem;">מנתח את התמונה...</p>'
+    : aiStatus === 'unavailable'
+      ? '<p class="text-muted" style="font-size:0.85rem;">זיהוי אוטומטי מתמונה יהיה זמין לאחר חיבור לענן (Firebase). אפשר להזין ידנית בינתיים.</p>'
+      : aiStatus === 'error'
+        ? '<p class="text-muted" style="font-size:0.85rem;">הניתוח נכשל — אפשר להזין ידנית.</p>'
+        : '';
+
+  return `
+    <div class="card">
+      <h3 style="color:var(--text); margin-bottom:10px;">הוספת ארוחה</h3>
+      <button class="btn btn-secondary btn-block" id="photo-btn" style="margin-bottom:8px;">📷 זיהוי אוטומטי מתמונה</button>
+      <input type="file" id="photo-input" accept="image/*" capture="environment" class="hidden">
+      ${aiNote}
+
+      <input type="text" id="form-description" class="search-bar" placeholder="תיאור הארוחה" value="${escapeAttr(form.description)}" style="margin:10px 0;">
+
+      <div class="row" style="margin-bottom:8px;">
+        <span class="text-muted">קלוריות</span>
+        <div class="stepper">
+          <button data-field-dec="calories" data-step="50">−</button>
+          <span class="stepper-value num" id="val-calories">${form.calories}</span>
+          <button data-field-inc="calories" data-step="50">+</button>
+        </div>
+      </div>
+      <div class="row" style="margin-bottom:8px;">
+        <span class="text-muted">חלבון (g)</span>
+        <div class="stepper">
+          <button data-field-dec="proteinG" data-step="5">−</button>
+          <span class="stepper-value num" id="val-proteinG">${form.proteinG}</span>
+          <button data-field-inc="proteinG" data-step="5">+</button>
+        </div>
+      </div>
+      <div class="row" style="margin-bottom:8px;">
+        <span class="text-muted">פחמימות (g)</span>
+        <div class="stepper">
+          <button data-field-dec="carbsG" data-step="5">−</button>
+          <span class="stepper-value num" id="val-carbsG">${form.carbsG}</span>
+          <button data-field-inc="carbsG" data-step="5">+</button>
+        </div>
+      </div>
+      <div class="row" style="margin-bottom:14px;">
+        <span class="text-muted">שומן (g)</span>
+        <div class="stepper">
+          <button data-field-dec="fatG" data-step="2">−</button>
+          <span class="stepper-value num" id="val-fatG">${form.fatG}</span>
+          <button data-field-inc="fatG" data-step="2">+</button>
+        </div>
+      </div>
+
+      <div class="row" style="gap:8px;">
+        <button class="btn btn-secondary" id="cancel-form-btn" style="flex:1;">ביטול</button>
+        <button class="btn btn-primary" id="save-form-btn" style="flex:1;">שמירה</button>
+      </div>
+    </div>`;
+}
+
+function wireForm() {
+  container.querySelector('#form-description').addEventListener('input', (e) => { form.description = e.target.value; });
+
+  container.querySelectorAll('[data-field-inc]').forEach((btn) => btn.addEventListener('click', () => {
+    const field = btn.dataset.fieldInc;
+    form[field] += Number(btn.dataset.step);
+    container.querySelector(`#val-${field}`).textContent = form[field];
+  }));
+  container.querySelectorAll('[data-field-dec]').forEach((btn) => btn.addEventListener('click', () => {
+    const field = btn.dataset.fieldDec;
+    form[field] = Math.max(0, form[field] - Number(btn.dataset.step));
+    container.querySelector(`#val-${field}`).textContent = form[field];
+  }));
+
+  container.querySelector('#photo-btn').addEventListener('click', () => {
+    container.querySelector('#photo-input').click();
+  });
+  container.querySelector('#photo-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    aiStatus = 'loading';
+    render();
+    try {
+      const result = await analyzeFoodPhoto(file);
+      form.description = result.description || form.description;
+      form.calories = result.calories ?? form.calories;
+      form.proteinG = result.proteinG ?? form.proteinG;
+      form.carbsG = result.carbsG ?? form.carbsG;
+      form.fatG = result.fatG ?? form.fatG;
+      form.source = 'photo';
+      aiStatus = null;
+    } catch (err) {
+      aiStatus = err.code === 'AI_NOT_CONFIGURED' ? 'unavailable' : 'error';
+    }
+    render();
+  });
+
+  container.querySelector('#cancel-form-btn').addEventListener('click', () => {
+    formOpen = false;
+    form = null;
+    aiStatus = null;
+    render();
+  });
+
+  container.querySelector('#save-form-btn').addEventListener('click', async () => {
+    await addNutritionEntry({ date: new Date(), ...form });
+    formOpen = false;
+    form = null;
+    aiStatus = null;
+    entries = await listNutritionEntries(200);
+    render();
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeAttr(str) { return escapeHtml(str); }

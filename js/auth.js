@@ -1,0 +1,25 @@
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+} from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
+import { auth, isConfigured } from './firebase-config.js';
+
+const provider = isConfigured ? new GoogleAuthProvider() : null;
+
+export function signIn() {
+  return signInWithPopup(auth, provider);
+}
+
+export function signOutUser() {
+  return signOut(auth);
+}
+
+export function onAuthChange(callback) {
+  return onAuthStateChanged(auth, callback);
+}
+
+export function currentUid() {
+  return auth?.currentUser ? auth.currentUser.uid : null;
+}

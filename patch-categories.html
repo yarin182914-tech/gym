@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>תיקון קטגוריות חד פעמי</title>
+</head>
+<body style="font-family:sans-serif; padding:40px; text-align:center;">
+<p id="msg">מתקן קטגוריות...</p>
+<script>
+const FIXES = {
+  'כפיפת מרפק (בייספס)': 'יד קדמית',
+  'יד קדמית מכונה': 'יד קדמית',
+  'יד קדמית כבל': 'יד קדמית',
+  'פשיטת מרפק (טרייספס)': 'יד אחורית',
+  'יד אחורית כבל': 'יד אחורית',
+  'יד אחורית יד יד כבל': 'יד אחורית',
+};
+
+const raw = localStorage.getItem('gym-dev-store');
+if (raw) {
+  const s = JSON.parse(raw);
+  let fixed = 0;
+  (s.exerciseLibrary || []).forEach((e) => {
+    if (FIXES[e.name] && e.category !== FIXES[e.name]) { e.category = FIXES[e.name]; fixed++; }
+  });
+  (s.workouts || []).forEach((w) => {
+    (w.exercises || []).forEach((ex) => {
+      if (FIXES[ex.name] && ex.category !== FIXES[ex.name]) { ex.category = FIXES[ex.name]; fixed++; }
+    });
+  });
+  localStorage.setItem('gym-dev-store', JSON.stringify(s));
+  document.getElementById('msg').textContent = `תוקנו ${fixed} רשומות. מעביר אותך לאתר...`;
+} else {
+  document.getElementById('msg').textContent = 'לא נמצאו נתונים בדפדפן הזה — אין מה לתקן.';
+}
+
+setTimeout(() => { location.href = '/'; }, 1500);
+</script>
+</body>
+</html>

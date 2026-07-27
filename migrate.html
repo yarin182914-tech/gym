@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>העברת נתונים לענן</title>
+<link href="https://fonts.googleapis.com/css2?family=Suez+One&family=Assistant:wght@400;600;700&family=Roboto+Slab:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app" style="max-width:480px; margin:0 auto; padding:24px;">
+  <div class="card" id="status">
+    <h2>העברת נתונים לענן</h2>
+    <p class="text-muted">זה יכניס את 6 האימונים ההיסטוריים שלך (16/7–26/7) ישירות לחשבון הענן שלך. פעולה חד פעמית.</p>
+    <button id="go-btn" class="btn btn-primary btn-block" disabled>ממתין להתחברות...</button>
+  </div>
+</div>
+<script type="module">
+import { auth } from './js/firebase-config.js';
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
+import { addExerciseToLibrary, createWorkout, listWorkouts, seedExerciseLibraryIfEmpty } from './js/lib/firestore.js';
+
+const statusEl = document.getElementById('status');
+const goBtn = document.getElementById('go-btn');
+
+function mk(name, category, weightMode, weightUnit, sets) {
+  return {
+    name, category,
+    sets: sets.map(([type, weight, reps], i) => ({ setNumber: i + 1, type, weight, weightUnit, weightMode, reps })),
+  };
+}
+
+const NEW_EXERCISES = [
+  { name: 'חזה מכונה', category: 'חזה', defaultWeightMode: 'perSide', defaultUnit: 'kg' },
+  { name: 'לחיצת כתף (משקולות חופשיות)', category: 'כתפיים', defaultWeightMode: 'perSide', defaultUnit: 'kg' },
+  { name: 'פולי למטה', category: 'גב', defaultWeightMode: 'perSide', defaultUnit: 'kg' },
+  { name: 'חתירה למעלה', category: 'גב', defaultWeightMode: 'total', defaultUnit: 'lb' },
+  { name: 'רגליים 4 ראשי', category: 'רגליים', defaultWeightMode: 'total', defaultUnit: 'kg' },
+  { name: 'יד קדמית מכונה', category: 'יד קדמית', defaultWeightMode: 'total', defaultUnit: 'kg' },
+  { name: 'יד קדמית כבל', category: 'יד קדמית', defaultWeightMode: 'total', defaultUnit: 'kg' },
+  { name: 'כתף חופשיות', category: 'כתפיים', defaultWeightMode: 'perSide', defaultUnit: 'kg' },
+  { name: 'חזה מכונה למטה', category: 'חזה', defaultWeightMode: 'total', defaultUnit: 'kg' },
+  { name: 'כבלים עליון', category: 'חזה', defaultWeightMode: 'total', defaultUnit: 'kg' },
+  { name: 'כבלים אמצע', category: 'חזה', defaultWeightMode: 'total', defaultUnit: 'kg' },
+  { name: 'כתף כבל צד צד', category: 'כתפיים', defaultWeightMode: 'perSide', defaultUnit: 'kg' },
+  { name: 'יד אחורית כבל', category: 'יד אחורית', defaultWeightMode: 'total', defaultUnit: 'kg' },
+  { name: 'יד אחורית יד יד כבל', category: 'יד אחורית', defaultWeightMode: 'total', defaultUnit: 'kg' },
+  { name: 'בטן מיטה בשיפוע', category: 'בטן', defaultWeightMode: 'total', defaultUnit: 'kg' },
+];
+
+const WORKOUTS = [
+  { date: new Date(2026, 6, 16, 18, 0), end: new Date(2026, 6, 16, 19, 0), exercises: [
+    mk('חזה מכונה', 'חזה', 'perSide', 'kg', [['warmup', 30, 8], ['working', 35, 7], ['working', 35, 7], ['working', 35, 6], ['dropset', 20, 6]]),
+    mk('לחיצת כתף (משקולות חופשיות)', 'כתפיים', 'perSide', 'kg', [['working', 16, 10], ['working', 16, 9], ['working', 16, 8]]),
+  ]},
+  { date: new Date(2026, 6, 17, 18, 0), end: new Date(2026, 6, 17, 19, 0), exercises: [
+    mk('דדליפט', 'גב', 'perSide', 'kg', [['working', 22.5, 8], ['working', 22.5, 8], ['working', 22.5, 8]]),
+    mk('פולי למטה', 'גב', 'perSide', 'kg', [['working', 51.25, 6], ['working', 51.25, 6], ['working', 50, 6]]),
+    mk('חתירה למעלה', 'גב', 'total', 'lb', [['working', 210, 7], ['working', 210, 7], ['working', 210, 7]]),
+    mk('רגליים 4 ראשי', 'רגליים', 'total', 'kg', [['working', 70, 10], ['working', 70, 10], ['working', 70, 10]]),
+  ]},
+  { date: new Date(2026, 6, 20, 18, 0), end: new Date(2026, 6, 20, 19, 0), exercises: [
+    mk('דדליפט', 'גב', 'perSide', 'kg', [['working', 25, 8], ['working', 25, 8], ['working', 25, 8]]),
+    mk('פולי למטה', 'גב', 'perSide', 'kg', [['working', 52.5, 6], ['working', 52.5, 6], ['working', 52.5, 6], ['working', 50, 7]]),
+    mk('חתירה למעלה', 'גב', 'total', 'lb', [['working', 215, 7]]),
+    mk('יד קדמית מכונה', 'יד קדמית', 'total', 'kg', [['working', 32, 8], ['dropset', 27, 2], ['working', 27, 10], ['working', 23, 10], ['dropset', 18, 6]]),
+  ]},
+  { date: new Date(2026, 6, 23, 18, 0), end: new Date(2026, 6, 23, 19, 0), notes: 'היה תפוס למעלה, התחיל בכבלים למעלה', exercises: [
+    mk('כבלים עליון', 'חזה', 'total', 'kg', [['warmup', 17.5, 8], ['working', 42.5, 8], ['working', 35, 8], ['working', 35, 8], ['dropset', 22.5, 6]]),
+    mk('כבלים אמצע', 'חזה', 'total', 'kg', [['working', 30, 8], ['working', 30, 8], ['working', 30, 8], ['dropset', 17.5, 8]]),
+    mk('כתף חופשיות', 'כתפיים', 'perSide', 'kg', [['working', 16, 10], ['working', 16, 10], ['working', 16, 10]]),
+    mk('חזה מכונה למטה', 'חזה', 'total', 'kg', [['working', 30, 4], ['dropset', 20, 4], ['working', 20, 8], ['working', 20, 8], ['dropset', 10, 6]]),
+  ]},
+  { date: new Date(2026, 6, 24, 18, 0), end: new Date(2026, 6, 24, 19, 0), exercises: [
+    mk('דדליפט', 'גב', 'perSide', 'kg', [['working', 26.125, 8], ['working', 26.125, 8], ['working', 26.125, 8]]),
+    mk('פולי למטה', 'גב', 'perSide', 'kg', [['working', 53.75, 6], ['working', 53.75, 6], ['working', 53.75, 6], ['working', 50, 7]]),
+    mk('רגליים 4 ראשי', 'רגליים', 'total', 'kg', [['working', 73, 10], ['working', 73, 10], ['working', 73, 10]]),
+    mk('חתירה למעלה', 'גב', 'total', 'lb', [['working', 220, 7], ['working', 220, 7], ['working', 215, 7]]),
+    mk('יד קדמית כבל', 'יד קדמית', 'total', 'kg', [['working', 32, 10], ['working', 32, 7], ['dropset', 32, 3], ['working', 27, 10], ['working', 27, 8], ['dropset', 23, 4], ['dropset', 18, 4]]),
+  ]},
+  { date: new Date(2026, 6, 26, 18, 0), end: new Date(2026, 6, 26, 19, 0), exercises: [
+    mk('חזה חופשיות', 'חזה', 'perSide', 'kg', [['warmup', 18, 8], ['working', 26, 8], ['working', 24, 8], ['working', 24, 10], ['working', 22, 9.5]]),
+    mk('כתף חופשיות', 'כתפיים', 'perSide', 'kg', [['working', 18, 8], ['working', 16, 10], ['working', 16, 10], ['dropset', 10, 6]]),
+    mk('כתף כבל צד צד', 'כתפיים', 'perSide', 'kg', [['working', 12.5, 10], ['working', 12.5, 10], ['working', 12.5, 10]]),
+    mk('יד אחורית כבל', 'יד אחורית', 'total', 'kg', [['working', 57.5, 12], ['working', 57.5, 12], ['working', 50, 12]]),
+    mk('כבלים עליון', 'חזה', 'total', 'kg', [['working', 30, 10], ['working', 22.5, 12], ['working', 22.5, 10], ['dropset', 12.5, 6]]),
+    mk('כבלים אמצע', 'חזה', 'total', 'kg', [['working', 22.5, 10], ['working', 17.5, 12], ['working', 17.5, 10], ['dropset', 12.5, 4]]),
+    mk('יד אחורית יד יד כבל', 'יד אחורית', 'total', 'kg', [['working', 12.5, 10], ['working', 10, 12], ['working', 10, 12]]),
+    mk('בטן מיטה בשיפוע', 'בטן', 'total', 'kg', [['working', 10, 15], ['working', 10, 15], ['working', 10, 15]]),
+  ]},
+];
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    statusEl.innerHTML = '<h2>העברת נתונים לענן</h2><p>צריך קודם להתחבר עם Google בעמוד הראשי, ואז לחזור לכתובת הזו.</p><a href="/" class="btn btn-secondary btn-block">חזרה לעמוד ההתחברות</a>';
+    return;
+  }
+  const existing = await listWorkouts(5);
+  goBtn.disabled = false;
+  goBtn.textContent = existing.length > 0
+    ? 'כבר יש נתונים בענן — להעביר בכל זאת?'
+    : `הכנסת 6 האימונים ההיסטוריים`;
+});
+
+goBtn.addEventListener('click', async () => {
+  goBtn.disabled = true;
+  goBtn.textContent = 'מכניס...';
+  try {
+    await seedExerciseLibraryIfEmpty();
+    for (const ex of NEW_EXERCISES) {
+      await addExerciseToLibrary({ ...ex, isCustom: false });
+    }
+    for (const w of WORKOUTS) {
+      await createWorkout({ date: w.date, startTime: w.date, endTime: w.end, notes: w.notes || '', exercises: w.exercises });
+    }
+    statusEl.innerHTML = `<h2>הועבר בהצלחה!</h2><p>6 אימונים היסטוריים נשמרו בענן.</p><a href="/" class="btn btn-primary btn-block">חזרה לאתר</a>`;
+  } catch (err) {
+    statusEl.innerHTML = `<h2>שגיאה</h2><p class="text-muted">${err.message}</p>`;
+  }
+});
+</script>
+</body>
+</html>
