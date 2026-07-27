@@ -1,4 +1,5 @@
 import { renderPlateDial } from '../lib/plate-dial.js';
+import { esc } from '../core/dom.js';
 import { formatMMSS, formatDateHe, SET_TYPE_LABELS } from '../lib/format.js';
 import {
   listExerciseLibrary, seedExerciseLibraryIfEmpty, addExerciseToLibrary,
@@ -28,11 +29,39 @@ export async function mountActiveSession(rootEl) {
     library = await listExerciseLibrary();
   }
   render();
+  // A workout survives navigating away, so the clock has to be restarted on
+  // the way back in — otherwise it renders once and then sits frozen.
+  if (session) startElapsedTicking();
 }
 
+// Stops everything that outlives a render. The in-progress workout itself is
+// deliberately kept, so leaving this tab mid-session doesn't discard it.
 export function unmountActiveSession() {
+  stopElapsedTicking();
+  stopRestTicking();
+  container = null;
+}
+
+function elapsedSeconds() {
+  return session ? (Date.now() - session.startedAt.getTime()) / 1000 : 0;
+}
+
+function startElapsedTicking() {
+  stopElapsedTicking();
+  elapsedTimerId = setInterval(tickClock, 1000);
+}
+
+function stopElapsedTicking() {
   if (elapsedTimerId) clearInterval(elapsedTimerId);
-  if (restTimerId) clearInterval(restTimerId);
+  elapsedTimerId = null;
+}
+
+// Repaints only the clock's text. The old code re-rendered the whole screen
+// every second, which tore down open dropdowns, the search field and focus.
+function tickClock() {
+  if (!container || !session) return;
+  const clock = container.querySelector('#elapsed-clock');
+  if (clock) clock.textContent = formatMMSS(elapsedSeconds());
 }
 
 function render() {
@@ -49,13 +78,11 @@ function render() {
     return;
   }
 
-  const elapsedSec = (Date.now() - session.startedAt.getTime()) / 1000;
-
   container.innerHTML = `
     <div class="card row">
       <div>
         <h3 style="margin:0;">זמן אימון</h3>
-        <div class="num" style="font-size:1.8rem;">${formatMMSS(elapsedSec)}</div>
+        <div class="num" id="elapsed-clock" style="font-size:1.8rem;">${formatMMSS(elapsedSeconds())}</div>
       </div>
       <button class="btn btn-secondary" id="finish-workout-btn">סיום אימון</button>
     </div>
@@ -113,7 +140,7 @@ function renderLastTimeModal() {
           ${previous.sets.map((s, i) => `
             <tr>
               <td class="num">${i + 1}</td>
-              <td>${SET_TYPES.find((t) => t.id === s.type)?.label ?? s.type}</td>
+              <td>${esc(SET_TYPES.find((t) => t.id === s.type)?.label ?? s.type)}</td>
               <td class="num">${s.weight}${unitLabel(s.weightUnit)}${s.weightMode === 'perSide' ? ' לצד' : ''}</td>
               <td class="num">${s.reps}</td>
             </tr>`).join('')}
@@ -124,7 +151,7 @@ function renderLastTimeModal() {
     <div class="modal-overlay" id="last-time-overlay">
       <div class="modal-card">
         <button class="modal-close" id="last-time-close">✕</button>
-        <h3 style="color:var(--text);">${escapeHtml(name)}</h3>
+        <h3 style="color:var(--text);">${esc(name)}</h3>
         ${body}
       </div>
     </div>`;
@@ -162,12 +189,12 @@ function renderPicker() {
     <div class="card" id="picker-card">
       <button class="pill ${!picker.category ? 'active' : ''}" data-category="" style="margin-bottom:10px;">הכל</button>
       ${CATEGORY_GROUPS.map((g) => pillRow(g.label, g.categories)).join('')}
-      <input type="text" id="picker-input" class="search-bar" placeholder="חיפוש תרגיל..." value="${escapeAttr(picker.query)}"
+      <input type="text" id="picker-input" class="search-bar" placeholder="חיפוש תרגיל..." value="${esc(picker.query)}"
         style="margin:10px 0;">
       <div id="picker-results">
-        ${matches.map((e) => `<button class="btn btn-secondary btn-block" style="margin-bottom:6px;" data-pick="${e.id}">${e.name}</button>`).join('')}
+        ${matches.map((e) => `<button class="btn btn-secondary btn-block" style="margin-bottom:6px;" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
         ${matches.length === 0 ? '<p class="text-muted" style="text-align:center;">אין תרגילים בקטגוריה הזו.</p>' : ''}
-        ${q && !exactMatch ? `<button class="btn btn-primary btn-block" id="picker-add-new">+ הוספת "${escapeHtml(q)}" כתרגיל חדש</button>` : ''}
+        ${q && !exactMatch ? `<button class="btn btn-primary btn-block" id="picker-add-new">+ הוספת "${esc(q)}" כתרגיל חדש</button>` : ''}
       </div>
     </div>`;
 }
@@ -261,7 +288,7 @@ function renderExerciseCard(ex, exIdx) {
 
   el.innerHTML = `
     <div class="row" style="margin-bottom:8px; flex-wrap:wrap; gap:8px;">
-      <h3 style="color:var(--text); margin:0;">${ex.name}</h3>
+      <h3 style="color:var(--text); margin:0;">${esc(ex.name)}</h3>
       <button class="btn btn-secondary" data-last-time style="padding:0 12px; font-size:0.85rem;">🕐 פעם קודמת</button>
     </div>
     <div class="row" style="margin-bottom:12px; justify-content:flex-start; gap:10px; flex-wrap:wrap;">
@@ -367,12 +394,12 @@ function unitLabel(unit) {
 
 function startWorkout() {
   session = { startedAt: new Date(), exercises: [] };
-  elapsedTimerId = setInterval(render, 1000);
   render();
+  startElapsedTicking();
 }
 
 function startRestTimer(totalSec) {
-  if (restTimerId) clearInterval(restTimerId);
+  stopRestTicking();
   rest = { totalSec, remainingSec: totalSec };
   restTimerId = setInterval(() => {
     rest.remainingSec -= 1;
@@ -380,14 +407,33 @@ function startRestTimer(totalSec) {
       stopRestTimer();
       if (navigator.vibrate) navigator.vibrate(200);
     } else {
-      render();
+      // Repaint just the dial, not the page — this is also what lets the
+      // dial's stroke transition actually animate instead of restarting.
+      updateRestDial();
     }
   }, 1000);
 }
 
-function stopRestTimer() {
+function updateRestDial() {
+  if (!container || !rest) return;
+  const dial = container.querySelector('#rest-dial');
+  if (dial) {
+    renderPlateDial(dial, {
+      progress: rest.remainingSec / rest.totalSec,
+      valueText: formatMMSS(rest.remainingSec),
+      label: 'שניות',
+    });
+  }
+}
+
+function stopRestTicking() {
   if (restTimerId) clearInterval(restTimerId);
   restTimerId = null;
+}
+
+// Ends the rest period and repaints, since the rest card itself disappears.
+function stopRestTimer() {
+  stopRestTicking();
   rest = null;
   render();
 }
@@ -417,14 +463,9 @@ async function finishWorkout() {
     });
   }
 
-  if (elapsedTimerId) clearInterval(elapsedTimerId);
-  if (restTimerId) clearInterval(restTimerId);
+  stopElapsedTicking();
+  stopRestTicking();
   session = null;
   rest = null;
   render();
 }
-
-function escapeHtml(str) {
-  return str.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-function escapeAttr(str) { return escapeHtml(str); }

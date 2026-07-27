@@ -1,17 +1,19 @@
+const DEFAULT_ROUTE = 'session';
+
 const routes = {};
-let notFoundHandler = () => {};
+let active = null; // { name, unmount }
 
-export function registerRoute(name, handler) {
-  routes[name] = handler;
-}
-
-export function setNotFound(handler) {
-  notFoundHandler = handler;
+// `unmount` is optional but must be supplied by any route that starts a timer,
+// subscription, or anything else that outlives a single render. Routes share
+// one container element, so a route left running will draw over its successor.
+export function registerRoute(name, mount, unmount) {
+  routes[name] = { mount, unmount };
 }
 
 function currentRouteName() {
   const hash = location.hash.replace(/^#\//, '');
-  return hash.split('/')[0] || 'session';
+  const name = hash.split('/')[0];
+  return routes[name] ? name : DEFAULT_ROUTE;
 }
 
 export function navigate(name) {
@@ -19,14 +21,21 @@ export function navigate(name) {
 }
 
 export function startRouter() {
-  const render = () => {
+  const go = () => {
     const name = currentRouteName();
+    if (active && active.name === name) return;
+
+    if (active?.unmount) active.unmount();
+
     document.querySelectorAll('.bottom-nav a').forEach((a) => {
       a.classList.toggle('active', a.dataset.route === name);
     });
-    const handler = routes[name] || notFoundHandler;
-    handler();
+
+    const route = routes[name];
+    active = { name, unmount: route.unmount };
+    route.mount();
   };
-  window.addEventListener('hashchange', render);
-  render();
+
+  window.addEventListener('hashchange', go);
+  go();
 }

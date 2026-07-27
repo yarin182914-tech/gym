@@ -1,11 +1,11 @@
 import { onAuthChange, signIn } from './auth.js';
-import { isConfigured } from './firebase-config.js';
+import { useCloud } from './firebase-config.js';
 import { ensureUserDoc } from './lib/firestore.js';
 import { registerRoute, startRouter } from './lib/router.js';
 import { mountActiveSession, unmountActiveSession } from './pages/active-session.js';
-import { mountHistory } from './pages/history.js';
-import { mountDashboard } from './pages/dashboard.js';
-import { mountNutrition } from './pages/nutrition.js';
+import { mountHistory, unmountHistory } from './pages/history.js';
+import { mountDashboard, unmountDashboard } from './pages/dashboard.js';
+import { mountNutrition, unmountNutrition } from './pages/nutrition.js';
 import { mountPlan } from './pages/plan.js';
 
 const authScreen = document.getElementById('auth-screen');
@@ -19,10 +19,10 @@ signInBtn.addEventListener('click', () => {
 
 let routerStarted = false;
 
-registerRoute('session', () => { unmountActiveSession(); mountActiveSession(appRoot); });
-registerRoute('history', () => mountHistory(appRoot));
-registerRoute('dashboard', () => mountDashboard(appRoot));
-registerRoute('nutrition', () => mountNutrition(appRoot));
+registerRoute('session', () => mountActiveSession(appRoot), unmountActiveSession);
+registerRoute('history', () => mountHistory(appRoot), unmountHistory);
+registerRoute('dashboard', () => mountDashboard(appRoot), unmountDashboard);
+registerRoute('nutrition', () => mountNutrition(appRoot), unmountNutrition);
 registerRoute('plan', () => mountPlan(appRoot));
 
 async function enterApp() {
@@ -36,16 +36,14 @@ async function enterApp() {
   }
 }
 
-if (!isConfigured) {
-  // Local dev mode: no Firebase project wired up yet, so skip the login
-  // gate entirely and go straight into the app (data stays in this
-  // browser's localStorage — see js/lib/dev-store.js). Remove this branch's
-  // relevance automatically disappears once real config is pasted into
-  // js/firebase-config.js.
+if (!useCloud) {
+  // Local sandbox (`?dev` on localhost) — see js/firebase-config.js.
   const banner = document.createElement('div');
-  banner.textContent = 'מצב פיתוח מקומי — לא מחובר לענן, הנתונים נשמרים רק בדפדפן הזה';
-  banner.style.cssText = 'background:var(--accent-dim);color:#fff;text-align:center;font-size:0.8rem;padding:6px;';
+  banner.textContent = 'מצב בדיקה מקומי — הנתונים נשמרים רק בדפדפן הזה ואינם מסונכרנים';
+  banner.style.cssText = 'background:var(--accent-dim);color:var(--text);text-align:center;font-size:0.8rem;padding:6px;';
   document.body.prepend(banner);
+  const { seedDevStoreIfEmpty } = await import('./dev/seed.js');
+  await seedDevStoreIfEmpty();
   enterApp();
 } else {
   onAuthChange(async (user) => {

@@ -2,7 +2,7 @@ import {
   collection, doc, setDoc, addDoc, getDoc, getDocs, updateDoc, deleteDoc,
   query, orderBy, limit, serverTimestamp, Timestamp,
 } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
-import { db, isConfigured } from '../firebase-config.js';
+import { db, useCloud } from '../firebase-config.js';
 import { currentUid } from '../auth.js';
 import {
   devEnsureUserDoc, devGetUserProfile, devSetWeddingDate,
@@ -21,7 +21,7 @@ function uidOrThrow() {
 // ---------- users/{uid} ----------
 
 export async function ensureUserDoc() {
-  if (!isConfigured) return devEnsureUserDoc();
+  if (!useCloud) return devEnsureUserDoc();
   const uid = uidOrThrow();
   const ref = doc(db, 'users', uid);
   const snap = await getDoc(ref);
@@ -36,14 +36,14 @@ export async function ensureUserDoc() {
 }
 
 export async function getUserProfile() {
-  if (!isConfigured) return devGetUserProfile();
+  if (!useCloud) return devGetUserProfile();
   const uid = uidOrThrow();
   const snap = await getDoc(doc(db, 'users', uid));
   return snap.exists() ? snap.data() : null;
 }
 
 export async function setWeddingDate(dateStr) {
-  if (!isConfigured) return devSetWeddingDate(dateStr);
+  if (!useCloud) return devSetWeddingDate(dateStr);
   const uid = uidOrThrow();
   await updateDoc(doc(db, 'users', uid), {
     weddingDate: dateStr ? Timestamp.fromDate(new Date(dateStr)) : null,
@@ -53,7 +53,7 @@ export async function setWeddingDate(dateStr) {
 // ---------- workouts ----------
 
 export async function createWorkout(workout) {
-  if (!isConfigured) return devCreateWorkout(workout);
+  if (!useCloud) return devCreateWorkout(workout);
   const uid = uidOrThrow();
   const ref = collection(db, 'users', uid, 'workouts');
   const docRef = await addDoc(ref, {
@@ -67,19 +67,19 @@ export async function createWorkout(workout) {
 }
 
 export async function updateWorkout(workoutId, data) {
-  if (!isConfigured) return devUpdateWorkout(workoutId, data);
+  if (!useCloud) return devUpdateWorkout(workoutId, data);
   const uid = uidOrThrow();
   await updateDoc(doc(db, 'users', uid, 'workouts', workoutId), data);
 }
 
 export async function deleteWorkout(workoutId) {
-  if (!isConfigured) return devDeleteWorkout(workoutId);
+  if (!useCloud) return devDeleteWorkout(workoutId);
   const uid = uidOrThrow();
   await deleteDoc(doc(db, 'users', uid, 'workouts', workoutId));
 }
 
 export async function listWorkouts(max = 100) {
-  if (!isConfigured) return devListWorkouts(max);
+  if (!useCloud) return devListWorkouts(max);
   const uid = uidOrThrow();
   const ref = collection(db, 'users', uid, 'workouts');
   const q = query(ref, orderBy('date', 'desc'), limit(max));
@@ -113,14 +113,14 @@ export async function getExerciseHistory(exerciseName) {
 // ---------- exercise library ----------
 
 export async function listExerciseLibrary() {
-  if (!isConfigured) return devListExerciseLibrary();
+  if (!useCloud) return devListExerciseLibrary();
   const uid = uidOrThrow();
   const snap = await getDocs(collection(db, 'users', uid, 'exerciseLibrary'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 export async function addExerciseToLibrary(exercise) {
-  if (!isConfigured) return devAddExerciseToLibrary(exercise);
+  if (!useCloud) return devAddExerciseToLibrary(exercise);
   const uid = uidOrThrow();
   const ref = collection(db, 'users', uid, 'exerciseLibrary');
   const docRef = await addDoc(ref, {
@@ -175,7 +175,7 @@ export async function seedExerciseLibraryIfEmpty() {
 // ---------- nutrition ----------
 
 export async function addNutritionEntry(entry) {
-  if (!isConfigured) return devAddNutritionEntry(entry);
+  if (!useCloud) return devAddNutritionEntry(entry);
   const uid = uidOrThrow();
   const ref = collection(db, 'users', uid, 'nutritionEntries');
   const docRef = await addDoc(ref, {
@@ -192,7 +192,7 @@ export async function addNutritionEntry(entry) {
 }
 
 export async function listNutritionEntries(max = 200) {
-  if (!isConfigured) return devListNutritionEntries(max);
+  if (!useCloud) return devListNutritionEntries(max);
   const uid = uidOrThrow();
   const ref = collection(db, 'users', uid, 'nutritionEntries');
   const q = query(ref, orderBy('date', 'desc'), limit(max));
@@ -203,7 +203,7 @@ export async function listNutritionEntries(max = 200) {
 // ---------- plans ----------
 
 export async function getActivePlan() {
-  if (!isConfigured) return devGetActivePlan();
+  if (!useCloud) return devGetActivePlan();
   const uid = uidOrThrow();
   const snap = await getDocs(collection(db, 'users', uid, 'plans'));
   const plans = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -211,7 +211,7 @@ export async function getActivePlan() {
 }
 
 export async function savePlan(plan) {
-  if (!isConfigured) return devSavePlan(plan);
+  if (!useCloud) return devSavePlan(plan);
   const uid = uidOrThrow();
   if (plan.id) {
     await updateDoc(doc(db, 'users', uid, 'plans', plan.id), plan);

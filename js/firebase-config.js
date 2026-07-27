@@ -13,16 +13,17 @@ const firebaseConfig = {
   appId: '1:350979502689:web:270d45e1009493f797f020',
 };
 
-// True once the real Firebase project config has been pasted in above.
-// Until then the app runs in local dev mode (see js/lib/dev-store.js):
-// no login required, data is kept in this browser's localStorage instead
-// of syncing to the cloud. Switches back to real Firebase/auth automatically
-// the moment this file has real values.
-export const isConfigured = firebaseConfig.apiKey !== 'REPLACE_ME';
+// Opt-in local sandbox: `?dev` on localhost swaps the cloud backend for a
+// localStorage store (js/lib/dev-store.js) and skips the Google sign-in gate.
+// It exists so the app can be exercised end-to-end without interactive auth.
+// Deliberately impossible to enable on the deployed site, and it never touches
+// real Firestore data — plain localhost with no flag behaves exactly as before.
+const IS_LOCALHOST = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+export const useCloud = !(IS_LOCALHOST && new URLSearchParams(location.search).has('dev'));
 
-export const app = isConfigured ? initializeApp(firebaseConfig) : null;
-export const auth = isConfigured ? getAuth(app) : null;
-export const db = isConfigured
+export const app = useCloud ? initializeApp(firebaseConfig) : null;
+export const auth = useCloud ? getAuth(app) : null;
+export const db = useCloud
   ? initializeFirestore(app, {
       localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }),
     })

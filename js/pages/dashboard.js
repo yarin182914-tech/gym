@@ -1,5 +1,6 @@
 import { listWorkouts, getExerciseHistory, CATEGORY_GROUPS } from '../lib/firestore.js';
 import { renderProgressChart } from '../lib/charts.js';
+import { esc } from '../core/dom.js';
 
 let container = null;
 let allExerciseNames = [];
@@ -19,11 +20,20 @@ function shortDate(d) {
 function round1(n) { return Math.round(n * 10) / 10; }
 function unitLabel(u) { return u === 'lb' ? ' lb' : ' ק"ג'; }
 
+export function unmountDashboard() {
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = null;
+  container = null;
+  allExerciseNames = [];
+  categoryByName = new Map();
+}
+
 export async function mountDashboard(rootEl) {
   container = rootEl;
   container.innerHTML = '<p class="text-muted">טוען נתוני התקדמות...</p>';
 
   const workouts = await listWorkouts(500);
+  if (!container) return; // navigated away while loading
   const namesInRecencyOrder = [];
   const seen = new Set();
   categoryByName = new Map();
@@ -101,7 +111,7 @@ async function render() {
     <div class="card">
       <h2 style="margin-bottom:12px;">התקדמות</h2>
       <select id="exercise-picker" class="search-bar" style="margin-bottom:14px;">
-        ${allExerciseNames.map((n) => `<option value="${n}" ${n === selectedExercise ? 'selected' : ''}>${n}</option>`).join('')}
+        ${allExerciseNames.map((n) => `<option value="${esc(n)}" ${n === selectedExercise ? 'selected' : ''}>${esc(n)}</option>`).join('')}
       </select>
 
       <div class="row" style="justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
@@ -192,7 +202,7 @@ async function renderPRList() {
   const orderedCategories = [...knownCategories, 'אחר'];
   const rowHtml = (r) => `
     <div class="row" style="margin-bottom:8px;">
-      <span>${r.name}</span>
+      <span>${esc(r.name)}</span>
       <span class="num" style="font-weight:700; color:var(--accent);">
         ${r.best.maxWeight}${unitLabel(r.best.unit)} × ${r.best.reps} <span class="text-muted" style="font-weight:400; font-size:0.75rem;">(${shortDate(r.best.date)})</span>
       </span>

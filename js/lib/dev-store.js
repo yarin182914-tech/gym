@@ -1,6 +1,6 @@
 // Local dev-mode data store — a drop-in stand-in for js/lib/firestore.js,
 // used only until a real Firebase project is configured (see
-// js/firebase-config.js `isConfigured`). Persists to this browser's
+// js/firebase-config.js `useCloud`). Persists to this browser's
 // localStorage so the app is fully clickable/editable offline, with no
 // login required. None of this syncs across devices — that's what the
 // real Firestore-backed functions do once Firebase is wired up.

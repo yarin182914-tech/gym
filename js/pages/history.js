@@ -1,5 +1,6 @@
 import { listWorkouts, deleteWorkout } from '../lib/firestore.js';
 import { formatDateHe, SET_TYPE_LABELS } from '../lib/format.js';
+import { esc } from '../core/dom.js';
 
 let container = null;
 let workouts = [];
@@ -10,7 +11,15 @@ export async function mountHistory(rootEl) {
   container = rootEl;
   container.innerHTML = '<p class="text-muted">טוען היסטוריית אימונים...</p>';
   workouts = await listWorkouts(200);
+  if (!container) return; // navigated away while loading
   render();
+}
+
+export function unmountHistory() {
+  container = null;
+  workouts = [];
+  expanded = new Set();
+  calendarMonth = new Date();
 }
 
 function toDate(d) { return d?.toDate ? d.toDate() : new Date(d); }
@@ -91,16 +100,16 @@ function renderWorkoutRow(w) {
     </div>
     ${isOpen ? `<div style="margin-top:10px;">${(w.exercises || []).map((ex) => `
       <div style="margin-bottom:14px;">
-        <strong>${ex.name}</strong>
+        <strong>${esc(ex.name)}</strong>
         <table>
           <thead><tr><th>#</th><th>סוג</th><th>משקל</th><th>חזרות</th></tr></thead>
           <tbody>
             ${(ex.sets || []).map((s, i) => `
               <tr>
                 <td class="num">${i + 1}</td>
-                <td>${SET_TYPE_LABELS[s.type] || s.type}</td>
-                <td class="num">${s.weight}${s.weightUnit === 'lb' ? 'lb' : 'ק"ג'}${s.weightMode === 'perSide' ? ' לצד' : ''}</td>
-                <td class="num">${s.reps}</td>
+                <td>${esc(SET_TYPE_LABELS[s.type] || s.type)}</td>
+                <td class="num">${esc(s.weight)}${s.weightUnit === 'lb' ? 'lb' : 'ק"ג'}${s.weightMode === 'perSide' ? ' לצד' : ''}</td>
+                <td class="num">${esc(s.reps)}</td>
               </tr>`).join('')}
           </tbody>
         </table>

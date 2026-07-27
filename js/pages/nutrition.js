@@ -1,6 +1,7 @@
 import { renderPlateDial } from '../lib/plate-dial.js';
 import { addNutritionEntry, listNutritionEntries } from '../lib/firestore.js';
 import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
+import { esc } from '../core/dom.js';
 
 const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
 const MEAL_LABELS = { breakfast: 'בוקר', lunch: 'צהריים', dinner: 'ערב', snack: 'נשנוש' };
@@ -22,7 +23,16 @@ export async function mountNutrition(rootEl) {
   container = rootEl;
   container.innerHTML = '<p class="text-muted">טוען נתוני תזונה...</p>';
   entries = await listNutritionEntries(200);
+  if (!container) return; // navigated away while loading
   render();
+}
+
+export function unmountNutrition() {
+  container = null;
+  entries = [];
+  formOpen = false;
+  form = null;
+  aiStatus = null;
 }
 
 function todayEntries() {
@@ -75,10 +85,10 @@ function render() {
         : todayEntries().map((e) => `
           <div class="row" style="margin-bottom:8px;">
             <div>
-              <div style="font-weight:600;">${e.description || 'ארוחה'}</div>
-              <div class="text-muted" style="font-size:0.75rem;">${MEAL_LABELS[e.mealType] || e.mealType}${e.source === 'photo' ? ' · 📷' : ''}</div>
+              <div style="font-weight:600;">${esc(e.description || 'ארוחה')}</div>
+              <div class="text-muted" style="font-size:0.75rem;">${esc(MEAL_LABELS[e.mealType] || e.mealType)}${e.source === 'photo' ? ' · 📷' : ''}</div>
             </div>
-            <span class="num" style="font-weight:700;">${e.calories} קל'</span>
+            <span class="num" style="font-weight:700;">${esc(e.calories)} קל'</span>
           </div>`).join('')}
     </div>
   `;
@@ -105,7 +115,7 @@ function renderForm() {
   const aiNote = aiStatus === 'loading'
     ? '<p class="text-muted" style="font-size:0.85rem;">מנתח את התמונה...</p>'
     : aiStatus === 'unavailable'
-      ? '<p class="text-muted" style="font-size:0.85rem;">זיהוי אוטומטי מתמונה יהיה זמין לאחר חיבור לענן (Firebase). אפשר להזין ידנית בינתיים.</p>'
+      ? '<p class="text-muted" style="font-size:0.85rem;">זיהוי אוטומטי מתמונה עדיין לא נבנה. אפשר להזין ידנית למטה.</p>'
       : aiStatus === 'error'
         ? '<p class="text-muted" style="font-size:0.85rem;">הניתוח נכשל — אפשר להזין ידנית.</p>'
         : '';
@@ -117,7 +127,7 @@ function renderForm() {
       <input type="file" id="photo-input" accept="image/*" capture="environment" class="hidden">
       ${aiNote}
 
-      <input type="text" id="form-description" class="search-bar" placeholder="תיאור הארוחה" value="${escapeAttr(form.description)}" style="margin:10px 0;">
+      <input type="text" id="form-description" class="search-bar" placeholder="תיאור הארוחה" value="${esc(form.description)}" style="margin:10px 0;">
 
       <div class="row" style="margin-bottom:8px;">
         <span class="text-muted">קלוריות</span>
@@ -191,7 +201,7 @@ function wireForm() {
       form.source = 'photo';
       aiStatus = null;
     } catch (err) {
-      aiStatus = err.code === 'AI_NOT_CONFIGURED' ? 'unavailable' : 'error';
+      aiStatus = err.code === 'AI_UNAVAILABLE' ? 'unavailable' : 'error';
     }
     render();
   });
@@ -213,7 +223,3 @@ function wireForm() {
   });
 }
 
-function escapeHtml(str) {
-  return str.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-function escapeAttr(str) { return escapeHtml(str); }
