@@ -49,6 +49,48 @@ button {
   background: none;
 }
 
+/* ===== Focus =====
+   Keyboard focus was previously invisible: the only :focus rule in the
+   stylesheet removed the outline. :focus-visible keeps the ring for keyboard
+   users without drawing it on every tap or click. */
+:focus-visible {
+  outline: 2px solid var(--accent-hover);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* #app takes focus after a route change so keyboard users land on the new
+   screen rather than back at the top of the document. It should not draw a
+   ring for that programmatic focus. */
+#app:focus { outline: none; }
+
+/* ===== Motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Visible only once focused, so keyboard users can jump past the nav. */
+.skip-link {
+  position: absolute;
+  inset-inline-start: -9999px;
+  top: 0;
+  z-index: 200;
+  padding: 10px 16px;
+  background: var(--accent);
+  color: #FFFFFF;
+  text-decoration: none;
+  border-end-end-radius: var(--radius-sm);
+}
+
+.skip-link:focus {
+  inset-inline-start: 0;
+}
+
 /* ===== Layout shell ===== */
 #app {
   max-width: 640px;

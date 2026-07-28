@@ -99,8 +99,10 @@
   font-size: 1rem;
 }
 
+/* Keeps the accent border as an affordance, but no longer suppresses the
+   outline — that was the reason keyboard focus was invisible app-wide. The
+   global :focus-visible ring in 02-base.css now shows through. */
 .search-bar:focus {
-  outline: none;
   border-color: var(--accent);
 }
 

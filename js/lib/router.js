@@ -21,6 +21,8 @@ export function navigate(name) {
 }
 
 export function startRouter() {
+  let firstRender = true;
+
   const go = () => {
     const name = currentRouteName();
     if (active && active.name === name) return;
@@ -28,12 +30,22 @@ export function startRouter() {
     if (active?.unmount) active.unmount();
 
     document.querySelectorAll('.bottom-nav a').forEach((a) => {
-      a.classList.toggle('active', a.dataset.route === name);
+      const isActive = a.dataset.route === name;
+      a.classList.toggle('active', isActive);
+      // Conveys the current screen to assistive tech; the class only changes
+      // colour and weight, which is not announced.
+      if (isActive) a.setAttribute('aria-current', 'page');
+      else a.removeAttribute('aria-current');
     });
 
     const route = routes[name];
     active = { name, unmount: route.unmount };
     route.mount();
+
+    // There is no page load to reset focus, so send it to the new screen.
+    // Skipped on first render so the app doesn't steal focus on load.
+    if (!firstRender) document.getElementById('app')?.focus();
+    firstRender = false;
   };
 
   window.addEventListener('hashchange', go);

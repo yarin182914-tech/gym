@@ -17,20 +17,24 @@
 </head>
 <body>
 
+<a href="#app" class="skip-link">דילוג לתוכן</a>
+
 <div id="auth-screen" class="auth-screen hidden">
   <h1>מעקב אימונים</h1>
   <p class="text-muted">התקדמות לחתונה — אימונים ותזונה במקום אחד.</p>
   <button id="google-signin-btn" class="btn btn-primary">התחברות עם Google</button>
 </div>
 
-<div id="app" class="hidden"></div>
+<!-- Route content is swapped in here. aria-live=polite so a screen reader
+     announces the new screen after navigation, since there is no page load. -->
+<main id="app" class="hidden" tabindex="-1" aria-live="polite" aria-busy="false"></main>
 
-<nav id="bottom-nav" class="bottom-nav hidden">
-  <a href="#/session" data-route="session"><span class="icon">🏋️</span><span>אימון</span></a>
-  <a href="#/history" data-route="history"><span class="icon">📅</span><span>היסטוריה</span></a>
-  <a href="#/dashboard" data-route="dashboard"><span class="icon">📈</span><span>התקדמות</span></a>
-  <a href="#/nutrition" data-route="nutrition"><span class="icon">🍽️</span><span>תזונה</span></a>
-  <a href="#/plan" data-route="plan"><span class="icon">💍</span><span>תוכנית</span></a>
+<nav id="bottom-nav" class="bottom-nav hidden" aria-label="ניווט ראשי">
+  <a href="#/session" data-route="session"><span class="icon" aria-hidden="true">🏋️</span><span>אימון</span></a>
+  <a href="#/history" data-route="history"><span class="icon" aria-hidden="true">📅</span><span>היסטוריה</span></a>
+  <a href="#/dashboard" data-route="dashboard"><span class="icon" aria-hidden="true">📈</span><span>התקדמות</span></a>
+  <a href="#/nutrition" data-route="nutrition"><span class="icon" aria-hidden="true">🍽️</span><span>תזונה</span></a>
+  <a href="#/plan" data-route="plan"><span class="icon" aria-hidden="true">💍</span><span>תוכנית</span></a>
 </nav>
 
 <script type="module" src="js/app.js"></script>

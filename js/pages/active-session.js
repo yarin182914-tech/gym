@@ -46,6 +46,10 @@ export async function mountActiveSession(rootEl) {
 export function unmountActiveSession() {
   stopElapsedTicking();
   stopRestTicking();
+  // The dialog's Escape handler lives on document, so it outlives this page
+  // unless removed here.
+  document.removeEventListener('keydown', onLastTimeKeydown);
+  lastTimeModal = null;
   container = null;
 }
 
@@ -145,26 +149,37 @@ function renderLastTimeModal() {
 
   return `
     <div class="modal-overlay" id="last-time-overlay">
-      <div class="modal-card">
-        <button class="modal-close" id="last-time-close">✕</button>
-        <h3 style="color:var(--text);">${esc(name)}</h3>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="last-time-title">
+        <button class="modal-close" id="last-time-close" type="button" aria-label="סגירה">✕</button>
+        <h3 id="last-time-title" style="color:var(--text);">${esc(name)}</h3>
         ${body}
       </div>
     </div>`;
 }
 
+function closeLastTimeModal() {
+  lastTimeModal = null;
+  document.removeEventListener('keydown', onLastTimeKeydown);
+  render();
+}
+
+function onLastTimeKeydown(e) {
+  if (e.key === 'Escape') closeLastTimeModal();
+}
+
 function wireLastTimeModal() {
   const overlay = container.querySelector('#last-time-overlay');
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      lastTimeModal = null;
-      render();
-    }
+    if (e.target === overlay) closeLastTimeModal();
   });
-  container.querySelector('#last-time-close').addEventListener('click', () => {
-    lastTimeModal = null;
-    render();
-  });
+  container.querySelector('#last-time-close').addEventListener('click', closeLastTimeModal);
+
+  // Escape is the expected way out of a dialog; there was no keyboard route
+  // to close this at all before.
+  document.removeEventListener('keydown', onLastTimeKeydown);
+  document.addEventListener('keydown', onLastTimeKeydown);
+
+  container.querySelector('#last-time-close').focus();
 }
 
 // ---------- exercise picker ----------
@@ -291,12 +306,14 @@ function renderExerciseCard(ex, exIdx) {
       ${toggleGroup({
         name: 'mode',
         active: ex.weightMode,
+        label: 'אופן שקילה',
         groupAttrs: 'data-weight-mode-group',
         options: [{ value: 'total', label: 'טוטאל' }, { value: 'perSide', label: 'כל צד' }],
       })}
       ${toggleGroup({
         name: 'unit',
         active: ex.weightUnit,
+        label: 'יחידת משקל',
         groupAttrs: 'data-weight-unit-group',
         options: [{ value: 'kg', label: 'ק"ג' }, { value: 'lb', label: 'lb' }],
       })}

@@ -3,12 +3,18 @@
 // `name` is the data-attribute the buttons carry, so a click handler can read
 // btn.dataset[name]. `groupAttrs` is whatever the caller needs to find the
 // group itself — an id, or a marker attribute.
-export function toggleGroup({ options, active, name, groupAttrs = '' }) {
-  const buttons = options.map(({ value, label }) =>
-    `<button data-${name}="${value}" class="${active === value ? 'active' : ''}">${label}</button>`
-  ).join('\n          ');
+//
+// role="group" plus aria-pressed makes the selected option audible to a screen
+// reader; without it the buttons announce as plain buttons and the current
+// choice is conveyed by colour alone.
+export function toggleGroup({ options, active, name, groupAttrs = '', label = '' }) {
+  const buttons = options.map(({ value, label: text }) => {
+    const isActive = active === value;
+    return `<button type="button" data-${name}="${value}" class="${isActive ? 'active' : ''}" aria-pressed="${isActive}">${text}</button>`;
+  }).join('\n          ');
 
-  return `<div class="toggle-group"${groupAttrs ? ' ' + groupAttrs : ''}>
+  const groupLabel = label ? ` aria-label="${label}"` : '';
+  return `<div class="toggle-group" role="group"${groupLabel}${groupAttrs ? ' ' + groupAttrs : ''}>
           ${buttons}
         </div>`;
 }

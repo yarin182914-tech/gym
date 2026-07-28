@@ -116,6 +116,7 @@ async function render() {
         ${toggleGroup({
           name: 'metric',
           active: metric,
+          label: 'מדד להצגה',
           groupAttrs: 'id="metric-toggle"',
           options: [{ value: 'weight', label: 'משקל מקסימלי' }, { value: 'volume', label: 'נפח' }],
         })}
