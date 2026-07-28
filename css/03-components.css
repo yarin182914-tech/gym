@@ -49,6 +49,11 @@
   background: var(--surface-raised);
   border-radius: var(--radius-sm);
   overflow: hidden;
+  /* A set row packs a select, two steppers and a button into one flex line.
+     Without this the steppers were the ones that gave way, shrinking their
+     +/- buttons to 22px on a 375px screen — under half the 44px touch target,
+     on the screen operated one-handed mid-set. */
+  flex-shrink: 0;
 }
 
 .stepper button {
@@ -56,6 +61,7 @@
   height: var(--tap-min);
   font-size: 1.3rem;
   color: var(--accent);
+  flex-shrink: 0;
 }
 
 .stepper .stepper-value {
@@ -64,6 +70,16 @@
   font-size: 1.15rem;
   font-weight: 600;
   padding: 0 6px;
+}
+
+/* One logged set: type, weight, reps, done. Too much to fit on one line at
+   375px, so it wraps rather than squeezing the controls below a usable size. */
+.set-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 /* ===== Toggle group (segmented control: ק"ג/lb, טוטאל/כל צד) ===== */

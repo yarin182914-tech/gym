@@ -276,8 +276,8 @@ function renderExerciseCard(ex, exIdx) {
 
   const setsRows = ex.sets.map((set, setIdx) => {
     return `
-      <div class="row" style="margin-bottom:10px; align-items:center;">
-        <select data-set-type="${setIdx}" style="background:var(--surface-raised); border:1px solid var(--border); border-radius:6px; padding:6px;">
+      <div class="set-row">
+        <select data-set-type="${setIdx}" aria-label="סוג סט" style="background:var(--surface-raised); border:1px solid var(--border); border-radius:6px; padding:6px;">
           ${SET_TYPES.map((t) => `<option value="${t.id}" ${t.id === set.type ? 'selected' : ''}>${t.label}</option>`).join('')}
         </select>
         ${stepper({
