@@ -36,38 +36,79 @@ export async function ensureUserDoc() {
 // ---------- workouts ----------
 
 export async function createWorkout(workout) {
-  if (!useCloud) return devCreateWorkout(workout);
-  const uid = uidOrThrow();
-  const ref = collection(db, 'users', uid, 'workouts');
-  const docRef = await addDoc(ref, {
-    date: workout.date ?? serverTimestamp(),
-    startTime: workout.startTime ?? serverTimestamp(),
-    endTime: workout.endTime ?? null,
-    notes: workout.notes ?? '',
-    exercises: workout.exercises ?? [],
-  });
-  return docRef.id;
+  try {
+    if (!useCloud) return await devCreateWorkout(workout);
+    const uid = uidOrThrow();
+    const ref = collection(db, 'users', uid, 'workouts');
+    const docRef = await addDoc(ref, {
+      date: workout.date ?? serverTimestamp(),
+      startTime: workout.startTime ?? serverTimestamp(),
+      endTime: workout.endTime ?? null,
+      notes: workout.notes ?? '',
+      exercises: workout.exercises ?? [],
+    });
+    return docRef.id;
+  } finally {
+    invalidateWorkouts();
+  }
 }
 
 export async function deleteWorkout(workoutId) {
-  if (!useCloud) return devDeleteWorkout(workoutId);
-  const uid = uidOrThrow();
-  await deleteDoc(doc(db, 'users', uid, 'workouts', workoutId));
+  try {
+    if (!useCloud) return await devDeleteWorkout(workoutId);
+    const uid = uidOrThrow();
+    await deleteDoc(doc(db, 'users', uid, 'workouts', workoutId));
+  } finally {
+    invalidateWorkouts();
+  }
 }
 
-export async function listWorkouts(max = 100) {
-  if (!useCloud) return devListWorkouts(max);
+// Every workout read in the app goes through one cached fetch.
+//
+// Before this, each derived query re-fetched the whole collection: the
+// dashboard's personal-records list called getExerciseHistory once per
+// exercise, in parallel, and each of those pulled 500 documents — roughly
+// 16,000 document reads to draw one screen, repeated on every toggle.
+//
+// The cache holds the *promise*, not the resolved array, so callers that fire
+// concurrently all await the same in-flight request instead of starting their
+// own. Writes clear it; a failed fetch is never cached.
+const WORKOUT_FETCH_LIMIT = 500;
+let workoutsPromise = null;
+
+function invalidateWorkouts() {
+  workoutsPromise = null;
+}
+
+function allWorkouts() {
+  if (!workoutsPromise) {
+    workoutsPromise = fetchWorkouts().catch((err) => {
+      workoutsPromise = null;
+      throw err;
+    });
+  }
+  return workoutsPromise;
+}
+
+async function fetchWorkouts() {
+  if (!useCloud) return devListWorkouts(WORKOUT_FETCH_LIMIT);
   const uid = uidOrThrow();
   const ref = collection(db, 'users', uid, 'workouts');
-  const q = query(ref, orderBy('date', 'desc'), limit(max));
+  const q = query(ref, orderBy('date', 'desc'), limit(WORKOUT_FETCH_LIMIT));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// Newest first.
+export async function listWorkouts(max = 100) {
+  const workouts = await allWorkouts();
+  return max >= workouts.length ? workouts : workouts.slice(0, max);
 }
 
 // Most recent prior workout that logged this exercise, so the Active
 // Session screen can show a "previous" value per set.
 export async function getLastPerformance(exerciseName) {
-  const workouts = await listWorkouts(50);
+  const workouts = await allWorkouts();
   for (const w of workouts) {
     const ex = (w.exercises || []).find((e) => e.name === exerciseName);
     if (ex) return { workoutDate: w.date, sets: ex.sets };
@@ -78,7 +119,7 @@ export async function getLastPerformance(exerciseName) {
 // All sets ever logged for an exercise, oldest first — used for progress
 // charts and personal-record calculation.
 export async function getExerciseHistory(exerciseName) {
-  const workouts = await listWorkouts(500);
+  const workouts = await allWorkouts();
   const points = [];
   for (const w of workouts) {
     const ex = (w.exercises || []).find((e) => e.name === exerciseName);
