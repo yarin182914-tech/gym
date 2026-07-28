@@ -268,6 +268,18 @@ async function addExerciseToSession(lib) {
   render();
 }
 
+// Unit and weighting belong to the exercise, so a change applies to every set
+// already logged in this session as well as future ones.
+//
+// The number is deliberately not converted: it is the figure read off the
+// machine, and only its label changes. Previously the change was applied
+// silently when a set was marked done, so a set entered and displayed as
+// 20 ק"ג could be stored as 20 lb without ever being shown that way.
+function setExerciseWeighting(ex, patch) {
+  Object.assign(ex, patch);
+  ex.sets.forEach((set) => Object.assign(set, patch));
+}
+
 // ---------- exercise card ----------
 
 function renderExerciseCard(ex, exIdx) {
@@ -329,14 +341,14 @@ function renderExerciseCard(ex, exIdx) {
 
   el.querySelectorAll('[data-weight-mode-group] button').forEach((btn) => {
     btn.addEventListener('click', () => {
-      ex.weightMode = btn.dataset.mode;
+      setExerciseWeighting(ex, { weightMode: btn.dataset.mode });
       render();
     });
   });
 
   el.querySelectorAll('[data-weight-unit-group] button').forEach((btn) => {
     btn.addEventListener('click', () => {
-      ex.weightUnit = btn.dataset.unit;
+      setExerciseWeighting(ex, { weightUnit: btn.dataset.unit });
       render();
     });
   });
@@ -382,8 +394,6 @@ function renderExerciseCard(ex, exIdx) {
   el.querySelectorAll('[data-toggle-done]').forEach((btn) => btn.addEventListener('click', () => {
     const set = ex.sets[+btn.dataset.toggleDone];
     set.done = !set.done;
-    set.weightMode = ex.weightMode;
-    set.weightUnit = ex.weightUnit;
     if (set.done) {
       set.isPR = computePR(ex, set);
       const type = SET_TYPES.find((t) => t.id === set.type);
