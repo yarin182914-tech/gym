@@ -1,7 +1,9 @@
 import { listWorkouts, deleteWorkout } from '../lib/firestore.js';
-import { formatDateHe, formatMonthHe, formatWeight, setTypeLabel, toDate } from '../lib/format.js';
+import { formatDateHe, formatMonthHe, toDate } from '../lib/format.js';
 import { esc } from '../core/dom.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
+import { setsTable } from '../ui/sets-table.js';
+import { emptyState } from '../ui/empty-state.js';
 
 let container = null;
 let workouts = [];
@@ -44,7 +46,7 @@ function render() {
 
   const list = container.querySelector('#workout-list');
   if (workouts.length === 0) {
-    list.innerHTML = '<p class="text-muted" style="text-align:center;">עוד לא נרשמו אימונים.</p>';
+    list.innerHTML = emptyState('עוד לא נרשמו אימונים.', { centered: true });
   }
   workouts.forEach((w) => list.appendChild(renderWorkoutRow(w)));
 
@@ -103,18 +105,7 @@ function renderWorkoutRow(w) {
     ${isOpen ? `<div style="margin-top:10px;">${(w.exercises || []).map((ex) => `
       <div style="margin-bottom:14px;">
         <strong>${esc(ex.name)}</strong>
-        <table>
-          <thead><tr><th>#</th><th>סוג</th><th>משקל</th><th>חזרות</th></tr></thead>
-          <tbody>
-            ${(ex.sets || []).map((s, i) => `
-              <tr>
-                <td class="num">${i + 1}</td>
-                <td>${esc(setTypeLabel(s.type))}</td>
-                <td class="num">${esc(formatWeight(s))}</td>
-                <td class="num">${esc(s.reps)}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
+        ${setsTable(ex.sets)}
       </div>`).join('')}
       <button class="btn btn-secondary" data-delete style="color:var(--danger); margin-top:6px;">🗑️ מחיקת אימון</button>
     </div>` : ''}

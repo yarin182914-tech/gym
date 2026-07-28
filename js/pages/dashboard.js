@@ -3,6 +3,9 @@ import { renderProgressChart } from '../lib/charts.js';
 import { esc } from '../core/dom.js';
 import { formatDayMonthHe as shortDate, unitLabel, round1 } from '../lib/format.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
+import { statTile } from '../ui/stat-tile.js';
+import { toggleGroup } from '../ui/toggle-group.js';
+import { emptyState } from '../ui/empty-state.js';
 
 let container = null;
 let allExerciseNames = [];
@@ -43,7 +46,7 @@ export async function mountDashboard(rootEl) {
     container.innerHTML = `
       <div class="card" style="text-align:center;">
         <h2>התקדמות</h2>
-        <p class="text-muted">עוד אין נתונים — תתחיל לתעד אימונים כדי לראות כאן גרפים.</p>
+        ${emptyState('עוד אין נתונים — תתחיל לתעד אימונים כדי לראות כאן גרפים.')}
       </div>`;
     return;
   }
@@ -110,10 +113,12 @@ async function render() {
       </select>
 
       <div class="row" style="justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
-        <div class="toggle-group" id="metric-toggle">
-          <button data-metric="weight" class="${metric === 'weight' ? 'active' : ''}">משקל מקסימלי</button>
-          <button data-metric="volume" class="${metric === 'volume' ? 'active' : ''}">נפח</button>
-        </div>
+        ${toggleGroup({
+          name: 'metric',
+          active: metric,
+          groupAttrs: 'id="metric-toggle"',
+          options: [{ value: 'weight', label: 'משקל מקסימלי' }, { value: 'volume', label: 'נפח' }],
+        })}
         <button class="btn btn-secondary" id="view-toggle-btn" style="font-size:0.85rem;">${viewMode === 'chart' ? 'הצג כטבלה' : 'הצג כגרף'}</button>
       </div>
 
@@ -124,18 +129,9 @@ async function render() {
         : renderTable(series, metric)}
 
       <div class="row" style="margin-top:16px; gap:8px;">
-        <div class="card" style="flex:1; text-align:center; margin:0;">
-          <div class="num" style="font-size:1.3rem; font-weight:700;">${best ? `${best.maxWeight}${unitLabel(best.unit)}` : '—'}</div>
-          <div class="text-muted" style="font-size:0.75rem;">שיא</div>
-        </div>
-        <div class="card" style="flex:1; text-align:center; margin:0;">
-          <div class="num" style="font-size:1.3rem; font-weight:700;">${series.length}</div>
-          <div class="text-muted" style="font-size:0.75rem;">אימונים</div>
-        </div>
-        <div class="card" style="flex:1; text-align:center; margin:0;">
-          <div class="num" style="font-size:1.3rem; font-weight:700;">${round1(series.at(-1).volume)}</div>
-          <div class="text-muted" style="font-size:0.75rem;">נפח אחרון</div>
-        </div>
+        ${statTile(best ? `${best.maxWeight}${unitLabel(best.unit)}` : '—', 'שיא')}
+        ${statTile(series.length, 'אימונים')}
+        ${statTile(round1(series.at(-1).volume), 'נפח אחרון')}
       </div>
     </div>
 

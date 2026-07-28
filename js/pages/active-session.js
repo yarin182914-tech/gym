@@ -1,6 +1,10 @@
 import { renderPlateDial } from '../lib/plate-dial.js';
 import { esc } from '../core/dom.js';
 import { beginMount, isStale } from '../core/page.js';
+import { setsTable } from '../ui/sets-table.js';
+import { toggleGroup } from '../ui/toggle-group.js';
+import { stepper } from '../ui/stepper.js';
+import { emptyState } from '../ui/empty-state.js';
 import {
   formatMMSS, formatDateHe, formatWeight, setTypeLabel,
   unitLabel, weightStep, SET_TYPES,
@@ -137,18 +141,7 @@ function renderLastTimeModal() {
     ? `<p class="text-muted">אין עדיין נתונים מפעם קודמת שביצעת את התרגיל הזה.</p>`
     : `
       <p class="text-muted" style="margin-top:-6px;">${formatDateHe(previous.workoutDate)}</p>
-      <table>
-        <thead><tr><th>#</th><th>סוג</th><th>משקל</th><th>חזרות</th></tr></thead>
-        <tbody>
-          ${previous.sets.map((s, i) => `
-            <tr>
-              <td class="num">${i + 1}</td>
-              <td>${esc(setTypeLabel(s.type))}</td>
-              <td class="num">${esc(formatWeight(s))}</td>
-              <td class="num">${s.reps}</td>
-            </tr>`).join('')}
-        </tbody>
-      </table>`;
+      ${setsTable(previous.sets)}`;
 
   return `
     <div class="modal-overlay" id="last-time-overlay">
@@ -196,7 +189,7 @@ function renderPicker() {
         style="margin:10px 0;">
       <div id="picker-results">
         ${matches.map((e) => `<button class="btn btn-secondary btn-block" style="margin-bottom:6px;" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
-        ${matches.length === 0 ? '<p class="text-muted" style="text-align:center;">אין תרגילים בקטגוריה הזו.</p>' : ''}
+        ${matches.length === 0 ? emptyState('אין תרגילים בקטגוריה הזו.', { centered: true }) : ''}
         ${q && !exactMatch ? `<button class="btn btn-primary btn-block" id="picker-add-new">+ הוספת "${esc(q)}" כתרגיל חדש</button>` : ''}
       </div>
     </div>`;
@@ -272,16 +265,16 @@ function renderExerciseCard(ex, exIdx) {
         <select data-set-type="${setIdx}" style="background:var(--surface-raised); border:1px solid var(--border); border-radius:6px; padding:6px;">
           ${SET_TYPES.map((t) => `<option value="${t.id}" ${t.id === set.type ? 'selected' : ''}>${t.label}</option>`).join('')}
         </select>
-        <div class="stepper">
-          <button data-w-dec="${setIdx}">−</button>
-          <span class="stepper-value num">${set.weight}${unitLabel(set.weightUnit)}</span>
-          <button data-w-inc="${setIdx}">+</button>
-        </div>
-        <div class="stepper">
-          <button data-r-dec="${setIdx}">−</button>
-          <span class="stepper-value num">${set.reps}</span>
-          <button data-r-inc="${setIdx}">+</button>
-        </div>
+        ${stepper({
+          decAttrs: `data-w-dec="${setIdx}"`,
+          incAttrs: `data-w-inc="${setIdx}"`,
+          value: `${set.weight}${unitLabel(set.weightUnit)}`,
+        })}
+        ${stepper({
+          decAttrs: `data-r-dec="${setIdx}"`,
+          incAttrs: `data-r-inc="${setIdx}"`,
+          value: set.reps,
+        })}
         <button class="btn ${set.done ? 'btn-primary' : 'btn-secondary'}" data-toggle-done="${setIdx}" style="padding:0 14px;">
           ${set.done ? '✓' : 'סיום'}
         </button>
@@ -295,14 +288,18 @@ function renderExerciseCard(ex, exIdx) {
       <button class="btn btn-secondary" data-last-time style="padding:0 12px; font-size:0.85rem;">🕐 פעם קודמת</button>
     </div>
     <div class="row" style="margin-bottom:12px; justify-content:flex-start; gap:10px; flex-wrap:wrap;">
-      <div class="toggle-group" data-weight-mode-group>
-        <button data-mode="total" class="${ex.weightMode === 'total' ? 'active' : ''}">טוטאל</button>
-        <button data-mode="perSide" class="${ex.weightMode === 'perSide' ? 'active' : ''}">כל צד</button>
-      </div>
-      <div class="toggle-group" data-weight-unit-group>
-        <button data-unit="kg" class="${ex.weightUnit === 'kg' ? 'active' : ''}">ק"ג</button>
-        <button data-unit="lb" class="${ex.weightUnit === 'lb' ? 'active' : ''}">lb</button>
-      </div>
+      ${toggleGroup({
+        name: 'mode',
+        active: ex.weightMode,
+        groupAttrs: 'data-weight-mode-group',
+        options: [{ value: 'total', label: 'טוטאל' }, { value: 'perSide', label: 'כל צד' }],
+      })}
+      ${toggleGroup({
+        name: 'unit',
+        active: ex.weightUnit,
+        groupAttrs: 'data-weight-unit-group',
+        options: [{ value: 'kg', label: 'ק"ג' }, { value: 'lb', label: 'lb' }],
+      })}
     </div>
     ${setsRows}
     <button class="btn btn-secondary btn-block" data-add-set>+ סט</button>

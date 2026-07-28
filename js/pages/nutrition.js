@@ -4,6 +4,8 @@ import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
 import { toDate } from '../lib/format.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
+import { stepper } from '../ui/stepper.js';
+import { emptyState } from '../ui/empty-state.js';
 
 const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
 const MEAL_LABELS = { breakfast: 'בוקר', lunch: 'צהריים', dinner: 'ערב', snack: 'נשנוש' };
@@ -84,7 +86,7 @@ function render() {
     <div class="card">
       <h3 style="color:var(--text); margin-bottom:10px;">היום</h3>
       ${todayEntries().length === 0
-        ? '<p class="text-muted">עוד לא נרשמו ארוחות היום.</p>'
+        ? emptyState('עוד לא נרשמו ארוחות היום.')
         : todayEntries().map((e) => `
           <div class="row" style="margin-bottom:8px;">
             <div>
@@ -114,6 +116,21 @@ function render() {
   }
 }
 
+// One labelled amount row in the add-meal form. All four differ only by label,
+// field name, step size and the last one's bottom margin.
+function macroRow(label, field, step, rowStyle = 'margin-bottom:8px') {
+  return `
+      <div class="row" style="${rowStyle};">
+        <span class="text-muted">${label}</span>
+        ${stepper({
+          decAttrs: `data-field-dec="${field}" data-step="${step}"`,
+          incAttrs: `data-field-inc="${field}" data-step="${step}"`,
+          value: form[field],
+          valueAttrs: `id="val-${field}"`,
+        })}
+      </div>`;
+}
+
 function renderForm() {
   const aiNote = aiStatus === 'loading'
     ? '<p class="text-muted" style="font-size:0.85rem;">מנתח את התמונה...</p>'
@@ -132,38 +149,10 @@ function renderForm() {
 
       <input type="text" id="form-description" class="search-bar" placeholder="תיאור הארוחה" value="${esc(form.description)}" style="margin:10px 0;">
 
-      <div class="row" style="margin-bottom:8px;">
-        <span class="text-muted">קלוריות</span>
-        <div class="stepper">
-          <button data-field-dec="calories" data-step="50">−</button>
-          <span class="stepper-value num" id="val-calories">${form.calories}</span>
-          <button data-field-inc="calories" data-step="50">+</button>
-        </div>
-      </div>
-      <div class="row" style="margin-bottom:8px;">
-        <span class="text-muted">חלבון (g)</span>
-        <div class="stepper">
-          <button data-field-dec="proteinG" data-step="5">−</button>
-          <span class="stepper-value num" id="val-proteinG">${form.proteinG}</span>
-          <button data-field-inc="proteinG" data-step="5">+</button>
-        </div>
-      </div>
-      <div class="row" style="margin-bottom:8px;">
-        <span class="text-muted">פחמימות (g)</span>
-        <div class="stepper">
-          <button data-field-dec="carbsG" data-step="5">−</button>
-          <span class="stepper-value num" id="val-carbsG">${form.carbsG}</span>
-          <button data-field-inc="carbsG" data-step="5">+</button>
-        </div>
-      </div>
-      <div class="row" style="margin-bottom:14px;">
-        <span class="text-muted">שומן (g)</span>
-        <div class="stepper">
-          <button data-field-dec="fatG" data-step="2">−</button>
-          <span class="stepper-value num" id="val-fatG">${form.fatG}</span>
-          <button data-field-inc="fatG" data-step="2">+</button>
-        </div>
-      </div>
+      ${macroRow('קלוריות', 'calories', 50)}
+      ${macroRow('חלבון (g)', 'proteinG', 5)}
+      ${macroRow('פחמימות (g)', 'carbsG', 5)}
+      ${macroRow('שומן (g)', 'fatG', 2, 'margin-bottom:14px')}
 
       <div class="row" style="gap:8px;">
         <button class="btn btn-secondary" id="cancel-form-btn" style="flex:1;">ביטול</button>
