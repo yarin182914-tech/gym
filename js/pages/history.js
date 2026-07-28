@@ -1,6 +1,7 @@
 import { listWorkouts, deleteWorkout } from '../lib/firestore.js';
 import { formatDateHe, formatMonthHe, formatWeight, setTypeLabel, toDate } from '../lib/format.js';
 import { esc } from '../core/dom.js';
+import { beginMount, isStale, renderLoading } from '../core/page.js';
 
 let container = null;
 let workouts = [];
@@ -8,10 +9,12 @@ let expanded = new Set();
 let calendarMonth = new Date();
 
 export async function mountHistory(rootEl) {
+  const token = beginMount();
   container = rootEl;
-  container.innerHTML = '<p class="text-muted">טוען היסטוריית אימונים...</p>';
-  workouts = await listWorkouts(200);
-  if (!container) return; // navigated away while loading
+  renderLoading(container, 'טוען היסטוריית אימונים...');
+  const loaded = await listWorkouts(200);
+  if (isStale(token)) return;
+  workouts = loaded;
   render();
 }
 

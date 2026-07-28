@@ -2,6 +2,7 @@ import { listWorkouts, getExerciseHistory, CATEGORY_GROUPS } from '../lib/firest
 import { renderProgressChart } from '../lib/charts.js';
 import { esc } from '../core/dom.js';
 import { formatDayMonthHe as shortDate, unitLabel, round1 } from '../lib/format.js';
+import { beginMount, isStale, renderLoading } from '../core/page.js';
 
 let container = null;
 let allExerciseNames = [];
@@ -20,11 +21,13 @@ export function unmountDashboard() {
 }
 
 export async function mountDashboard(rootEl) {
+  const token = beginMount();
   container = rootEl;
-  container.innerHTML = '<p class="text-muted">טוען נתוני התקדמות...</p>';
+  renderLoading(container, 'טוען נתוני התקדמות...');
 
   const workouts = await listWorkouts(500);
-  if (!container) return; // navigated away while loading
+  if (isStale(token)) return;
+
   const namesInRecencyOrder = [];
   const seen = new Set();
   categoryByName = new Map();
@@ -93,6 +96,7 @@ function computeHeadline(series, metricKey) {
 
 async function render() {
   const series = await loadSeries(selectedExercise);
+  if (!container) return; // unmounted mid-render
   const values = series.map((p) => (metric === 'weight' ? p.maxWeight : p.volume));
   const prFlags = withRunningPR(values);
   const headline = computeHeadline(series, metric);
@@ -180,6 +184,7 @@ function renderTable(series, metricKey) {
 }
 
 async function renderPRList() {
+  if (!container) return;
   const prListEl = container.querySelector('#pr-list');
   if (!prListEl) return;
 
@@ -188,6 +193,7 @@ async function renderPRList() {
     const best = series.reduce((b, p) => (p.maxWeight > (b?.maxWeight ?? -1) ? p : b), null);
     return { name, best, category: categoryByName.get(name) || 'אחר' };
   }));
+  if (!container) return; // unmounted while the per-exercise loads resolved
 
   const knownCategories = CATEGORY_GROUPS.flatMap((g) => g.categories);
   const orderedCategories = [...knownCategories, 'אחר'];

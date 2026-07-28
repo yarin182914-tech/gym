@@ -3,6 +3,7 @@ import { addNutritionEntry, listNutritionEntries } from '../lib/firestore.js';
 import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
 import { toDate } from '../lib/format.js';
+import { beginMount, isStale, renderLoading } from '../core/page.js';
 
 const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
 const MEAL_LABELS = { breakfast: 'בוקר', lunch: 'צהריים', dinner: 'ערב', snack: 'נשנוש' };
@@ -20,10 +21,12 @@ function isToday(d) {
 }
 
 export async function mountNutrition(rootEl) {
+  const token = beginMount();
   container = rootEl;
-  container.innerHTML = '<p class="text-muted">טוען נתוני תזונה...</p>';
-  entries = await listNutritionEntries(200);
-  if (!container) return; // navigated away while loading
+  renderLoading(container, 'טוען נתוני תזונה...');
+  const loaded = await listNutritionEntries(200);
+  if (isStale(token)) return;
+  entries = loaded;
   render();
 }
 

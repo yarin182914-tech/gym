@@ -1,5 +1,6 @@
 import { renderPlateDial } from '../lib/plate-dial.js';
 import { esc } from '../core/dom.js';
+import { beginMount, isStale } from '../core/page.js';
 import {
   formatMMSS, formatDateHe, formatWeight, setTypeLabel,
   unitLabel, weightStep, SET_TYPES,
@@ -19,12 +20,17 @@ let picker = { open: false, query: '', category: null };
 let lastTimeModal = null; // { name, previous }
 
 export async function mountActiveSession(rootEl) {
+  const token = beginMount();
   container = rootEl;
-  library = await listExerciseLibrary();
-  if (library.length === 0) {
+
+  let loaded = await listExerciseLibrary();
+  if (loaded.length === 0) {
     await seedExerciseLibraryIfEmpty();
-    library = await listExerciseLibrary();
+    loaded = await listExerciseLibrary();
   }
+  if (isStale(token)) return;
+  library = loaded;
+
   render();
   // A workout survives navigating away, so the clock has to be restarted on
   // the way back in — otherwise it renders once and then sits frozen.
