@@ -1,15 +1,13 @@
 import {
-  collection, doc, setDoc, addDoc, getDoc, getDocs, updateDoc, deleteDoc,
-  query, orderBy, limit, serverTimestamp, Timestamp,
+  collection, doc, setDoc, addDoc, getDoc, getDocs, deleteDoc,
+  query, orderBy, limit, serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
 import { db, useCloud } from '../firebase-config.js';
 import { currentUid } from '../auth.js';
 import {
-  devEnsureUserDoc, devGetUserProfile, devSetWeddingDate,
-  devCreateWorkout, devUpdateWorkout, devDeleteWorkout, devListWorkouts,
+  devEnsureUserDoc, devCreateWorkout, devDeleteWorkout, devListWorkouts,
   devListExerciseLibrary, devAddExerciseToLibrary,
   devAddNutritionEntry, devListNutritionEntries,
-  devGetActivePlan, devSavePlan,
 } from './dev-store.js';
 
 function uidOrThrow() {
@@ -35,21 +33,6 @@ export async function ensureUserDoc() {
   return ref;
 }
 
-export async function getUserProfile() {
-  if (!useCloud) return devGetUserProfile();
-  const uid = uidOrThrow();
-  const snap = await getDoc(doc(db, 'users', uid));
-  return snap.exists() ? snap.data() : null;
-}
-
-export async function setWeddingDate(dateStr) {
-  if (!useCloud) return devSetWeddingDate(dateStr);
-  const uid = uidOrThrow();
-  await updateDoc(doc(db, 'users', uid), {
-    weddingDate: dateStr ? Timestamp.fromDate(new Date(dateStr)) : null,
-  });
-}
-
 // ---------- workouts ----------
 
 export async function createWorkout(workout) {
@@ -64,12 +47,6 @@ export async function createWorkout(workout) {
     exercises: workout.exercises ?? [],
   });
   return docRef.id;
-}
-
-export async function updateWorkout(workoutId, data) {
-  if (!useCloud) return devUpdateWorkout(workoutId, data);
-  const uid = uidOrThrow();
-  await updateDoc(doc(db, 'users', uid, 'workouts', workoutId), data);
 }
 
 export async function deleteWorkout(workoutId) {
@@ -141,16 +118,6 @@ export const CATEGORY_GROUPS = [
   { label: 'פול', categories: ['גב', 'רגליים', 'יד קדמית'] },
 ];
 
-export const WORKOUT_TYPE_BY_CATEGORY = {
-  'חזה': 'push',
-  'כתפיים': 'push',
-  'יד אחורית': 'push',
-  'בטן': 'push',
-  'גב': 'pull',
-  'רגליים': 'pull',
-  'יד קדמית': 'pull',
-};
-
 export const DEFAULT_EXERCISES = [
   { name: 'סקוואט', category: 'רגליים', defaultWeightMode: 'total' },
   { name: 'לחיצת חזה', category: 'חזה', defaultWeightMode: 'total' },
@@ -200,24 +167,7 @@ export async function listNutritionEntries(max = 200) {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-// ---------- plans ----------
-
-export async function getActivePlan() {
-  if (!useCloud) return devGetActivePlan();
-  const uid = uidOrThrow();
-  const snap = await getDocs(collection(db, 'users', uid, 'plans'));
-  const plans = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  return plans.find((p) => p.status === 'active') ?? null;
-}
-
-export async function savePlan(plan) {
-  if (!useCloud) return devSavePlan(plan);
-  const uid = uidOrThrow();
-  if (plan.id) {
-    await updateDoc(doc(db, 'users', uid, 'plans', plan.id), plan);
-    return plan.id;
-  }
-  const ref = collection(db, 'users', uid, 'plans');
-  const docRef = await addDoc(ref, { ...plan, status: plan.status ?? 'active' });
-  return docRef.id;
-}
+// Plan persistence (getActivePlan/savePlan) and the profile helpers
+// (getUserProfile/setWeddingDate/updateWorkout) were written ahead of the Plan
+// screen and never called. Removed rather than carried as dead weight — see
+// git history if that screen gets built.

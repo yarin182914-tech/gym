@@ -1,6 +1,7 @@
 import { listWorkouts, getExerciseHistory, CATEGORY_GROUPS } from '../lib/firestore.js';
 import { renderProgressChart } from '../lib/charts.js';
 import { esc } from '../core/dom.js';
+import { formatDayMonthHe as shortDate, unitLabel, round1 } from '../lib/format.js';
 
 let container = null;
 let allExerciseNames = [];
@@ -9,16 +10,6 @@ let selectedExercise = null;
 let metric = 'weight'; // 'weight' | 'volume'
 let viewMode = 'chart'; // 'chart' | 'table'
 let chartInstance = null;
-
-const HE_MONTHS_SHORT = ['ינו', 'פבר', 'מרץ', 'אפר', 'מאי', 'יונ', 'יול', 'אוג', 'ספט', 'אוק', 'נוב', 'דצמ'];
-
-function toDate(d) { return d?.toDate ? d.toDate() : new Date(d); }
-function shortDate(d) {
-  const dt = toDate(d);
-  return `${dt.getDate()} ב${HE_MONTHS_SHORT[dt.getMonth()]}`;
-}
-function round1(n) { return Math.round(n * 10) / 10; }
-function unitLabel(u) { return u === 'lb' ? ' lb' : ' ק"ג'; }
 
 export function unmountDashboard() {
   if (chartInstance) chartInstance.destroy();

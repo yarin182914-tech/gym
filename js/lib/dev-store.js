@@ -25,16 +25,6 @@ function uid() {
 
 export async function devEnsureUserDoc() { /* no-op: load() already seeds a default user */ }
 
-export async function devGetUserProfile() {
-  return load().user;
-}
-
-export async function devSetWeddingDate(dateStr) {
-  const state = load();
-  state.user.weddingDate = dateStr || null;
-  save(state);
-}
-
 export async function devCreateWorkout(workout) {
   const state = load();
   const id = uid();
@@ -48,13 +38,6 @@ export async function devCreateWorkout(workout) {
   });
   save(state);
   return id;
-}
-
-export async function devUpdateWorkout(workoutId, data) {
-  const state = load();
-  const w = state.workouts.find((x) => x.id === workoutId);
-  if (w) Object.assign(w, data);
-  save(state);
 }
 
 export async function devDeleteWorkout(workoutId) {
@@ -114,21 +97,3 @@ export async function devListNutritionEntries(max = 200) {
     .slice(0, max);
 }
 
-export async function devGetActivePlan() {
-  const state = load();
-  return state.plans.find((p) => p.status === 'active') ?? null;
-}
-
-export async function devSavePlan(plan) {
-  const state = load();
-  if (plan.id) {
-    const existing = state.plans.find((p) => p.id === plan.id);
-    if (existing) Object.assign(existing, plan);
-    save(state);
-    return plan.id;
-  }
-  const id = uid();
-  state.plans.push({ ...plan, id, status: plan.status ?? 'active' });
-  save(state);
-  return id;
-}

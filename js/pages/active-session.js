@@ -1,16 +1,13 @@
 import { renderPlateDial } from '../lib/plate-dial.js';
 import { esc } from '../core/dom.js';
-import { formatMMSS, formatDateHe, SET_TYPE_LABELS } from '../lib/format.js';
+import {
+  formatMMSS, formatDateHe, formatWeight, setTypeLabel,
+  unitLabel, weightStep, SET_TYPES,
+} from '../lib/format.js';
 import {
   listExerciseLibrary, seedExerciseLibraryIfEmpty, addExerciseToLibrary,
   getLastPerformance, createWorkout, getExerciseHistory, CATEGORY_GROUPS,
 } from '../lib/firestore.js';
-
-const SET_TYPES = [
-  { id: 'warmup', label: SET_TYPE_LABELS.warmup, restSec: 60 },
-  { id: 'working', label: SET_TYPE_LABELS.working, restSec: 120 },
-  { id: 'dropset', label: SET_TYPE_LABELS.dropset, restSec: 30 },
-];
 
 let container = null;
 let library = [];
@@ -140,8 +137,8 @@ function renderLastTimeModal() {
           ${previous.sets.map((s, i) => `
             <tr>
               <td class="num">${i + 1}</td>
-              <td>${esc(SET_TYPES.find((t) => t.id === s.type)?.label ?? s.type)}</td>
-              <td class="num">${s.weight}${unitLabel(s.weightUnit)}${s.weightMode === 'perSide' ? ' לצד' : ''}</td>
+              <td>${esc(setTypeLabel(s.type))}</td>
+              <td class="num">${esc(formatWeight(s))}</td>
               <td class="num">${s.reps}</td>
             </tr>`).join('')}
         </tbody>
@@ -346,12 +343,12 @@ function renderExerciseCard(ex, exIdx) {
 
   el.querySelectorAll('[data-w-inc]').forEach((btn) => btn.addEventListener('click', () => {
     const set = ex.sets[+btn.dataset.wInc];
-    set.weight += set.weightUnit === 'lb' ? 5 : 2.5;
+    set.weight += weightStep(set.weightUnit);
     render();
   }));
   el.querySelectorAll('[data-w-dec]').forEach((btn) => btn.addEventListener('click', () => {
     const set = ex.sets[+btn.dataset.wDec];
-    set.weight = Math.max(0, set.weight - (set.weightUnit === 'lb' ? 5 : 2.5));
+    set.weight = Math.max(0, set.weight - weightStep(set.weightUnit));
     render();
   }));
   el.querySelectorAll('[data-r-inc]').forEach((btn) => btn.addEventListener('click', () => {
@@ -384,10 +381,6 @@ function computePR(ex, set) {
     .filter((s) => s.weightMode === set.weightMode && (s.weightUnit || 'kg') === set.weightUnit)
     .reduce((max, s) => Math.max(max, s.weight), 0);
   return set.weight > bestPrev;
-}
-
-function unitLabel(unit) {
-  return unit === 'lb' ? ' lb' : ' ק"ג';
 }
 
 // ---------- timers ----------

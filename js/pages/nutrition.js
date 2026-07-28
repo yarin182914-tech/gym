@@ -2,6 +2,7 @@ import { renderPlateDial } from '../lib/plate-dial.js';
 import { addNutritionEntry, listNutritionEntries } from '../lib/firestore.js';
 import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
+import { toDate } from '../lib/format.js';
 
 const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
 const MEAL_LABELS = { breakfast: 'בוקר', lunch: 'צהריים', dinner: 'ערב', snack: 'נשנוש' };
@@ -12,7 +13,6 @@ let formOpen = false;
 let form = null;
 let aiStatus = null; // null | 'loading' | 'unavailable' | 'error'
 
-function toDate(d) { return d?.toDate ? d.toDate() : new Date(d); }
 function isToday(d) {
   const a = toDate(d);
   const now = new Date();

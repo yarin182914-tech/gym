@@ -1,5 +1,5 @@
 import { listWorkouts, deleteWorkout } from '../lib/firestore.js';
-import { formatDateHe, SET_TYPE_LABELS } from '../lib/format.js';
+import { formatDateHe, formatMonthHe, formatWeight, setTypeLabel, toDate } from '../lib/format.js';
 import { esc } from '../core/dom.js';
 
 let container = null;
@@ -22,7 +22,6 @@ export function unmountHistory() {
   calendarMonth = new Date();
 }
 
-function toDate(d) { return d?.toDate ? d.toDate() : new Date(d); }
 
 function render() {
   if (!container) return;
@@ -30,7 +29,7 @@ function render() {
     <div class="card">
       <div class="row" style="margin-bottom:10px;">
         <button class="btn btn-secondary" id="cal-prev">‹</button>
-        <h3 style="margin:0;">${calendarMonth.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' })}</h3>
+        <h3 style="margin:0;">${formatMonthHe(calendarMonth)}</h3>
         <button class="btn btn-secondary" id="cal-next">›</button>
       </div>
       <div id="cal-grid" style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center;"></div>
@@ -107,8 +106,8 @@ function renderWorkoutRow(w) {
             ${(ex.sets || []).map((s, i) => `
               <tr>
                 <td class="num">${i + 1}</td>
-                <td>${esc(SET_TYPE_LABELS[s.type] || s.type)}</td>
-                <td class="num">${esc(s.weight)}${s.weightUnit === 'lb' ? 'lb' : 'ק"ג'}${s.weightMode === 'perSide' ? ' לצד' : ''}</td>
+                <td>${esc(setTypeLabel(s.type))}</td>
+                <td class="num">${esc(formatWeight(s))}</td>
                 <td class="num">${esc(s.reps)}</td>
               </tr>`).join('')}
           </tbody>
