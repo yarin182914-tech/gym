@@ -141,12 +141,19 @@ async function render() {
 
   if (viewMode === 'chart') {
     const canvas = container.querySelector('#progress-canvas');
-    chartInstance = renderProgressChart(canvas, {
+    // The chart library is fetched on demand, so this resolves later; the
+    // canvas may already be gone if the user moved on in the meantime.
+    const pending = chartInstance;
+    chartInstance = null;
+    renderProgressChart(canvas, {
       labels: series.map((p) => shortDate(p.date)),
       values,
       prFlags,
       formatValue: (v) => (metric === 'weight' ? `${round1(v)}${unitLabel(series[0].unit)}` : `${round1(v)} נפח`),
-    }, chartInstance);
+    }, pending).then((chart) => {
+      if (canvas.isConnected) chartInstance = chart;
+      else chart.destroy();
+    }).catch((err) => console.error('[dashboard] chart failed to render', err));
   }
 
   container.querySelector('#exercise-picker').addEventListener('change', (e) => {

@@ -30,10 +30,35 @@ function selectiveLabelsPlugin(values, prFlags, formatValue) {
   };
 }
 
+const CHART_SRC = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js';
+let chartLib = null;
+
+// Chart.js is ~200KB and only the progress screen uses it, so it is fetched on
+// first use instead of blocking every page load. Injecting the UMD build keeps
+// the existing global-Chart API rather than swapping to the ESM bundle.
+function loadChartLib() {
+  if (window.Chart) return Promise.resolve(window.Chart);
+  if (!chartLib) {
+    chartLib = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = CHART_SRC;
+      script.async = true;
+      script.onload = () => resolve(window.Chart);
+      script.onerror = () => {
+        chartLib = null; // let a later attempt retry
+        reject(new Error('Chart.js failed to load'));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return chartLib;
+}
+
 // labels: x-axis labels (dates). values: numeric y per point (already the
 // single chosen metric — weight OR volume, never both at once, per the
 // one-axis rule). prFlags: parallel boolean array marking new-PR points.
-export function renderProgressChart(canvas, { labels, values, prFlags, formatValue = (v) => String(v) }, existingChart) {
+export async function renderProgressChart(canvas, { labels, values, prFlags, formatValue = (v) => String(v) }, existingChart) {
+  const Chart = await loadChartLib();
   if (existingChart) existingChart.destroy();
 
   const pointColors = values.map((_, i) => (prFlags[i] ? GOLD : NAVY));
