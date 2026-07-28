@@ -1,0 +1,68 @@
+/* Element defaults and the app shell: reset, typography, the #app
+   container and the signed-out screen. No reusable components here. */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100vh;
+  padding-bottom: calc(var(--nav-height) + var(--safe-bottom));
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  margin: 0 0 0.5em;
+}
+
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.05rem; color: var(--text-muted); }
+
+p { margin: 0 0 0.75em; line-height: 1.5; }
+
+a { color: var(--accent); }
+
+/* Numbers: weights, reps, timers, countdowns — always tabular so columns align */
+.num, .timer, .dial-value, input[type="number"] {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+button, input, select {
+  font-family: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+/* ===== Layout shell ===== */
+#app {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px 16px calc(24px);
+}
+
+/* ===== Auth screen ===== */
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+}

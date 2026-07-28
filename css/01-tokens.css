@@ -1,0 +1,30 @@
+/* Design tokens. The only place raw colour, font, radius and sizing
+   values are allowed to appear — everything else references these. */
+/* ===== Design tokens ===== */
+:root {
+  --bg: #FFFFFF;
+  --surface: #F3F6FA;
+  --surface-raised: #E8EEF5;
+  --border: #DCE3EC;
+  --text: #16233B;
+  --text-muted: #5E6B80;
+  --accent: #1E3A63;
+  --accent-hover: #2F5C9E;
+  --accent-dim: #B9C7DA;
+  --gold: #C9962C;
+  --gold-text: #3D2E0A;
+  --danger: #B5463E;
+  --success: #2F7A54;
+
+  --font-display: 'Suez One', serif;
+  --font-body: 'Assistant', sans-serif;
+  --font-numeric: 'Roboto Slab', serif;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --tap-min: 48px;
+
+  --nav-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
