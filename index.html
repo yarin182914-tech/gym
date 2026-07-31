@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מעקב אימונים</title>
+<meta name="theme-color" content="#FFFFFF">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Suez+One&family=Rubik:wght@400;600;700&family=Inter:wght@600;700&display=swap" rel="stylesheet">
+<!-- Linked separately rather than @import-ed: @import serialises the requests. -->
+<link rel="stylesheet" href="css/01-tokens.css">
+<link rel="stylesheet" href="css/02-base.css">
+<link rel="stylesheet" href="css/03-components.css">
+<link rel="stylesheet" href="css/04-utilities.css">
+</head>
+<body>
+
+<a href="#app" class="skip-link">דילוג לתוכן</a>
+
+<div id="auth-screen" class="auth-screen hidden">
+  <h1>מעקב אימונים</h1>
+  <p class="text-muted">התקדמות לחתונה — אימונים ותזונה במקום אחד.</p>
+  <button id="google-signin-btn" class="btn btn-primary">התחברות עם Google</button>
+</div>
+
+<!-- Route content is swapped in here. aria-live=polite so a screen reader
+     announces the new screen after navigation, since there is no page load. -->
+<main id="app" class="hidden" tabindex="-1" aria-live="polite" aria-busy="false"></main>
+
+<!-- Icons here are the same Lucide path data as js/ui/icon.js — duplicated
+     rather than shared, since this markup is static HTML and the JS helper
+     only exists inside the module graph. Keep the two in sync by hand if
+     either changes. -->
+<nav id="bottom-nav" class="bottom-nav hidden" aria-label="ניווט ראשי">
+  <a href="#/session" data-route="session">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z"/><path d="m2.5 21.5 1.4-1.4"/><path d="m20.1 3.9 1.4-1.4"/><path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z"/><path d="m9.6 14.4 4.8-4.8"/></svg>
+    <span>אימון</span>
+  </a>
+  <a href="#/history" data-route="history">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M8 13h.01"/><path d="M12 13h.01"/><path d="M16 13h.01"/><path d="M8 17h.01"/><path d="M12 17h.01"/><path d="M16 17h.01"/></svg>
+    <span>היסטוריה</span>
+  </a>
+  <a href="#/dashboard" data-route="dashboard">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/></svg>
+    <span>התקדמות</span>
+  </a>
+  <a href="#/nutrition" data-route="nutrition">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>
+    <span>תזונה</span>
+  </a>
+  <a href="#/plan" data-route="plan">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+    <span>תוכנית</span>
+  </a>
+</nav>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

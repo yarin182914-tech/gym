@@ -1,0 +1,96 @@
+/* Design tokens. The only place raw colour, font, radius and sizing
+   values are allowed to appear — everything else references these. */
+/* ===== Design tokens ===== */
+:root {
+  /* ---- Color — palette unchanged, usage documented ----
+     --bg / --surface / --surface-raised   backgrounds, lightest to most raised
+     --border                              hairlines, dividers, unfilled outlines
+     --text / --text-muted                 primary / secondary text
+     --accent / --accent-hover / --accent-dim   primary actions, links, active
+                                            states — hover, and a faint tint for
+                                            dim/disabled/focus-ring use
+     --gold / --gold-text                  PR / achievement moments only
+     --danger                              destructive actions, errors
+     --success                             completed sets, nutrition/healthy
+                                            progress, positive confirmation
+     --purple                              analytics — progress charts,
+                                            trend callouts only */
+  --bg: #FFFFFF;
+  --surface: #F3F6FA;
+  --surface-raised: #E8EEF5;
+  --border: #DCE3EC;
+  --text: #16233B;
+  --text-muted: #5E6B80;
+  --accent: #1E3A63;
+  --accent-hover: #2F5C9E;
+  --accent-dim: #B9C7DA;
+  --gold: #C9962C;
+  --gold-text: #3D2E0A;
+  --danger: #B5463E;
+  --success: #2F7A54;
+  --purple: #6B4C9A;
+
+  /* ---- Typography ---- */
+  --font-display: 'Suez One', serif;   /* headings only */
+  --font-body: 'Rubik', sans-serif;    /* everything else — Hebrew-native */
+  --font-numeric: 'Inter', sans-serif; /* weights, reps, timers — tabular figures (Latin digits only, so Inter renders fine here) */
+
+  /* Only the weights actually loaded (index.html): Rubik 400/600/700,
+     Inter 600/700, Suez One 400 (headings only, unaffected by this scale).
+     Don't reference any weight not in this list — the browser will
+     synthesize a fake bold instead of using a real one. */
+  --weight-regular: 400;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Line-height and letter-spacing — the same "one shared ramp" idea as the
+     type scale below, replacing what used to be one-off hardcoded values
+     scattered per component. */
+  --leading-tight: 1.15;   /* headings, single-line bold numeric displays */
+  --leading-normal: 1.5;   /* body copy, paragraphs */
+
+  --tracking-tight: -0.01em; /* large bold numbers — a touch denser, premium */
+  --tracking-wide: 0.05em;   /* uppercase captions/labels */
+
+  /* Type scale — one shared ramp every screen draws from, instead of each
+     component picking its own one-off rem value. */
+  --text-xs: 0.7rem;    /* uppercase labels, captions */
+  --text-sm: 0.8rem;    /* secondary/muted text, units, badges */
+  --text-base: 0.9rem;  /* body copy, table cells */
+  --text-md: 1rem;      /* buttons, inputs, default UI text */
+  --text-lg: 1.15rem;   /* emphasized values: weight, reps */
+  --text-xl: 1.25rem;   /* h2, dial values */
+  --text-2xl: 1.6rem;   /* h1 */
+
+  /* ---- Spacing scale — for new and touched rules going forward; not a
+     retrofit of every existing hardcoded value across the app. ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* ---- Radius ---- */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-full: 999px; /* pills, chips, circular controls */
+
+  /* ---- Shadows (elevation) — generalizes what used to be two hardcoded
+     one-off values (on .rest-pill and .toast) into a reusable 3-step scale. */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);  /* resting cards */
+  --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.2);  /* popovers, modal panels */
+  --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.18); /* floating fixed elements */
+
+  /* ---- Icon sizing (emoji used directly as inline icons) ---- */
+  --icon-sm: 1rem;
+  --icon-md: 1.25rem;
+  --icon-lg: 1.5rem;
+
+  --tap-min: 48px;
+
+  --nav-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}

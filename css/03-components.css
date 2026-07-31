@@ -1,0 +1,1112 @@
+/* Reusable components: cards, buttons, steppers, toggle groups, search
+   bar, modal, tables, pills, plate dial, PR badge and the nav bar — plus
+   the Active Session screen's numeric field, wheel picker, bottom sheet,
+   rest pill, toasts and set-row states (further down this file).
+   Loaded after base so component rules win over element defaults. */
+
+/* ===== Cards ===== */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ===== Buttons =====
+   Primary carries a subtle shadow, secondary/danger stay flat — that
+   difference in elevation is itself the visual hierarchy between "the
+   action on this screen" and everything else. */
+.btn {
+  min-height: var(--tap-min);
+  min-width: var(--tap-min);
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #FFFFFF;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover { background: var(--accent-hover); }
+
+.btn-success {
+  background: var(--success);
+  color: #FFFFFF;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary {
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-block { width: 100%; }
+
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== Stepper (weight / reps input) ===== */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  /* A set row packs a select, two steppers and a button into one flex line.
+     Without this the steppers were the ones that gave way, shrinking their
+     +/- buttons to 22px on a 375px screen — under half the 44px touch target,
+     on the screen operated one-handed mid-set. */
+  flex-shrink: 0;
+}
+
+.stepper button {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  font-size: 1.3rem;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.stepper .stepper-value {
+  min-width: 3.5ch;
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: var(--weight-semibold);
+  padding: 0 6px;
+}
+
+/* One logged set: type, weight, reps, done. Too much to fit on one line at
+   375px, so it wraps rather than squeezing the controls below a usable size. */
+.set-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+  background: var(--surface);
+}
+
+/* ===== Toggle group (segmented control: ק"ג/lb, טוטאל/כל צד) ===== */
+.toggle-group {
+  display: inline-flex;
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.toggle-group button {
+  min-height: var(--tap-min);
+  padding: 0 14px;
+  font-size: 0.85rem;
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+}
+
+.toggle-group button.active {
+  background: var(--accent);
+  color: #FFFFFF;
+}
+
+/* ===== Search bar (exercise picker) ===== */
+.search-bar {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 1rem;
+}
+
+/* Keeps the accent border as an affordance, but no longer suppresses the
+   outline — that was the reason keyboard focus was invisible app-wide. The
+   global :focus-visible ring in 02-base.css now shows through. The
+   box-shadow ring is additional — visible on every focus (touch or
+   keyboard), not just the accessibility outline. */
+.search-bar:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+/* ===== Modal / popup (e.g. "last time" panel) ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(22, 35, 59, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+}
+
+.modal-card {
+  position: relative;
+  background: var(--bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: var(--space-5);
+  max-width: 360px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-md);
+}
+
+/* Generic small data table — used in History, the "last time" popup, and
+   Dashboard's "view as table" toggle */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+th, td {
+  text-align: start;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+th {
+  color: var(--text-muted);
+  font-weight: var(--weight-semibold);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+/* ===== Category pills (exercise picker Push/Pull groups) ===== */
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.pill-row-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  margin-bottom: 4px;
+}
+
+.pill {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  min-height: 36px;
+}
+
+.pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #FFFFFF;
+}
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+/* ===== Plate dial (signature element: rest timer + wedding countdown) ===== */
+.plate-dial {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin: 0 auto;
+}
+
+.plate-dial svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+
+.plate-dial .track {
+  fill: none;
+  stroke: var(--surface-raised);
+  stroke-width: 8;
+}
+
+.plate-dial .fill {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s linear;
+}
+
+.plate-dial--success .fill {
+  stroke: var(--success);
+}
+
+.plate-dial .dial-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.plate-dial .dial-value {
+  font-size: 1.6rem;
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.plate-dial .dial-label {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.plate-dial.compact { width: 56px; height: 56px; }
+.plate-dial.compact .dial-value { font-size: 0.8rem; }
+.plate-dial.compact .dial-label { display: none; }
+
+/* ===== PR badge (the one deliberate gold exception in an otherwise navy/white palette) ===== */
+.pr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--gold);
+  color: var(--gold-text);
+  font-size: 0.75rem;
+  font-weight: var(--weight-bold);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+/* ===== Bottom nav ===== */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--nav-height) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  z-index: 50;
+}
+
+.bottom-nav a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.7rem;
+  min-height: var(--tap-min);
+}
+
+.bottom-nav a.active { color: var(--accent); font-weight: var(--weight-bold); }
+
+/* ===== Desktop: promote nav to a sidebar ===== */
+@media (min-width: 900px) {
+  body { padding-bottom: 0; }
+
+  #app {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 24px 24px 24px 240px;
+  }
+
+  .bottom-nav {
+    top: 0;
+    bottom: 0;
+    right: auto;
+    width: 200px;
+    height: 100vh;
+    flex-direction: column;
+    padding: 24px 0;
+    border-top: none;
+    border-inline-end: 1px solid var(--border);
+  }
+
+  .bottom-nav a {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 0 24px;
+    font-size: 0.95rem;
+  }
+}
+
+/* ===== Set row states (Active Session redesign) =====
+   Steady states — done/active/upcoming — are mutually exclusive and reflect
+   where a set sits relative to the workout's current point. Entering/
+   celebrate are transient, removed once their transition/animation ends. */
+.set-row {
+  /* box-shadow, not outline: outline removal has known repaint-reliability
+     issues on Safari/iOS when a class is removed without a forced reflow —
+     the exact symptom of a highlight appearing "stuck" after the state that
+     produced it has already changed. box-shadow also transitions cleanly,
+     which outline does not do reliably across browsers. */
+  transition: opacity 0.22s ease, transform 0.22s ease, background-color 0.2s ease, box-shadow 0.25s ease;
+}
+
+.set-row--entering {
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+}
+
+/* Completed: slightly muted, no border — the ✓ on the done button is its
+   indicator, not this background. */
+.set-row--done {
+  background-color: var(--surface-raised);
+  opacity: 0.88;
+}
+
+/* Current: full opacity, strong border, the one row the user's attention
+   belongs on. Exactly one row ever carries this class (see
+   applyFocusMode()) — box-shadow instead of outline so it animates in and
+   out cleanly and repaints reliably when the class is removed. */
+.set-row--active {
+  box-shadow: 0 0 0 2px var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+/* Upcoming: normal appearance, no border — only a hint of lower priority,
+   not a muted/disabled look, since these rows are fully interactive. */
+.set-row--upcoming {
+  opacity: 0.94;
+}
+
+.set-row--celebrate {
+  animation: set-row-celebrate 0.4s ease;
+}
+
+@keyframes set-row-celebrate {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.035); }
+  100% { transform: scale(1); }
+}
+
+.set-field {
+  min-height: var(--tap-min);
+}
+
+.set-field--weight {
+  min-width: 96px;
+}
+
+.set-field--reps {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 4px 10px;
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  transition: background-color 0.2s ease;
+}
+
+.set-field--reps .reps-value {
+  font-size: 1.15rem;
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+}
+
+.set-field--reps .reps-caption {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.set-field--reps.set-field--open {
+  background: var(--accent-dim);
+}
+
+.set-done-btn {
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.set-row-previous {
+  flex-basis: 100%;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ===== Numeric weight field ===== */
+.numeric-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--tap-min);
+  padding: 0 10px;
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  transition: box-shadow 0.15s ease;
+}
+
+/* Same focus-ring treatment as .search-bar — consistent "premium input"
+   feel across the app's plainest and most bespoke text fields alike. */
+.numeric-field:focus-within {
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.numeric-field-input {
+  /* Wide enough for a 3-digit weight with a decimal (e.g. 132.125 — real
+     plate-math totals commonly land on 3 decimals), not just a round number. */
+  width: 7ch;
+  border: none;
+  background: transparent;
+  font-size: 1.15rem;
+  font-weight: var(--weight-semibold);
+  text-align: center;
+  color: var(--text);
+  -moz-appearance: textfield;
+}
+
+.numeric-field-input::-webkit-outer-spin-button,
+.numeric-field-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.numeric-field-input:focus {
+  outline: none;
+}
+
+.numeric-field-unit {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ===== Wheel picker (reps) — see js/ui/wheel-picker.js ===== */
+.wheel-picker-slot {
+  flex-basis: 100%;
+}
+
+.wheel-picker {
+  position: relative;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-snap-type: y mandatory;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* The fixed "selection band" lines the wheel scrolls behind — same idea as
+   the iOS Clock/UIPickerView highlight. Height must match ITEM_H in
+   wheel-picker.js. */
+.wheel-picker::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  right: 8px;
+  height: 40px;
+  transform: translateY(-50%);
+  border-top: 1.5px solid var(--accent-dim);
+  border-bottom: 1.5px solid var(--accent-dim);
+  pointer-events: none;
+}
+
+.wheel-track {
+  display: flex;
+  flex-direction: column;
+}
+
+.wheel-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: center;
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+
+.wheel-item--selected {
+  color: var(--accent);
+  font-weight: var(--weight-bold);
+  font-size: 1.2rem;
+  letter-spacing: var(--tracking-tight);
+}
+
+/* ===== Segmented control sliding indicator =====
+   Inert by default so existing callers (e.g. Dashboard's metric/view
+   toggles) render exactly as before. A caller opts in with
+   .toggle-group--live and by calling patchToggleGroup() at least once. */
+.toggle-group {
+  position: relative;
+}
+
+.toggle-group-indicator {
+  display: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  transition: transform 0.22s ease, width 0.22s ease;
+  z-index: 0;
+}
+
+.toggle-group--live .toggle-group-indicator {
+  display: block;
+}
+
+.toggle-group--live button {
+  position: relative;
+  z-index: 1;
+  transition: color 0.2s ease;
+}
+
+.toggle-group--live button.active {
+  background: transparent;
+  color: #FFFFFF;
+}
+
+/* A 3-option segmented control (set type) is noticeably wider than the
+   2-option kg/lb and total/per-side ones — sized down so it doesn't crowd
+   the rest of the set row off onto its own line every time. */
+.toggle-group--compact button {
+  min-height: 40px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .set-row,
+  .set-field--reps,
+  .toggle-group-indicator,
+  .toggle-group--live button,
+  .set-done-btn {
+    transition: none;
+  }
+
+  .set-row--celebrate {
+    animation: none;
+  }
+}
+
+.set-more-btn {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+/* The exercise-card header's delete button shares .set-more-btn with the
+   (non-destructive) edit-pencil button elsewhere — this modifier is the
+   only thing that tints it as the destructive action it actually is. */
+.set-more-btn--danger {
+  color: var(--danger);
+}
+
+.set-row-notes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-basis: 100%;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+/* ===== Bottom sheet (Active Session, Phase 2) ===== */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(22, 35, 59, 0);
+  transition: background-color 0.25s ease;
+  z-index: 200;
+}
+
+.sheet-overlay--open {
+  background: rgba(22, 35, 59, 0.4);
+}
+
+.bottom-sheet {
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--bg);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: 8px 20px calc(20px + var(--safe-bottom));
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.bottom-sheet--open {
+  transform: translateY(0);
+}
+
+.bottom-sheet-handle {
+  width: 40px;
+  height: 5px;
+  margin: 8px auto 14px;
+  border-radius: var(--radius-full);
+  background: var(--border);
+  touch-action: none;
+}
+
+.sheet-field-label {
+  margin: 14px 0 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.sheet-actions .btn {
+  flex: 1;
+  min-width: 120px;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #FFFFFF;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-overlay,
+  .bottom-sheet {
+    transition: none;
+  }
+}
+
+/* ===== Rest timer pill (Active Session, Phase 3) =====
+   A small floating pill, not a full-width card — resting and editing the
+   next set happen at the same time, so it must never block or push around
+   the exercise list beneath it. */
+.rest-pill {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--nav-height) + var(--safe-bottom) + 14px);
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 6px 14px 6px 6px;
+  box-shadow: var(--shadow-lg);
+}
+
+.rest-pill-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.rest-pill-actions .btn {
+  min-height: 36px;
+  min-width: 36px;
+  padding: 0 12px;
+  font-size: 0.8rem;
+}
+
+/* ===== Workout progress indicator ===== */
+.workout-progress {
+  margin: 0 0 10px;
+}
+
+.workout-progress-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.workout-progress-bar {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.workout-progress-fill {
+  height: 100%;
+  background: var(--success);
+  transition: width 0.3s ease;
+}
+
+/* ===== Toasts (e.g. PR celebration message) ===== */
+.toast-slot {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--text);
+  color: var(--bg);
+  padding: 10px 18px;
+  border-radius: var(--radius-full);
+  font-weight: var(--weight-bold);
+  font-size: 0.9rem;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  box-shadow: var(--shadow-md);
+}
+
+.toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ===== PR badge celebration ===== */
+.pr-badge--celebrate {
+  animation: pr-badge-celebrate 0.5s ease;
+}
+
+@keyframes pr-badge-celebrate {
+  0% { transform: scale(1) rotate(0deg); }
+  35% { transform: scale(1.25) rotate(-6deg); }
+  65% { transform: scale(1.1) rotate(4deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* ===== Press feedback =====
+   Every primary tap target gets a small instant scale-down on press —
+   before this, nothing on the screen gave any feedback until the *result*
+   of a tap appeared, which is what made it feel like a web page rather
+   than a native app responding to touch. */
+.btn,
+.pill,
+.set-more-btn,
+.toggle-group button,
+.bottom-nav a {
+  transition: transform 0.1s ease;
+}
+
+.btn:active,
+.pill:active,
+.set-more-btn:active,
+.toggle-group button:active,
+.set-done-btn:active,
+.set-field--reps:active,
+.bottom-nav a:active {
+  transform: scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workout-progress-fill,
+  .toast {
+    transition: none;
+  }
+
+  .pr-badge--celebrate {
+    animation: none;
+  }
+
+  .btn,
+  .pill,
+  .set-more-btn,
+  .toggle-group button,
+  .bottom-nav a {
+    transition: none;
+  }
+}
+
+/* ===== History (Phase 2 of the whole-app redesign) ===== */
+
+/* Calendar day cell + its two independent markers — "has a workout" (filled)
+   and "is today" (ringed) — so the two are never confused for one another. */
+.history-day {
+  padding: 6px 0;
+  border-radius: var(--radius-sm);
+}
+
+.history-day--workout {
+  background: var(--accent);
+  color: #FFFFFF;
+  font-weight: var(--weight-bold);
+}
+
+.history-day--today {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* A workout day that's also today: the fill already reads as "today" against
+   the rest of the grid, so the ring switches to white to stay visible on top
+   of it instead of doubling up on the same accent colour. */
+.history-day--today.history-day--workout {
+  box-shadow: inset 0 0 0 2px #FFFFFF;
+}
+
+#cal-grid {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.cal-grid--transitioning {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+/* Expand/collapse via the grid-rows trick (0fr → 1fr) rather than
+   re-rendering — the row's own DOM node never gets torn down, so the
+   transition actually has something to animate between. */
+.history-detail {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.history-detail--open {
+  grid-template-rows: 1fr;
+}
+
+.history-detail-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.history-detail--open .history-detail-inner {
+  padding-top: 10px;
+}
+
+.history-chevron {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.history-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* ===== Sets list view (js/ui/sets-table.js) =====
+   Card-row list, not a literal <table> — used by History's expanded
+   exercises and Active Session's "last time" popup. */
+.sets-list-view {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sets-list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+.sets-list-index {
+  min-width: 1.5ch;
+  color: var(--text-muted);
+}
+
+.sets-list-type {
+  flex: 1;
+  color: var(--text-muted);
+}
+
+.sets-list-weight {
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.sets-list-reps {
+  min-width: 5ch;
+  text-align: end;
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #cal-grid,
+  .history-detail,
+  .history-chevron {
+    transition: none;
+  }
+}
+
+/* ===== Dashboard (Phase 3 of the whole-app redesign) ===== */
+
+/* Replaces the native <select> exercise picker — same visual language as
+   .search-bar, but a button so it can open the custom picker card below it. */
+.dash-exercise-trigger {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.dash-exercise-trigger--open {
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.dash-exercise-trigger-icon {
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.dash-exercise-trigger--open .dash-exercise-trigger-icon {
+  transform: rotate(180deg);
+}
+
+.dash-progress-view {
+  transition: opacity 0.2s ease;
+}
+
+.dash-progress-view--transitioning {
+  opacity: 0;
+}
+
+.dash-table-view {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dash-table-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+}
+
+/* Personal records: one card per category instead of one flat list with
+   plain text sub-headers — clearer separation between muscle groups. */
+.pr-category-card {
+  margin-bottom: var(--space-3);
+}
+
+.pr-category-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  margin-bottom: var(--space-2);
+}
+
+.pr-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.pr-row:last-child {
+  border-bottom: none;
+}
+
+.pr-row-name {
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.pr-row-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.pr-row-weight {
+  font-weight: var(--weight-bold);
+  color: var(--accent);
+}
+
+.pr-row-reps,
+.pr-row-date {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.pr-row-date {
+  font-size: var(--text-xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-exercise-trigger,
+  .dash-exercise-trigger-icon,
+  .dash-progress-view {
+    transition: none;
+  }
+}
+
+/* ===== Icons (js/ui/icon.js) =====
+   One consistent stroke-icon system replacing every decorative emoji —
+   same size scale as the rest of the app, so an icon next to text always
+   aligns the same way regardless of which screen it's on. */
+.icon {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  flex-shrink: 0;
+  vertical-align: -0.2em;
+}
+
+.icon--sm {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.icon--lg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}

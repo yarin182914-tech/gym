@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ייבוא אימון 30/7</title>
+<link href="https://fonts.googleapis.com/css2?family=Suez+One&family=Rubik:wght@400;600;700&family=Inter:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/01-tokens.css">
+<link rel="stylesheet" href="css/02-base.css">
+<link rel="stylesheet" href="css/03-components.css">
+<link rel="stylesheet" href="css/04-utilities.css">
+</head>
+<body>
+<div id="app" style="max-width:480px; margin:0 auto; padding:24px;">
+  <div class="card" id="status">
+    <h2>ייבוא אימון פוש 30/7</h2>
+    <p class="text-muted">פעולה חד פעמית — מכניסה את האימון הבא ישירות לחשבון הענן שלך.</p>
+  </div>
+  <div id="preview"></div>
+</div>
+<script type="module">
+import { auth } from './js/firebase-config.js';
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js';
+import { createWorkout, listWorkouts } from './js/lib/firestore.js';
+import { setsTable } from './js/ui/sets-table.js';
+import { toDate } from './js/lib/format.js';
+
+const statusEl = document.getElementById('status');
+const previewEl = document.getElementById('preview');
+
+function mk(name, category, weightMode, weightUnit, sets) {
+  return {
+    name, category,
+    sets: sets.map(([type, weight, reps], i) => ({ setNumber: i + 1, type, weight, weightUnit, weightMode, reps })),
+  };
+}
+
+const WORKOUT_DATE = new Date(2026, 6, 30, 18, 0);
+const WORKOUT_END = new Date(2026, 6, 30, 19, 0);
+
+const EXERCISES = [
+  mk('חזה חופשיות', 'חזה', 'perSide', 'kg', [['warmup', 16, 10], ['working', 24, 10], ['working', 24, 10], ['working', 24, 9]]),
+  mk('כתף חופשיות', 'כתפיים', 'perSide', 'kg', [['working', 18, 8], ['working', 18, 7.5], ['working', 18, 8]]),
+  mk('כבלים עליון', 'חזה', 'total', 'kg', [['working', 35, 8], ['working', 35, 8], ['working', 35, 7]]),
+  mk('כבלים אמצע', 'חזה', 'total', 'kg', [['working', 30, 8], ['working', 30, 8], ['working', 30, 8]]),
+  mk('כתף כבל צד צד', 'כתפיים', 'perSide', 'kg', [['working', 14, 8], ['working', 15, 10], ['working', 10, 10]]),
+  mk('יד אחורית כבל', 'יד אחורית', 'total', 'kg', [['working', 62.5, 10], ['working', 62.5, 10], ['working', 62.5, 10]]),
+  mk('בטן מיטה בשיפוע', 'בטן', 'total', 'kg', [['working', 10, 15], ['working', 10, 15], ['working', 10, 15]]),
+];
+
+previewEl.innerHTML = EXERCISES.map((ex) => `
+  <div class="card">
+    <h3 style="margin:0 0 8px;">${ex.name}</h3>
+    ${setsTable(ex.sets)}
+  </div>`).join('');
+
+let alreadyImported = false;
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    statusEl.innerHTML = '<h2>ייבוא אימון פוש 30/7</h2><p>צריך קודם להתחבר עם Google בעמוד הראשי, ואז לחזור לכתובת הזו.</p><a href="/" class="btn btn-secondary btn-block">חזרה לעמוד ההתחברות</a>';
+    return;
+  }
+  const existing = await listWorkouts(500);
+  alreadyImported = existing.some((w) => {
+    const d = toDate(w.date);
+    return d.getFullYear() === WORKOUT_DATE.getFullYear()
+      && d.getMonth() === WORKOUT_DATE.getMonth()
+      && d.getDate() === WORKOUT_DATE.getDate();
+  });
+
+  statusEl.innerHTML = `
+    <h2>ייבוא אימון פוש 30/7</h2>
+    <p class="text-muted">${alreadyImported ? 'כבר קיים אימון בתאריך הזה בענן.' : 'האימון למטה עדיין לא נמצא בענן.'}</p>
+    <button id="go-btn" class="btn btn-primary btn-block">${alreadyImported ? 'לייבא בכל זאת (ייווצר כפול)' : 'ייבוא האימון'}</button>
+  `;
+  document.getElementById('go-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('go-btn');
+    btn.disabled = true;
+    btn.textContent = 'מייבא...';
+    try {
+      await createWorkout({
+        date: WORKOUT_DATE,
+        startTime: WORKOUT_DATE,
+        endTime: WORKOUT_END,
+        exercises: EXERCISES,
+      });
+      statusEl.innerHTML = '<h2>הייבוא הצליח!</h2><p>האימון נשמר בענן.</p><a href="/" class="btn btn-primary btn-block">חזרה לאתר</a>';
+    } catch (err) {
+      statusEl.innerHTML = `<h2>שגיאה</h2><p class="text-muted">${err.message}</p>`;
+    }
+  });
+});
+</script>
+</body>
+</html>
