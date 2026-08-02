@@ -7,14 +7,9 @@ const HE_MONTHS_SHORT = ['ינו', 'פבר', 'מרץ', 'אפר', 'מאי', 'יו
 
 export const SET_TYPE_LABELS = { warmup: 'חימום', working: 'רגיל', dropset: 'דרופ סט' };
 
-// Default rest, in seconds, per set type. Warm-ups get a shorter default than
-// working sets; drop sets are taken back-to-back.
-export const SET_TYPE_REST_SEC = { warmup: 60, working: 120, dropset: 30 };
-
 export const SET_TYPES = Object.keys(SET_TYPE_LABELS).map((id) => ({
   id,
   label: SET_TYPE_LABELS[id],
-  restSec: SET_TYPE_REST_SEC[id],
 }));
 
 export function setTypeLabel(type) {

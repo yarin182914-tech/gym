@@ -96,6 +96,34 @@
   background: var(--surface);
 }
 
+/* Drop-set stage: a child set nested under a .drop-set-header, indented
+   with a connector line so the group reads as one unit rather than three
+   unrelated rows — same idea as the "↳" in a plain-text sketch of this. */
+.set-row--child {
+  margin-inline-start: 20px;
+  padding-inline-start: 10px;
+  border-inline-start: 2px solid var(--border);
+}
+
+/* A dedicated class, not the `hidden` attribute — [hidden] and .set-row's
+   own `display: flex` are equal specificity, and the author rule (this
+   file) wins that tie, so `hidden` alone would have no visual effect. */
+.set-row--group-collapsed {
+  display: none;
+}
+
+/* The parent itself never carries weight/reps once it has stages — just a
+   label plus the group's controls (expand, add another stage, delete). */
+.drop-set-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  margin-inline-start: 20px;
+  padding-inline-start: 10px;
+  border-inline-start: 2px solid var(--border);
+}
+
 /* ===== Toggle group (segmented control: ק"ג/lb, טוטאל/כל צד) ===== */
 .toggle-group {
   display: inline-flex;
@@ -362,7 +390,8 @@ th {
    Steady states — done/active/upcoming — are mutually exclusive and reflect
    where a set sits relative to the workout's current point. Entering/
    celebrate are transient, removed once their transition/animation ends. */
-.set-row {
+.set-row,
+.drop-set-header {
   /* box-shadow, not outline: outline removal has known repaint-reliability
      issues on Safari/iOS when a class is removed without a forced reflow —
      the exact symptom of a highlight appearing "stuck" after the state that
@@ -601,6 +630,7 @@ th {
 
 @media (prefers-reduced-motion: reduce) {
   .set-row,
+  .drop-set-header,
   .set-field--reps,
   .toggle-group-indicator,
   .toggle-group--live button,
@@ -627,6 +657,20 @@ th {
    only thing that tints it as the destructive action it actually is. */
 .set-more-btn--danger {
   color: var(--danger);
+}
+
+/* touch-action: none is what actually matters here — without it, a
+   pointerdown that starts a drag on a touchscreen also tries to scroll the
+   page underneath it, fighting the reorder the whole time. */
+.exercise-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.exercise-card--dragging {
+  cursor: grabbing;
+  box-shadow: var(--shadow-lg);
+  z-index: 5;
 }
 
 .set-row-notes {
@@ -709,38 +753,6 @@ th {
   .bottom-sheet {
     transition: none;
   }
-}
-
-/* ===== Rest timer pill (Active Session, Phase 3) =====
-   A small floating pill, not a full-width card — resting and editing the
-   next set happen at the same time, so it must never block or push around
-   the exercise list beneath it. */
-.rest-pill {
-  position: fixed;
-  left: 50%;
-  bottom: calc(var(--nav-height) + var(--safe-bottom) + 14px);
-  transform: translateX(-50%);
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-full);
-  padding: 6px 14px 6px 6px;
-  box-shadow: var(--shadow-lg);
-}
-
-.rest-pill-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.rest-pill-actions .btn {
-  min-height: 36px;
-  min-width: 36px;
-  padding: 0 12px;
-  font-size: 0.8rem;
 }
 
 /* ===== Workout progress indicator ===== */
@@ -862,9 +874,11 @@ th {
 
 /* ===== History (Phase 2 of the whole-app redesign) ===== */
 
-/* Calendar day cell + its two independent markers — "has a workout" (filled)
-   and "is today" (ringed) — so the two are never confused for one another. */
+/* Calendar day cell + its three independent markers — "has a workout"
+   (filled), "is today" (ringed) and "is selected" (dot) — so none of them
+   are ever confused for one another, and any combination stays legible. */
 .history-day {
+  position: relative;
   padding: 6px 0;
   border-radius: var(--radius-sm);
 }
@@ -884,6 +898,26 @@ th {
    of it instead of doubling up on the same accent colour. */
 .history-day--today.history-day--workout {
   box-shadow: inset 0 0 0 2px #FFFFFF;
+}
+
+/* "Selected" (synced with whichever workout is open in the list below) is a
+   small dot rather than a ring or fill, deliberately — it needs to stay
+   visible layered on top of either of the other two states without any
+   combined-state CSS for every pairing. */
+.history-day--selected::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--purple);
+}
+
+.history-day--selected.history-day--workout::after {
+  background: #FFFFFF;
 }
 
 #cal-grid {

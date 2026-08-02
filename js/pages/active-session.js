@@ -1,4 +1,3 @@
-import { renderPlateDial } from '../lib/plate-dial.js';
 import { esc } from '../core/dom.js';
 import { beginMount, isStale } from '../core/page.js';
 import { setsTable } from '../ui/sets-table.js';
@@ -9,6 +8,7 @@ import { openBottomSheet } from '../ui/bottom-sheet.js';
 import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { openExerciseEditSheet } from '../ui/exercise-edit-sheet.js';
+import { confirmDialog } from '../ui/confirm-dialog.js';
 import {
   formatMMSS, formatDateHe, formatWeight, unitLabel, convertWeight, SET_TYPES,
   dateInputValue, parseDateInputValue,
@@ -22,8 +22,6 @@ let container = null;
 let library = [];
 let session = null; // { startedAt, realStartedAt, exercises: [...] }
 let elapsedTimerId = null;
-let restTimerId = null;
-let rest = null; // { totalSec, remainingSec }
 let picker = { open: false, query: '', category: null };
 let lastTimeModal = null; // { name, previous }
 let recentExerciseNames = []; // fetched lazily each time the picker opens
@@ -36,6 +34,12 @@ let exerciseRefs = new Map();
 // Only one wheel picker is meant to be open at a time; closing whichever one
 // is currently open before opening another avoids stacking scroll listeners.
 let openWheelCloser = null;
+
+// { exUid, pointerId, cardEl, grabStartClientY } while a drag handle is held.
+// session.exercises and #exercise-list's DOM order are kept in sync on every
+// swap during the drag itself (not just on drop), so there's never a moment
+// where the two disagree.
+let exerciseDrag = null;
 
 let uidSeq = 0;
 function nextUid() {
@@ -65,7 +69,6 @@ export async function mountActiveSession(rootEl) {
 // deliberately kept, so leaving this tab mid-session doesn't discard it.
 export function unmountActiveSession() {
   stopElapsedTicking();
-  stopRestTicking();
   // The dialog's Escape handler lives on document, so it outlives this page
   // unless removed here.
   document.removeEventListener('keydown', onLastTimeKeydown);
@@ -147,8 +150,6 @@ function render() {
 
     <div id="progress-slot"></div>
 
-    <div id="rest-slot"></div>
-
     <div id="exercise-list"></div>
 
     <button class="btn btn-secondary btn-block" id="add-exercise-btn">+ הוספת תרגיל</button>
@@ -165,7 +166,6 @@ function render() {
     list.appendChild(buildExerciseCard(ex));
   });
 
-  patchRestSlot();
   applyFocusMode();
   restoreScroll();
 
@@ -178,58 +178,6 @@ function render() {
 
   if (picker.open) wirePicker();
   if (lastTimeModal) wireLastTimeModal();
-}
-
-// ---------- rest timer slot (patched independently of render()) ----------
-//
-// Completing a set is the single most frequent action on this screen and it
-// starts the rest timer — that must not trigger a full render(), or every
-// set-complete animation would be wiped out by a whole-screen rebuild.
-//
-// Rendered as a small floating pill (not a full-width card) so it never
-// blocks or pushes around the next set the user is about to log — resting
-// and editing happen at the same time, not one after the other.
-
-function patchRestSlot() {
-  if (!container) return;
-  const slot = container.querySelector('#rest-slot');
-  if (!slot) return;
-
-  if (!rest) {
-    slot.innerHTML = '';
-    return;
-  }
-
-  if (!slot.querySelector('#rest-pill')) {
-    slot.innerHTML = `
-      <div class="rest-pill" id="rest-pill" role="status">
-        <div id="rest-dial"></div>
-        <div class="rest-pill-actions">
-          <button type="button" class="btn btn-secondary" id="rest-plus15-btn">+15</button>
-          <button type="button" class="btn btn-secondary" id="rest-plus30-btn">+30</button>
-          <button type="button" class="btn btn-secondary" id="skip-rest-btn">דלג</button>
-        </div>
-      </div>`;
-    slot.querySelector('#rest-plus15-btn').addEventListener('click', () => extendRest(15));
-    slot.querySelector('#rest-plus30-btn').addEventListener('click', () => extendRest(30));
-    slot.querySelector('#skip-rest-btn').addEventListener('click', stopRestTimer);
-  }
-
-  renderPlateDial(slot.querySelector('#rest-dial'), {
-    progress: rest.remainingSec / rest.totalSec,
-    valueText: formatMMSS(rest.remainingSec),
-    label: 'שניות',
-    compact: true,
-  });
-}
-
-function extendRest(sec) {
-  if (!rest) return;
-  // Extends both ends by the same amount, so the dial reflects "more time
-  // was added" rather than jumping past a full ring.
-  rest.totalSec += sec;
-  rest.remainingSec += sec;
-  patchRestSlot();
 }
 
 // ---------- workout progress indicator ----------
@@ -488,24 +436,26 @@ function convertExerciseWeightUnit(ex, newUnit) {
 
 // ---------- exercise card (built once; patched afterwards) ----------
 
-function isExerciseAllDone(ex) {
-  return ex.sets.length > 0 && ex.sets.every((s) => s.done);
-}
-
 function buildExerciseCard(ex) {
   const el = document.createElement('div');
   el.className = 'card';
 
-  const allDone = isExerciseAllDone(ex);
-  const isOpen = !(allDone && ex.collapsed);
+  // Purely manual — nothing here ever sets ex.collapsed automatically. It
+  // used to auto-collapse the moment every set was marked done, which meant
+  // finishing a set could unexpectedly close the whole card out from under
+  // the user; now the chevron is the only thing that ever changes this.
+  const isOpen = !ex.collapsed;
 
   el.innerHTML = `
     <div class="row" style="margin-bottom:8px; flex-wrap:wrap; gap:8px;">
-      <h3 style="color:var(--text); margin:0;">${esc(ex.name)}</h3>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button type="button" class="set-more-btn exercise-drag-handle" data-role="drag-handle" aria-label="גרירה לשינוי סדר התרגילים">${icon('grip-vertical', { className: 'icon--sm' })}</button>
+        <h3 style="color:var(--text); margin:0;">${esc(ex.name)}</h3>
+      </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <button class="btn btn-secondary" data-last-time style="padding:0 12px; font-size:0.85rem;">${icon('clock', { className: 'icon--sm' })} פעם קודמת</button>
         <button type="button" class="set-more-btn set-more-btn--danger" data-delete-exercise aria-label="מחיקת התרגיל">${icon('trash-2', { className: 'icon--sm' })}</button>
-        <button type="button" class="set-more-btn${allDone ? '' : ' hidden'}" data-collapse-toggle aria-label="כיווץ/הרחבת התרגיל">
+        <button type="button" class="set-more-btn" data-collapse-toggle aria-label="כיווץ/הרחבת התרגיל">
           <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-collapse-chevron aria-hidden="true">⌄</span>
         </button>
       </div>
@@ -548,6 +498,8 @@ function buildExerciseCard(ex) {
     patchExerciseCollapse(ex);
   });
 
+  wireExerciseDragHandle(el.querySelector('[data-role="drag-handle"]'), ex, el);
+
   const modeGroupEl = el.querySelector('[data-weight-mode-group]');
   const unitGroupEl = el.querySelector('[data-weight-unit-group]');
   modeGroupEl.classList.add('toggle-group--live');
@@ -589,7 +541,6 @@ function buildExerciseCard(ex) {
     modeGroupEl,
     unitGroupEl,
     detailEl: el.querySelector('[data-exercise-detail]'),
-    collapseToggleEl: el.querySelector('[data-collapse-toggle]'),
     chevronEl: el.querySelector('[data-collapse-chevron]'),
   };
   exerciseRefs.set(ex._uid, refs);
@@ -608,11 +559,19 @@ function buildExerciseCard(ex) {
 function prefillForNewSet(ex) {
   const newIdx = ex.sets.length;
   const last = ex.sets.at(-1);
-  if (last) return { type: last.type, weight: last.weight, reps: last.reps, notes: '' };
+  if (last) {
+    // A brand-new top-level set repeating 'dropset' from whatever the last
+    // stage happened to be would silently start it as an (empty, confusing)
+    // drop-set parent — that's only ever meant to happen when the user
+    // explicitly picks it, so fall back to 'working' here.
+    const type = last.type === 'dropset' ? 'working' : last.type;
+    return { type, weight: last.weight, reps: last.reps, notes: '' };
+  }
   const prevSet = ex.prevLoaded ? ex.previous?.sets?.[newIdx] : null;
   if (prevSet) {
     const weight = convertWeight(prevSet.weight, prevSet.weightUnit || 'kg', ex.weightUnit);
-    return { type: prevSet.type ?? 'working', weight, reps: prevSet.reps, notes: '' };
+    const type = prevSet.type === 'dropset' ? 'working' : (prevSet.type ?? 'working');
+    return { type, weight, reps: prevSet.reps, notes: '' };
   }
   return { type: 'working', weight: 20, reps: 8, notes: '' };
 }
@@ -630,19 +589,74 @@ function patchExerciseCard(ex) {
   patchExerciseCollapse(ex);
 }
 
-// A finished exercise (every set done) can be minimized to just its header —
-// the point is that moving on to the next exercise doesn't leave a fully
-// expanded, already-done card eating the whole screen. Only offered once
-// it's actually done: collapsing is never available while any set still
-// needs attention, since that's exactly what focus mode above needs visible.
+// An exercise can be minimized to just its header — the point is that a
+// finished exercise doesn't have to keep eating the whole screen once
+// you've moved on. Purely manual: only the chevron (data-collapse-toggle)
+// ever changes ex.collapsed.
 function patchExerciseCollapse(ex) {
   const refs = exerciseRefs.get(ex._uid);
   if (!refs) return;
-  const allDone = isExerciseAllDone(ex);
-  const isOpen = !(allDone && ex.collapsed);
-  refs.collapseToggleEl.classList.toggle('hidden', !allDone);
+  const isOpen = !ex.collapsed;
   refs.detailEl.classList.toggle('history-detail--open', isOpen);
   refs.chevronEl.classList.toggle('history-chevron--open', isOpen);
+}
+
+// ---------- drop sets: a set with children becomes a bare group header,
+// its own weight/reps no longer shown or persisted — every stage lives on
+// a child instead. Children are never DOM-nested inside their parent; they
+// stay flat, ordinary siblings in ex.sets/#sets-list (just indented via
+// CSS), which is what lets all the existing uid-keyed diffing below keep
+// working unchanged. A child is simply a set with `parentUid` set; a
+// parent is derived (never stored) as "any set something else points at".
+
+function hasChildren(ex, set) {
+  return ex.sets.some((s) => s.parentUid === set._uid);
+}
+
+function childrenOf(ex, set) {
+  return ex.sets.filter((s) => s.parentUid === set._uid);
+}
+
+function computeSetRole(ex, set) {
+  if (hasChildren(ex, set)) return 'parent';
+  if (set.parentUid) return 'child';
+  return 'regular';
+}
+
+// Position among sets that actually carry loggable data (skips bare parent
+// headers) — matches how finishWorkout() numbers sets when saving, so
+// "previous performance" lookups against last time's flat saved array stay
+// aligned even though the live in-session list also contains headers.
+function persistablePosition(ex, set) {
+  let pos = 0;
+  for (const s of ex.sets) {
+    if (s === set) return pos;
+    if (!hasChildren(ex, s)) pos += 1;
+  }
+  return pos;
+}
+
+// Appends a new stage after a drop set's last existing stage (or right
+// after the parent itself if this is its first). Prefills from the
+// previous stage, same "repeat the last one" convention as a plain +סט.
+function addDropStage(ex, parent) {
+  const children = childrenOf(ex, parent);
+  const last = children.at(-1);
+  const insertAfter = last || parent;
+  ex.sets.splice(ex.sets.indexOf(insertAfter) + 1, 0, {
+    _uid: nextUid(),
+    parentUid: parent._uid,
+    type: 'dropset',
+    weight: last ? last.weight : parent.weight,
+    reps: last ? last.reps : parent.reps,
+    notes: '',
+    done: false,
+    isPR: false,
+    weightMode: parent.weightMode,
+    weightUnit: parent.weightUnit,
+  });
+  parent.collapsed = false; // adding a stage should always reveal it
+  patchExerciseCard(ex);
 }
 
 // Diffs ex.sets (keyed by uid, not index — index breaks the moment a set is
@@ -654,7 +668,7 @@ function syncSetRows(ex, refs) {
   const currentUids = new Set(ex.sets.map((s) => s._uid));
   for (const [uid, ctrl] of refs.setsEls) {
     if (!currentUids.has(uid)) {
-      ctrl.closeWheel();
+      ctrl.closeWheel?.(); // drop-set header rows have no wheel to close
       ctrl.row.remove();
       refs.setsEls.delete(uid);
     }
@@ -662,9 +676,25 @@ function syncSetRows(ex, refs) {
 
   ex.sets.forEach((set, idx) => {
     let ctrl = refs.setsEls.get(set._uid);
+    const role = computeSetRole(ex, set);
+    // A regular row also needs rebuilding the moment its type flips to/from
+    // 'dropset' — that's what shows or hides its "+ ירידה" button, and
+    // patchSetRow never touches that element (only buildSetRow creates it).
+    const isDropsetType = set.type === 'dropset';
+    const needsRebuild = ctrl && (ctrl.role !== role || (role === 'regular' && ctrl.builtAsDropsetType !== isDropsetType));
+    if (needsRebuild) {
+      // The row's whole DOM shape differs by role (header vs. full set row)
+      // — patching one into the other isn't meaningful, so rebuild instead.
+      ctrl.closeWheel?.();
+      ctrl.row.remove();
+      refs.setsEls.delete(set._uid);
+      ctrl = null;
+    }
     const nodeAtIdx = refs.setsListEl.children[idx] || null;
     if (!ctrl) {
-      ctrl = buildSetRow(ex, set);
+      ctrl = role === 'parent' ? buildDropSetHeaderRow(ex, set) : buildSetRow(ex, set, role);
+      ctrl.role = role;
+      ctrl.builtAsDropsetType = isDropsetType;
       refs.setsEls.set(set._uid, ctrl);
       refs.setsListEl.insertBefore(ctrl.row, nodeAtIdx);
       // Two rAFs, not one: the browser must paint the "entering" state before
@@ -678,15 +708,31 @@ function syncSetRows(ex, refs) {
       // move its existing row rather than rebuilding it.
       refs.setsListEl.insertBefore(ctrl.row, nodeAtIdx);
     }
-    patchSetRow(ex, set, idx, ctrl);
+    if (role === 'parent') {
+      patchDropSetHeaderRow(ex, set, ctrl);
+    } else {
+      patchSetRow(ex, set, persistablePosition(ex, set), ctrl);
+      if (role === 'child') {
+        // Not the `hidden` attribute — .set-row's own `display: flex` rule
+        // and the UA's `[hidden] { display: none }` rule are equal
+        // specificity, and the author rule wins the tie, so `hidden` was
+        // silently having no visual effect at all.
+        const parent = ex.sets.find((s) => s._uid === set.parentUid);
+        ctrl.row.classList.toggle('set-row--group-collapsed', !!parent?.collapsed);
+      }
+    }
   });
 }
 
-function buildSetRow(ex, set) {
+function buildSetRow(ex, set, role) {
   const row = document.createElement('div');
-  row.className = 'set-row set-row--entering';
+  row.className = role === 'child' ? 'set-row set-row--entering set-row--child' : 'set-row set-row--entering';
 
-  row.innerHTML = `
+  // A child stage is implicitly a drop set already — no type selector, and
+  // no point re-labeling it warmup/working. A regular set gets the normal
+  // type pill, plus (only once it's actually tagged as a drop set) a button
+  // to start turning it into a group by adding its first stage.
+  const typeAndAddStage = role === 'child' ? '' : `
     ${toggleGroup({
       name: 'type',
       active: set.type,
@@ -694,6 +740,11 @@ function buildSetRow(ex, set) {
       groupAttrs: 'data-set-type-group',
       options: SET_TYPES.map((t) => ({ value: t.id, label: t.label })),
     })}
+    ${set.type === 'dropset' ? `<button type="button" class="btn btn-secondary" data-role="add-stage-btn" style="font-size:0.8rem; padding:0 10px;">+ ירידה</button>` : ''}
+  `;
+
+  row.innerHTML = `
+    ${typeAndAddStage}
     <div class="set-field set-field--weight" data-role="weight-slot"></div>
     <button type="button" class="set-field set-field--reps" data-role="reps-trigger" aria-expanded="false">
       <span class="reps-value num">${esc(set.reps)}</span>
@@ -710,13 +761,20 @@ function buildSetRow(ex, set) {
   `;
 
   const typeGroupEl = row.querySelector('[data-set-type-group]');
-  typeGroupEl.classList.add('toggle-group--live', 'toggle-group--compact');
-  patchToggleGroup(typeGroupEl, set.type);
-  typeGroupEl.querySelectorAll('button').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      set.type = btn.dataset.type;
-      patchToggleGroup(typeGroupEl, set.type);
+  if (typeGroupEl) {
+    typeGroupEl.classList.add('toggle-group--live', 'toggle-group--compact');
+    patchToggleGroup(typeGroupEl, set.type);
+    typeGroupEl.querySelectorAll('button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        set.type = btn.dataset.type;
+        patchToggleGroup(typeGroupEl, set.type);
+        patchExerciseCard(ex); // type change may add/remove the "+ ירידה" button, which needs a rebuild
+      });
     });
+  }
+
+  row.querySelector('[data-role="add-stage-btn"]')?.addEventListener('click', () => {
+    addDropStage(ex, set);
   });
 
   const weightSlot = row.querySelector('[data-role="weight-slot"]');
@@ -831,6 +889,63 @@ function patchSetRow(ex, set, idx, ctrl) {
   }
 }
 
+// A drop set's parent renders as a bare group header once it has any
+// stages — it never carried its own loggable weight/reps, so there's
+// nothing to show or edit on it directly beyond the group controls.
+function buildDropSetHeaderRow(ex, set) {
+  const row = document.createElement('div');
+  row.className = 'drop-set-header set-row--entering';
+
+  row.innerHTML = `
+    <button type="button" class="set-more-btn" data-role="dropset-toggle" aria-label="כיווץ/הרחבת דרופ סט">
+      <span class="history-chevron" data-role="dropset-chevron" aria-hidden="true">⌄</span>
+    </button>
+    <span style="font-weight:var(--weight-semibold); flex:1;" data-role="dropset-label">דרופ סט</span>
+    <button type="button" class="btn btn-secondary" data-role="add-stage-btn" style="font-size:0.8rem; padding:0 10px;">+ ירידה</button>
+    <button type="button" class="set-more-btn set-more-btn--danger" data-role="delete-group-btn" aria-label="מחיקת דרופ סט">${icon('trash-2', { className: 'icon--sm' })}</button>
+  `;
+
+  row.querySelector('[data-role="dropset-toggle"]').addEventListener('click', () => {
+    set.collapsed = !set.collapsed;
+    patchExerciseCard(ex);
+  });
+
+  row.querySelector('[data-role="add-stage-btn"]').addEventListener('click', () => {
+    addDropStage(ex, set);
+  });
+
+  row.querySelector('[data-role="delete-group-btn"]').addEventListener('click', async () => {
+    const confirmed = await confirmDialog({
+      title: 'מחיקת דרופ סט',
+      message: 'למחוק את הדרופ סט וכל השלבים שבו? הפעולה לא הפיכה.',
+      confirmLabel: 'מחיקה',
+      danger: true,
+    });
+    if (!confirmed) return;
+    [set, ...childrenOf(ex, set)].forEach((s) => {
+      const idx = ex.sets.indexOf(s);
+      if (idx !== -1) ex.sets.splice(idx, 1);
+    });
+    patchExerciseCard(ex);
+  });
+
+  return {
+    row,
+    chevronEl: row.querySelector('[data-role="dropset-chevron"]'),
+    labelEl: row.querySelector('[data-role="dropset-label"]'),
+  };
+}
+
+function patchDropSetHeaderRow(ex, set, ctrl) {
+  ctrl.chevronEl.classList.toggle('history-chevron--open', !set.collapsed);
+  // Collapsed hides every stage, so the header stands in for the first one —
+  // a bare "דרופ סט" label with nothing else visible reads as empty/broken.
+  const first = childrenOf(ex, set)[0];
+  ctrl.labelEl.textContent = (set.collapsed && first)
+    ? `דרופ סט: ${formatWeight(first)} × ${first.reps}`
+    : 'דרופ סט';
+}
+
 // Always confirms, unlike requestDeleteSet — removing a whole exercise loses
 // every set logged under it (done or not), and the button sits right in the
 // card header where a mis-tap while reaching for something else is exactly
@@ -841,6 +956,63 @@ function requestDeleteExercise(ex) {
   if (idx === -1) return;
   session.exercises.splice(idx, 1);
   render();
+}
+
+// Playlist-style reordering: the dragged card follows the pointer via a
+// transform, and the moment its midpoint crosses a neighbor's midpoint,
+// session.exercises and #exercise-list's DOM order both update immediately
+// (not just on release) — so the two never have a chance to disagree, and
+// there's nothing separate to "commit" on pointerup.
+function wireExerciseDragHandle(handleEl, ex, cardEl) {
+  handleEl.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    handleEl.setPointerCapture(e.pointerId);
+    exerciseDrag = { exUid: ex._uid, pointerId: e.pointerId, cardEl, grabStartClientY: e.clientY };
+    cardEl.classList.add('exercise-card--dragging');
+  });
+
+  handleEl.addEventListener('pointermove', (e) => {
+    if (!exerciseDrag || exerciseDrag.pointerId !== e.pointerId) return;
+    cardEl.style.transform = `translateY(${e.clientY - exerciseDrag.grabStartClientY}px)`;
+
+    const list = container.querySelector('#exercise-list');
+    const idx = session.exercises.indexOf(ex);
+    const draggedMidY = cardEl.getBoundingClientRect().top + cardEl.offsetHeight / 2;
+
+    const prevEx = session.exercises[idx - 1];
+    const prevEl = prevEx && exerciseRefs.get(prevEx._uid)?.root;
+    if (prevEl) {
+      const prevRect = prevEl.getBoundingClientRect();
+      if (draggedMidY < prevRect.top + prevRect.height / 2) {
+        [session.exercises[idx - 1], session.exercises[idx]] = [session.exercises[idx], session.exercises[idx - 1]];
+        list.insertBefore(cardEl, prevEl);
+        cardEl.style.transform = '';
+        exerciseDrag.grabStartClientY = e.clientY;
+        return;
+      }
+    }
+
+    const nextEx = session.exercises[idx + 1];
+    const nextEl = nextEx && exerciseRefs.get(nextEx._uid)?.root;
+    if (nextEl) {
+      const nextRect = nextEl.getBoundingClientRect();
+      if (draggedMidY > nextRect.top + nextRect.height / 2) {
+        [session.exercises[idx], session.exercises[idx + 1]] = [session.exercises[idx + 1], session.exercises[idx]];
+        list.insertBefore(cardEl, nextEl.nextSibling);
+        cardEl.style.transform = '';
+        exerciseDrag.grabStartClientY = e.clientY;
+      }
+    }
+  });
+
+  function endDrag(e) {
+    if (!exerciseDrag || exerciseDrag.pointerId !== e.pointerId) return;
+    cardEl.style.transform = '';
+    cardEl.classList.remove('exercise-card--dragging');
+    exerciseDrag = null;
+  }
+  handleEl.addEventListener('pointerup', endDrag);
+  handleEl.addEventListener('pointercancel', endDrag);
 }
 
 function requestDeleteSet(ex, set) {
@@ -855,6 +1027,7 @@ function duplicateSet(ex, set) {
   if (idx === -1) return;
   ex.sets.splice(idx + 1, 0, {
     _uid: nextUid(),
+    parentUid: set.parentUid, // a duplicated stage stays in the same drop set
     type: set.type,
     weight: set.weight,
     reps: set.reps,
@@ -874,7 +1047,10 @@ function duplicateSet(ex, set) {
 // no draft state anywhere else in this app either), and only exist as two
 // clearly-labelled ways to close, matching the spec's closing behaviour.
 function openSetDetailSheet(ex, set, ctrl) {
-  const idx = ex.sets.indexOf(set);
+  // Position among loggable sets only (skips bare drop-set headers), so
+  // both the label here and the "previous performance" lookup line up with
+  // how finishWorkout() actually numbers/saves sets — see persistablePosition.
+  const idx = persistablePosition(ex, set);
 
   openBottomSheet({
     ariaLabel: `${ex.name}, סט ${idx + 1}`,
@@ -971,7 +1147,10 @@ function applyFocusMode() {
 
   session.exercises.forEach((ex, exIdx) => {
     const refs = exerciseRefs.get(ex._uid);
-    ex.sets.forEach((set, setIdx) => {
+    const loggableSets = ex.sets.filter((s) => !hasChildren(ex, s));
+    loggableSets.forEach((set, setIdx) => {
+      // A bare drop-set header (skipped via loggableSets above) carries no
+      // weight/reps/done of its own — nothing here to focus on or count.
       totalSets += 1;
       if (set.done) completedSets += 1;
 
@@ -981,7 +1160,7 @@ function applyFocusMode() {
 
       if (!currentAssigned) {
         currentAssigned = true;
-        current = { exIdx, setIdx, setCount: ex.sets.length };
+        current = { exIdx, setIdx, setCount: loggableSets.length };
         ctrl?.row.classList.add('set-row--active');
       } else {
         ctrl?.row.classList.add('set-row--upcoming');
@@ -997,21 +1176,8 @@ function onToggleDone(ex, set) {
   if (set.done) {
     const isNewPR = computePR(ex, set);
     set.isPR = isNewPR;
-    const type = SET_TYPES.find((t) => t.id === set.type);
-    startRestTimer(type.restSec);
-    // A short buzz for completing the set already covers "starting rest" —
-    // they're the same action, so a second pattern back-to-back would just
-    // feel like noise. PR gets its own distinct pattern on top.
     if (navigator.vibrate) navigator.vibrate(isNewPR ? [20, 40, 20] : 15);
     if (isNewPR) showToast(`${icon('trophy', { className: 'icon--sm' })} שיא חדש!`);
-  }
-  // The moment every set is done, get it out of the way automatically —
-  // re-opening an incomplete set (undo, or adding another one later) always
-  // forces it back open, since collapsing only ever makes sense when done.
-  if (isExerciseAllDone(ex)) {
-    ex.collapsed = true;
-  } else {
-    ex.collapsed = false;
   }
   patchExerciseCard(ex);
 }
@@ -1062,32 +1228,33 @@ function openPastWorkoutSheet() {
   });
 }
 
-function startRestTimer(totalSec) {
-  stopRestTicking();
-  rest = { totalSec, remainingSec: totalSec };
-  patchRestSlot();
-  restTimerId = setInterval(() => {
-    rest.remainingSec -= 1;
-    if (rest.remainingSec <= 0) {
-      stopRestTimer();
-      if (navigator.vibrate) navigator.vibrate(200);
-    } else {
-      patchRestSlot();
-    }
-  }, 1000);
-}
-
-function stopRestTicking() {
-  if (restTimerId) clearInterval(restTimerId);
-  restTimerId = null;
-}
-
-// Ends the rest period and repaints just its slot, since the rest card
-// itself disappears.
-function stopRestTimer() {
-  stopRestTicking();
-  rest = null;
-  patchRestSlot();
+// A drop-set parent is a bare header with no weight/reps of its own, so it's
+// never saved as a row — only its stages are, each tagged with a small
+// per-exercise `dropGroup` number so History can regroup them later. That
+// number is assigned fresh here (session-local parent uids aren't stable
+// across saves) in the order each drop set first appears in the exercise.
+function buildSavedSets(ex) {
+  let nextDropGroup = 1;
+  const dropGroupByParentUid = new Map();
+  return ex.sets
+    .filter((s) => !hasChildren(ex, s))
+    .filter((s) => s.done)
+    .map((s, i) => {
+      const entry = {
+        setNumber: i + 1,
+        type: s.type,
+        weight: s.weight,
+        weightUnit: s.weightUnit,
+        weightMode: s.weightMode,
+        reps: s.reps,
+        notes: s.notes || '',
+      };
+      if (s.parentUid) {
+        if (!dropGroupByParentUid.has(s.parentUid)) dropGroupByParentUid.set(s.parentUid, nextDropGroup++);
+        entry.dropGroup = dropGroupByParentUid.get(s.parentUid);
+      }
+      return entry;
+    });
 }
 
 async function finishWorkout() {
@@ -1095,15 +1262,7 @@ async function finishWorkout() {
     ? session.exercises.map((ex) => ({
         name: ex.name,
         category: ex.category,
-        sets: ex.sets.filter((s) => s.done).map((s, i) => ({
-          setNumber: i + 1,
-          type: s.type,
-          weight: s.weight,
-          weightUnit: s.weightUnit,
-          weightMode: s.weightMode,
-          reps: s.reps,
-          notes: s.notes || '',
-        })),
+        sets: buildSavedSets(ex),
       })).filter((ex) => ex.sets.length > 0)
     : [];
 
@@ -1121,8 +1280,6 @@ async function finishWorkout() {
   }
 
   stopElapsedTicking();
-  stopRestTicking();
   session = null;
-  rest = null;
   render();
 }
