@@ -72,6 +72,39 @@ export async function devAddExerciseToLibrary(exercise) {
   return id;
 }
 
+// Renames the library entry and every past workout's matching exercise
+// name/category in one pass — the point is a single continuous PR history,
+// not a library-only relabel that fragments History/Dashboard at the rename.
+export async function devRenameExerciseEverywhere(libraryId, oldName, newName, newCategory) {
+  const state = load();
+  const lib = state.exerciseLibrary.find((e) => e.id === libraryId);
+  if (lib) {
+    lib.name = newName;
+    lib.category = newCategory;
+  }
+  let updated = 0;
+  state.workouts.forEach((w) => {
+    (w.exercises || []).forEach((ex) => {
+      if (ex.name === oldName) {
+        ex.name = newName;
+        ex.category = newCategory;
+        updated += 1;
+      }
+    });
+  });
+  save(state);
+  return { updatedWorkoutExercises: updated };
+}
+
+// Removes only the library (quick-pick) entry — past workout records are
+// left untouched, since purging real training history is a separate,
+// far more destructive action than tidying up the exercise list.
+export async function devDeleteExerciseFromLibrary(libraryId) {
+  const state = load();
+  state.exerciseLibrary = state.exerciseLibrary.filter((e) => e.id !== libraryId);
+  save(state);
+}
+
 export async function devAddNutritionEntry(entry) {
   const state = load();
   const id = uid();

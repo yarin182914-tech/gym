@@ -27,6 +27,24 @@ export function toDate(value) {
   return value?.toDate ? value.toDate() : new Date(value);
 }
 
+// yyyy-mm-dd for a native <input type="date"> value, in *local* time.
+// Date#toISOString is UTC and rolls the date backward for anyone east of
+// Greenwich — wrong for a picker whose whole point is "which calendar day".
+export function dateInputValue(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// Parses a <input type="date"> value back into a Date at noon local time —
+// noon (not midnight) keeps the picked calendar day stable regardless of
+// local/UTC offset when the Date is later serialized.
+export function parseDateInputValue(value) {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d, 12, 0);
+}
+
 export function formatMMSS(totalSeconds) {
   const s = Math.max(0, Math.round(totalSeconds));
   const m = Math.floor(s / 60);
@@ -65,4 +83,15 @@ export function formatWeight({ weight, weightUnit, weightMode }) {
 
 export function round1(n) {
   return Math.round(n * 10) / 10;
+}
+
+const KG_PER_LB = 0.45359237;
+
+// Converts a weight number between units — used when the kg/lb toggle
+// changes, so the figure follows its label instead of just being relabeled
+// (20 kg becomes 44.1 lb, not "20 lb"). A no-op when the units already match.
+export function convertWeight(weight, fromUnit, toUnit) {
+  if (fromUnit === toUnit) return weight;
+  const kg = fromUnit === 'lb' ? weight * KG_PER_LB : weight;
+  return round1(toUnit === 'lb' ? kg / KG_PER_LB : kg);
 }

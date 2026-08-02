@@ -1,6 +1,7 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
-import { getAuth } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
-import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js';
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-app-check.js';
 
 // These values are safe to be public — Firestore security rules are what
 // actually protect the data, not this config object.
@@ -28,3 +29,27 @@ export const db = useCloud
       localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() }),
     })
   : null;
+
+// ---------- App Check (Firebase AI Logic requires this to call Gemini) ----------
+// A reCAPTCHA v3 *site key* (public by design, not a secret) registered at
+// https://www.google.com/recaptcha/admin/create for this app's real domain,
+// then linked under Firebase Console > App Check. Until a real key replaces
+// the placeholder below, nutrition photo analysis reports itself unavailable
+// instead of making a request that's guaranteed to be rejected — see
+// js/lib/nutrition/providers/gemini-vision.js.
+const RECAPTCHA_SITE_KEY = 'REPLACE_WITH_RECAPTCHA_V3_SITE_KEY';
+export const isAppCheckConfigured = !RECAPTCHA_SITE_KEY.startsWith('REPLACE_');
+
+if (useCloud && isAppCheckConfigured) {
+  if (IS_LOCALHOST) {
+    // Lets Gemini calls succeed from a local dev server without a real
+    // reCAPTCHA challenge. The SDK prints a token to the console on first
+    // run — register that same token under Firebase Console > App Check >
+    // Manage debug tokens, or local calls will still be rejected.
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+    isTokenAutoRefreshEnabled: true,
+  });
+}

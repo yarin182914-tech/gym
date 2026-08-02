@@ -1,12 +1,13 @@
 import {
-  collection, doc, setDoc, addDoc, getDoc, getDocs, deleteDoc,
+  collection, doc, setDoc, addDoc, getDoc, getDocs, updateDoc, deleteDoc,
   query, orderBy, limit, serverTimestamp,
-} from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+} from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js';
 import { db, useCloud } from '../firebase-config.js';
 import { currentUid } from '../auth.js';
 import {
   devEnsureUserDoc, devCreateWorkout, devDeleteWorkout, devListWorkouts,
   devListExerciseLibrary, devAddExerciseToLibrary,
+  devRenameExerciseEverywhere, devDeleteExerciseFromLibrary,
   devAddNutritionEntry, devListNutritionEntries,
 } from './dev-store.js';
 
@@ -149,6 +150,44 @@ export async function addExerciseToLibrary(exercise) {
     isCustom: exercise.isCustom ?? true,
   });
   return docRef.id;
+}
+
+// Renames the library entry and every past workout's matching exercise
+// name/category in one pass — the point is a single continuous PR history
+// across History/Dashboard, not a library-only relabel that leaves old
+// workouts stuck under the previous name.
+export async function renameExerciseEverywhere(libraryId, oldName, newName, newCategory) {
+  try {
+    if (!useCloud) return await devRenameExerciseEverywhere(libraryId, oldName, newName, newCategory);
+    const uid = uidOrThrow();
+    if (libraryId) {
+      await updateDoc(doc(db, 'users', uid, 'exerciseLibrary', libraryId), { name: newName, category: newCategory });
+    }
+    const workouts = await allWorkouts();
+    for (const w of workouts) {
+      const exercises = w.exercises || [];
+      let changed = false;
+      const updatedExercises = exercises.map((ex) => {
+        if (ex.name !== oldName) return ex;
+        changed = true;
+        return { ...ex, name: newName, category: newCategory };
+      });
+      if (changed) {
+        await updateDoc(doc(db, 'users', uid, 'workouts', w.id), { exercises: updatedExercises });
+      }
+    }
+  } finally {
+    invalidateWorkouts();
+  }
+}
+
+// Removes only the library (quick-pick) entry — past workout records are
+// left untouched, since purging real training history is a separate, far
+// more destructive action than tidying up the exercise list.
+export async function deleteExerciseFromLibrary(libraryId) {
+  if (!useCloud) return devDeleteExerciseFromLibrary(libraryId);
+  const uid = uidOrThrow();
+  await deleteDoc(doc(db, 'users', uid, 'exerciseLibrary', libraryId));
 }
 
 // The 7 muscle categories Yarin organizes his training around, grouped into

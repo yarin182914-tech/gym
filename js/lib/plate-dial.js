@@ -4,12 +4,16 @@ const CIRCUMFERENCE = 2 * Math.PI * R;
 // Renders (or updates, if called again on the same container) the
 // signature circular "plate" dial — used for both the in-session rest
 // timer and the wedding countdown, so the two features share one visual.
-export function renderPlateDial(container, { progress = 0, valueText = '', label = '', compact = false } = {}) {
+export function renderPlateDial(container, { progress = 0, valueText = '', label = '', compact = false, variant = null } = {}) {
   const clamped = Math.max(0, Math.min(1, progress));
   const offset = CIRCUMFERENCE * (1 - clamped);
 
   container.classList.add('plate-dial');
   container.classList.toggle('compact', compact);
+  // Rest timer and the wedding countdown share this dial and stay the
+  // default blue; only nutrition's calorie ring opts into the success/green
+  // tint, since that's the one context that's actually "healthy progress".
+  container.classList.toggle('plate-dial--success', variant === 'success');
 
   if (!container.dataset.built) {
     container.innerHTML = `

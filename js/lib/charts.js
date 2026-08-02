@@ -1,9 +1,10 @@
 // Thin wrapper around Chart.js (loaded globally via CDN <script> in index.html)
 // tuned to this app's design tokens and the dataviz method: one axis, thin
-// navy line, selective direct labels (first/last/PR only), gold PR markers,
-// hover tooltip by default, recessive gridlines.
+// purple line (analytics/progress is this app's one semantic use of purple),
+// selective direct labels (first/last/PR only), gold PR markers, hover
+// tooltip by default, recessive gridlines.
 
-const NAVY = '#1E3A63';
+const PURPLE = '#6B4C9A';
 const GOLD = '#C9962C';
 const MUTED = '#5E6B80';
 const GRID = '#DCE3EC';
@@ -21,7 +22,7 @@ function selectiveLabelsPlugin(values, prFlags, formatValue) {
         if (!isFirst && !isLast && !prFlags[i]) return;
         ctx.save();
         ctx.fillStyle = prFlags[i] ? GOLD : TEXT;
-        ctx.font = "600 11px 'Roboto Slab', serif";
+        ctx.font = "600 11px 'Inter', sans-serif";
         ctx.textAlign = 'center';
         ctx.fillText(formatValue(values[i]), point.x, point.y - 12);
         ctx.restore();
@@ -61,7 +62,7 @@ export async function renderProgressChart(canvas, { labels, values, prFlags, for
   const Chart = await loadChartLib();
   if (existingChart) existingChart.destroy();
 
-  const pointColors = values.map((_, i) => (prFlags[i] ? GOLD : NAVY));
+  const pointColors = values.map((_, i) => (prFlags[i] ? GOLD : PURPLE));
 
   return new Chart(canvas, {
     type: 'line',
@@ -69,7 +70,7 @@ export async function renderProgressChart(canvas, { labels, values, prFlags, for
       labels,
       datasets: [{
         data: values,
-        borderColor: NAVY,
+        borderColor: PURPLE,
         borderWidth: 2,
         pointRadius: 5,
         pointHoverRadius: 6,
@@ -88,8 +89,8 @@ export async function renderProgressChart(canvas, { labels, values, prFlags, for
         legend: { display: false },
         tooltip: {
           backgroundColor: TEXT,
-          titleFont: { family: 'Assistant' },
-          bodyFont: { family: 'Roboto Slab' },
+          titleFont: { family: 'Rubik' },
+          bodyFont: { family: 'Inter' },
           padding: 10,
           callbacks: {
             label: (ctx) => formatValue(ctx.parsed.y),
@@ -99,11 +100,11 @@ export async function renderProgressChart(canvas, { labels, values, prFlags, for
       scales: {
         x: {
           grid: { display: false },
-          ticks: { font: { family: 'Assistant', size: 11 }, color: MUTED },
+          ticks: { font: { family: 'Rubik', size: 11 }, color: MUTED },
         },
         y: {
           grid: { color: GRID },
-          ticks: { font: { family: 'Roboto Slab', size: 11 }, color: MUTED },
+          ticks: { font: { family: 'Inter', size: 11 }, color: MUTED },
         },
       },
     },

@@ -2,19 +2,39 @@ import { renderPlateDial } from '../lib/plate-dial.js';
 import { addNutritionEntry, listNutritionEntries } from '../lib/firestore.js';
 import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
-import { toDate } from '../lib/format.js';
+import { toDate, dateInputValue, parseDateInputValue } from '../lib/format.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { stepper } from '../ui/stepper.js';
 import { emptyState } from '../ui/empty-state.js';
+import { icon } from '../ui/icon.js';
+import { mountNumericField } from '../ui/numeric-input.js';
 
 const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
+// 'snack' is kept only so older entries saved under it still display a
+// label instead of falling back to the raw key — the form itself now
+// offers three presets plus free text instead of a fixed 4th category.
 const MEAL_LABELS = { breakfast: 'בוקר', lunch: 'צהריים', dinner: 'ערב', snack: 'נשנוש' };
+const MEAL_TYPE_OPTIONS = [
+  { value: 'breakfast', label: 'בוקר' },
+  { value: 'lunch', label: 'צהריים' },
+  { value: 'dinner', label: 'ערב' },
+];
+
+function defaultMealType() {
+  const h = new Date().getHours();
+  if (h < 11) return 'breakfast';
+  if (h < 17) return 'lunch';
+  return 'dinner';
+}
+
 
 let container = null;
 let entries = [];
 let formOpen = false;
 let form = null;
-let aiStatus = null; // null | 'loading' | 'unavailable' | 'error'
+let aiStatus = null; // null | 'loading' | 'unavailable' | 'error' | 'reviewing'
+let reviewItems = null; // mutable copy of analyzeFoodPhoto()'s items while aiStatus === 'reviewing'
+let gramsFieldCtrls = []; // mountNumericField controllers, one per reviewItems row
 
 function isToday(d) {
   const a = toDate(d);
@@ -38,6 +58,8 @@ export function unmountNutrition() {
   formOpen = false;
   form = null;
   aiStatus = null;
+  reviewItems = null;
+  gramsFieldCtrls = [];
 }
 
 function todayEntries() {
@@ -62,7 +84,7 @@ function macroBar(label, value, target) {
         <span class="num" style="font-size:0.8rem;">${Math.round(value)}/${target}g</span>
       </div>
       <div style="height:8px; border-radius:999px; background:var(--surface-raised); overflow:hidden;">
-        <div style="height:100%; width:${pct}%; background:var(--accent); border-radius:999px;"></div>
+        <div style="height:100%; width:${pct}%; background:var(--success); border-radius:999px;"></div>
       </div>
     </div>`;
 }
@@ -90,10 +112,10 @@ function render() {
         : todayEntries().map((e) => `
           <div class="row" style="margin-bottom:8px;">
             <div>
-              <div style="font-weight:600;">${esc(e.description || 'ארוחה')}</div>
-              <div class="text-muted" style="font-size:0.75rem;">${esc(MEAL_LABELS[e.mealType] || e.mealType)}${e.source === 'photo' ? ' · 📷' : ''}</div>
+              <div style="font-weight:var(--weight-semibold);">${esc(e.description || 'ארוחה')}</div>
+              <div class="text-muted" style="font-size:0.75rem; display:flex; align-items:center; gap:4px;">${esc(MEAL_LABELS[e.mealType] || e.mealType)}${e.source === 'photo' ? ` · ${icon('camera', { className: 'icon--sm' })}` : ''}</div>
             </div>
-            <span class="num" style="font-weight:700;">${esc(e.calories)} קל'</span>
+            <span class="num" style="font-weight:var(--weight-bold); letter-spacing:var(--tracking-tight);">${esc(e.calories)} קל'</span>
           </div>`).join('')}
     </div>
   `;
@@ -102,13 +124,18 @@ function render() {
     progress: totals.calories / TARGETS.calories,
     valueText: String(Math.round(totals.calories)),
     label: `מתוך ${TARGETS.calories} קל'`,
+    variant: 'success',
   });
 
   if (formOpen) {
     wireForm();
   } else {
     container.querySelector('#open-form-btn').addEventListener('click', () => {
-      form = { description: '', calories: 0, proteinG: 0, carbsG: 0, fatG: 0, mealType: 'snack', source: 'manual' };
+      form = {
+        description: '', calories: 0, proteinG: 0, carbsG: 0, fatG: 0,
+        mealType: defaultMealType(), mealTypeIsOther: false,
+        date: new Date(), source: 'manual',
+      };
       aiStatus = null;
       formOpen = true;
       render();
@@ -132,10 +159,12 @@ function macroRow(label, field, step, rowStyle = 'margin-bottom:8px') {
 }
 
 function renderForm() {
+  if (aiStatus === 'reviewing') return renderReviewCard();
+
   const aiNote = aiStatus === 'loading'
     ? '<p class="text-muted" style="font-size:0.85rem;">מנתח את התמונה...</p>'
     : aiStatus === 'unavailable'
-      ? '<p class="text-muted" style="font-size:0.85rem;">זיהוי אוטומטי מתמונה עדיין לא נבנה. אפשר להזין ידנית למטה.</p>'
+      ? '<p class="text-muted" style="font-size:0.85rem;">זיהוי אוטומטי מתמונה עדיין לא זמין. אפשר להזין ידנית למטה.</p>'
       : aiStatus === 'error'
         ? '<p class="text-muted" style="font-size:0.85rem;">הניתוח נכשל — אפשר להזין ידנית.</p>'
         : '';
@@ -143,9 +172,23 @@ function renderForm() {
   return `
     <div class="card">
       <h3 style="color:var(--text); margin-bottom:10px;">הוספת ארוחה</h3>
-      <button class="btn btn-secondary btn-block" id="photo-btn" style="margin-bottom:8px;">📷 זיהוי אוטומטי מתמונה</button>
-      <input type="file" id="photo-input" accept="image/*" capture="environment" class="hidden">
+      <div class="row" style="gap:8px; margin-bottom:8px;">
+        <button class="btn btn-secondary" id="photo-camera-btn" style="flex:1;">${icon('camera', { className: 'icon--sm' })} צילום תמונה</button>
+        <button class="btn btn-secondary" id="photo-gallery-btn" style="flex:1;">${icon('image', { className: 'icon--sm' })} מהגלריה</button>
+      </div>
+      <input type="file" id="photo-input-camera" accept="image/*" capture="environment" class="hidden">
+      <input type="file" id="photo-input-gallery" accept="image/*" class="hidden">
       ${aiNote}
+
+      <div class="pill-row-label">סוג ארוחה</div>
+      <div class="pill-row" id="meal-type-pills">
+        ${MEAL_TYPE_OPTIONS.map((opt) => `<button type="button" class="pill${!form.mealTypeIsOther && form.mealType === opt.value ? ' active' : ''}" data-meal-type="${opt.value}">${opt.label}</button>`).join('')}
+        <button type="button" class="pill${form.mealTypeIsOther ? ' active' : ''}" data-meal-type="other">אחר</button>
+      </div>
+      ${form.mealTypeIsOther ? `<input type="text" id="form-meal-type-other" class="search-bar" placeholder="סוג הארוחה" value="${esc(form.mealType)}" style="margin-bottom:10px;">` : ''}
+
+      <div class="pill-row-label">תאריך</div>
+      <input type="date" id="form-date" class="search-bar" value="${dateInputValue(form.date)}" max="${dateInputValue(new Date())}" style="margin-bottom:10px;">
 
       <input type="text" id="form-description" class="search-bar" placeholder="תיאור הארוחה" value="${esc(form.description)}" style="margin:10px 0;">
 
@@ -162,7 +205,29 @@ function renderForm() {
 }
 
 function wireForm() {
+  if (aiStatus === 'reviewing') { wireReviewCard(); return; }
+
   container.querySelector('#form-description').addEventListener('input', (e) => { form.description = e.target.value; });
+
+  container.querySelectorAll('[data-meal-type]').forEach((btn) => btn.addEventListener('click', () => {
+    const value = btn.dataset.mealType;
+    if (value === 'other') {
+      form.mealTypeIsOther = true;
+      if (MEAL_TYPE_OPTIONS.some((opt) => opt.value === form.mealType)) form.mealType = '';
+    } else {
+      form.mealTypeIsOther = false;
+      form.mealType = value;
+    }
+    render();
+  }));
+
+  const otherInput = container.querySelector('#form-meal-type-other');
+  otherInput?.addEventListener('input', (e) => { form.mealType = e.target.value; });
+
+  container.querySelector('#form-date').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    form.date = parseDateInputValue(e.target.value);
+  });
 
   container.querySelectorAll('[data-field-inc]').forEach((btn) => btn.addEventListener('click', () => {
     const field = btn.dataset.fieldInc;
@@ -175,28 +240,14 @@ function wireForm() {
     container.querySelector(`#val-${field}`).textContent = form[field];
   }));
 
-  container.querySelector('#photo-btn').addEventListener('click', () => {
-    container.querySelector('#photo-input').click();
+  container.querySelector('#photo-camera-btn').addEventListener('click', () => {
+    container.querySelector('#photo-input-camera').click();
   });
-  container.querySelector('#photo-input').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    aiStatus = 'loading';
-    render();
-    try {
-      const result = await analyzeFoodPhoto(file);
-      form.description = result.description || form.description;
-      form.calories = result.calories ?? form.calories;
-      form.proteinG = result.proteinG ?? form.proteinG;
-      form.carbsG = result.carbsG ?? form.carbsG;
-      form.fatG = result.fatG ?? form.fatG;
-      form.source = 'photo';
-      aiStatus = null;
-    } catch (err) {
-      aiStatus = err.code === 'AI_UNAVAILABLE' ? 'unavailable' : 'error';
-    }
-    render();
+  container.querySelector('#photo-gallery-btn').addEventListener('click', () => {
+    container.querySelector('#photo-input-gallery').click();
   });
+  container.querySelector('#photo-input-camera').addEventListener('change', onPhotoSelected);
+  container.querySelector('#photo-input-gallery').addEventListener('change', onPhotoSelected);
 
   container.querySelector('#cancel-form-btn').addEventListener('click', () => {
     formOpen = false;
@@ -206,11 +257,117 @@ function wireForm() {
   });
 
   container.querySelector('#save-form-btn').addEventListener('click', async () => {
-    await addNutritionEntry({ date: new Date(), ...form });
+    const { mealTypeIsOther, ...entry } = form; // transient UI-only flag, never persisted
+    await addNutritionEntry(entry);
     formOpen = false;
     form = null;
     aiStatus = null;
     entries = await listNutritionEntries(200);
+    render();
+  });
+}
+
+async function onPhotoSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  aiStatus = 'loading';
+  render();
+  try {
+    const result = await analyzeFoodPhoto(file);
+    if (result.items.length === 0) {
+      aiStatus = 'unavailable'; // reuses the existing "enter manually" note — nothing recognizable was found, not a failure
+    } else {
+      reviewItems = result.items;
+      aiStatus = 'reviewing';
+    }
+  } catch (err) {
+    aiStatus = err.code === 'AI_UNAVAILABLE' ? 'unavailable' : 'error';
+  }
+  render();
+}
+
+// ---------- AI detection review (shown between "photo selected" and the
+// manual form, so the AI's food/portion guesses are always seen and
+// correctable before they turn into a saved calorie total) ----------
+
+function reviewTotals() {
+  return reviewItems.reduce((acc, it) => ({
+    calories: acc.calories + it.calories,
+    proteinG: acc.proteinG + it.proteinG,
+    carbsG: acc.carbsG + it.carbsG,
+    fatG: acc.fatG + it.fatG,
+  }), { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 });
+}
+
+function reviewRow(item, i) {
+  return `
+    <div class="row" style="align-items:flex-start; margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border);">
+      <div style="flex:1;">
+        <div style="font-weight:var(--weight-semibold);">${esc(item.name)}</div>
+        <div class="text-muted" style="font-size:0.75rem;">${Math.round(item.confidence * 100)}% ביטחון${item.dbMatch ? ` · ${esc(item.source)}` : ''}</div>
+        ${!item.dbMatch ? '<div style="font-size:0.75rem; color:var(--danger);">לא נמצא במאגר התזונה — לא נספר בסה"כ, אפשר להזין ידנית</div>' : ''}
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+        <div data-grams-host="${i}"></div>
+        <span class="num text-muted" style="font-size:0.75rem;">${Math.round(item.calories)} קל'</span>
+      </div>
+    </div>`;
+}
+
+function renderReviewCard() {
+  const totals = reviewTotals();
+  return `
+    <div class="card">
+      <h3 style="color:var(--text); margin-bottom:6px;">בדיקת הזיהוי</h3>
+      <p class="text-muted" style="font-size:0.85rem; margin-bottom:12px;">אפשר לתקן כמויות לפני השמירה.</p>
+      <div id="review-list">${reviewItems.map(reviewRow).join('')}</div>
+      <div class="row" style="margin-bottom:14px;">
+        <span class="text-muted">סה"כ</span>
+        <span class="num" style="font-weight:var(--weight-bold); letter-spacing:var(--tracking-tight);">${Math.round(totals.calories)} קל'</span>
+      </div>
+      <div class="row" style="gap:8px;">
+        <button class="btn btn-secondary" id="review-cancel-btn" style="flex:1;">ביטול</button>
+        <button class="btn btn-primary" id="review-confirm-btn" style="flex:1;">אישור והמשך</button>
+      </div>
+    </div>`;
+}
+
+function wireReviewCard() {
+  gramsFieldCtrls = reviewItems.map((item, i) => mountNumericField(
+    container.querySelector(`[data-grams-host="${i}"]`),
+    {
+      value: item.estimatedGrams,
+      unitLabel: 'גרם',
+      onCommit: (grams) => {
+        reviewItems[i].estimatedGrams = grams;
+        if (reviewItems[i].per100g) {
+          const factor = grams / 100;
+          reviewItems[i].calories = reviewItems[i].per100g.calories * factor;
+          reviewItems[i].proteinG = reviewItems[i].per100g.proteinG * factor;
+          reviewItems[i].carbsG = reviewItems[i].per100g.carbsG * factor;
+          reviewItems[i].fatG = reviewItems[i].per100g.fatG * factor;
+        }
+        render();
+      },
+    },
+  ));
+
+  container.querySelector('#review-cancel-btn').addEventListener('click', () => {
+    reviewItems = null;
+    aiStatus = null;
+    render();
+  });
+
+  container.querySelector('#review-confirm-btn').addEventListener('click', () => {
+    const totals = reviewTotals();
+    form.description = reviewItems.map((it) => it.name).join(', ');
+    form.calories = Math.round(totals.calories);
+    form.proteinG = Math.round(totals.proteinG);
+    form.carbsG = Math.round(totals.carbsG);
+    form.fatG = Math.round(totals.fatG);
+    form.source = 'photo';
+    reviewItems = null;
+    aiStatus = null;
     render();
   });
 }

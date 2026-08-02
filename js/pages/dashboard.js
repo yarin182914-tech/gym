@@ -1,19 +1,27 @@
-import { listWorkouts, getExerciseHistory, CATEGORY_GROUPS } from '../lib/firestore.js';
+import { listWorkouts, getExerciseHistory, listExerciseLibrary, CATEGORY_GROUPS } from '../lib/firestore.js';
 import { renderProgressChart } from '../lib/charts.js';
 import { esc } from '../core/dom.js';
 import { formatDayMonthHe as shortDate, unitLabel, round1 } from '../lib/format.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { statTile } from '../ui/stat-tile.js';
-import { toggleGroup } from '../ui/toggle-group.js';
+import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 import { emptyState } from '../ui/empty-state.js';
+import { icon } from '../ui/icon.js';
+import { openExerciseEditSheet } from '../ui/exercise-edit-sheet.js';
 
 let container = null;
 let allExerciseNames = [];
 let categoryByName = new Map();
+// name -> { id, name, category } — real library entries have a real id;
+// a name that only exists in workout history (never added to the library,
+// a real gap this app's own data had) gets id:null so it can still be
+// renamed everywhere, just not deleted from a library entry that isn't there.
+let libraryByName = new Map();
 let selectedExercise = null;
 let metric = 'weight'; // 'weight' | 'volume'
 let viewMode = 'chart'; // 'chart' | 'table'
 let chartInstance = null;
+let picker = { open: false, query: '', category: null };
 
 export function unmountDashboard() {
   if (chartInstance) chartInstance.destroy();
@@ -21,6 +29,8 @@ export function unmountDashboard() {
   container = null;
   allExerciseNames = [];
   categoryByName = new Map();
+  libraryByName = new Map();
+  picker = { open: false, query: '', category: null };
 }
 
 export async function mountDashboard(rootEl) {
@@ -28,7 +38,7 @@ export async function mountDashboard(rootEl) {
   container = rootEl;
   renderLoading(container, 'טוען נתוני התקדמות...');
 
-  const workouts = await listWorkouts(500);
+  const [workouts, libraryEntries] = await Promise.all([listWorkouts(500), listExerciseLibrary()]);
   if (isStale(token)) return;
 
   const namesInRecencyOrder = [];
@@ -41,6 +51,14 @@ export async function mountDashboard(rootEl) {
     }
   }
   allExerciseNames = namesInRecencyOrder;
+
+  libraryByName = new Map();
+  libraryEntries.forEach((e) => libraryByName.set(e.name, { id: e.id, name: e.name, category: e.category }));
+  allExerciseNames.forEach((name) => {
+    if (!libraryByName.has(name)) {
+      libraryByName.set(name, { id: null, name, category: categoryByName.get(name) || '' });
+    }
+  });
 
   if (allExerciseNames.length === 0) {
     container.innerHTML = `
@@ -108,11 +126,14 @@ async function render() {
   container.innerHTML = `
     <div class="card">
       <h2 style="margin-bottom:12px;">התקדמות</h2>
-      <select id="exercise-picker" class="search-bar" style="margin-bottom:14px;">
-        ${allExerciseNames.map((n) => `<option value="${esc(n)}" ${n === selectedExercise ? 'selected' : ''}>${esc(n)}</option>`).join('')}
-      </select>
 
-      <div class="row" style="justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+      <button type="button" class="dash-exercise-trigger${picker.open ? ' dash-exercise-trigger--open' : ''}" id="exercise-trigger">
+        <span>${esc(selectedExercise)}</span>
+        <span class="dash-exercise-trigger-icon" aria-hidden="true">▾</span>
+      </button>
+      ${picker.open ? renderExercisePicker() : ''}
+
+      <div class="row" style="justify-content:space-between; margin: 14px 0 10px; flex-wrap:wrap; gap:8px;">
         ${toggleGroup({
           name: 'metric',
           active: metric,
@@ -120,14 +141,22 @@ async function render() {
           groupAttrs: 'id="metric-toggle"',
           options: [{ value: 'weight', label: 'משקל מקסימלי' }, { value: 'volume', label: 'נפח' }],
         })}
-        <button class="btn btn-secondary" id="view-toggle-btn" style="font-size:0.85rem;">${viewMode === 'chart' ? 'הצג כטבלה' : 'הצג כגרף'}</button>
+        ${toggleGroup({
+          name: 'view',
+          active: viewMode,
+          label: 'תצוגה',
+          groupAttrs: 'id="view-toggle"',
+          options: [{ value: 'chart', label: 'גרף' }, { value: 'table', label: 'טבלה' }],
+        })}
       </div>
 
-      <p class="num" style="font-size:1.05rem; font-weight:700; color:var(--accent); text-align:center; margin-bottom:14px;">${headline}</p>
+      <p class="num" style="font-size:1.05rem; font-weight:var(--weight-bold); letter-spacing:var(--tracking-tight); color:var(--purple); text-align:center; margin-bottom:14px;">${headline}</p>
 
-      ${viewMode === 'chart'
-        ? `<div style="height:220px;"><canvas id="progress-canvas"></canvas></div>`
-        : renderTable(series, metric)}
+      <div id="progress-view" class="dash-progress-view dash-progress-view--transitioning">
+        ${viewMode === 'chart'
+          ? `<div style="height:220px;"><canvas id="progress-canvas"></canvas></div>`
+          : renderTable(series, metric)}
+      </div>
 
       <div class="row" style="margin-top:16px; gap:8px;">
         ${statTile(best ? `${best.maxWeight}${unitLabel(best.unit)}` : '—', 'שיא')}
@@ -138,6 +167,20 @@ async function render() {
 
     <div id="pr-list"></div>
   `;
+
+  const metricGroupEl = container.querySelector('#metric-toggle');
+  const viewGroupEl = container.querySelector('#view-toggle');
+  metricGroupEl.classList.add('toggle-group--live');
+  viewGroupEl.classList.add('toggle-group--live');
+  patchToggleGroup(metricGroupEl, metric);
+  patchToggleGroup(viewGroupEl, viewMode);
+
+  // Two rAFs, not one — the browser must paint the transitioning (opacity 0)
+  // state before the class is removed, or the fade-in never plays. Same
+  // reason as the set-row entering animation on Active Session.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    container?.querySelector('#progress-view')?.classList.remove('dash-progress-view--transitioning');
+  }));
 
   if (viewMode === 'chart') {
     const canvas = container.querySelector('#progress-canvas');
@@ -156,35 +199,100 @@ async function render() {
     }).catch((err) => console.error('[dashboard] chart failed to render', err));
   }
 
-  container.querySelector('#exercise-picker').addEventListener('change', (e) => {
-    selectedExercise = e.target.value;
+  container.querySelector('#exercise-trigger').addEventListener('click', () => {
+    picker = picker.open ? { open: false, query: '', category: null } : { open: true, query: '', category: null };
     render();
   });
+  if (picker.open) wireExercisePicker();
+
   container.querySelectorAll('#metric-toggle button').forEach((btn) => {
     btn.addEventListener('click', () => {
       metric = btn.dataset.metric;
       render();
     });
   });
-  container.querySelector('#view-toggle-btn').addEventListener('click', () => {
-    viewMode = viewMode === 'chart' ? 'table' : 'chart';
-    render();
+  container.querySelectorAll('#view-toggle button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      viewMode = btn.dataset.view;
+      render();
+    });
   });
 
   renderPRList();
 }
 
+// Replaces a native <select> with the same search + category-pill picker
+// pattern Active Session already uses for its exercise picker — a plain
+// unstyled OS dropdown was the single most "browser default" control on
+// this screen.
+function renderExercisePicker() {
+  const q = picker.query.trim();
+  const byCategory = picker.category
+    ? allExerciseNames.filter((n) => categoryByName.get(n) === picker.category)
+    : allExerciseNames;
+  const matches = byCategory.filter((n) => n.includes(q));
+  const categoriesUsed = [...new Set(allExerciseNames.map((n) => categoryByName.get(n)).filter(Boolean))];
+
+  return `
+    <div class="card" id="dash-picker-card" style="margin-top:8px;">
+      <input type="text" id="dash-picker-input" class="search-bar" placeholder="חיפוש תרגיל..." value="${esc(picker.query)}" style="margin-bottom:10px;">
+      <div class="pill-row" style="margin-bottom:10px;">
+        <button class="pill ${!picker.category ? 'active' : ''}" data-category="">הכל</button>
+        ${categoriesUsed.map((c) => `<button class="pill ${picker.category === c ? 'active' : ''}" data-category="${esc(c)}">${esc(c)}</button>`).join('')}
+      </div>
+      <div class="dash-picker-results">
+        ${matches.map((n) => `
+          <div class="row" style="gap:6px; margin-bottom:6px;">
+            <button type="button" class="btn btn-secondary" style="flex:1;" data-pick="${esc(n)}">${esc(n)}</button>
+            <button type="button" class="set-more-btn" data-edit-lib="${esc(n)}" aria-label="עריכת התרגיל">${icon('pencil', { className: 'icon--sm' })}</button>
+          </div>`).join('')}
+        ${matches.length === 0 ? emptyState('אין תרגילים תואמים.', { centered: true }) : ''}
+      </div>
+    </div>`;
+}
+
+function wireExercisePicker() {
+  const input = container.querySelector('#dash-picker-input');
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+  input.addEventListener('input', (e) => {
+    picker.query = e.target.value;
+    render();
+  });
+  container.querySelectorAll('[data-category]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      picker.category = btn.dataset.category || null;
+      render();
+    });
+  });
+  container.querySelectorAll('[data-pick]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      selectedExercise = btn.dataset.pick;
+      picker = { open: false, query: '', category: null };
+      render();
+    });
+  });
+  container.querySelectorAll('[data-edit-lib]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const entry = libraryByName.get(btn.dataset.editLib);
+      if (!entry) return;
+      openExerciseEditSheet(entry, {
+        onSaved: async () => {
+          await mountDashboard(container);
+        },
+      });
+    });
+  });
+}
+
 function renderTable(series, metricKey) {
   const rows = series.map((p) => `
-    <tr>
-      <td>${shortDate(p.date)}</td>
-      <td class="num">${metricKey === 'weight' ? `${p.maxWeight}${unitLabel(p.unit)}` : round1(p.volume)}</td>
-    </tr>`).join('');
-  return `
-    <table>
-      <thead><tr><th>תאריך</th><th>${metricKey === 'weight' ? 'משקל מקסימלי' : 'נפח'}</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+    <div class="dash-table-row">
+      <span class="text-muted">${shortDate(p.date)}</span>
+      <span class="num" style="font-weight:var(--weight-semibold);">${metricKey === 'weight' ? `${p.maxWeight}${unitLabel(p.unit)}` : round1(p.volume)}</span>
+    </div>`).join('');
+  return `<div class="dash-table-view">${rows}</div>`;
 }
 
 async function renderPRList() {
@@ -202,20 +310,25 @@ async function renderPRList() {
   const knownCategories = CATEGORY_GROUPS.flatMap((g) => g.categories);
   const orderedCategories = [...knownCategories, 'אחר'];
   const rowHtml = (r) => `
-    <div class="row" style="margin-bottom:8px;">
-      <span>${esc(r.name)}</span>
-      <span class="num" style="font-weight:700; color:var(--accent);">
-        ${r.best.maxWeight}${unitLabel(r.best.unit)} × ${r.best.reps} <span class="text-muted" style="font-weight:400; font-size:0.75rem;">(${shortDate(r.best.date)})</span>
+    <div class="pr-row">
+      <span class="pr-row-name">${esc(r.name)}</span>
+      <span class="pr-row-value">
+        <span class="pr-row-weight num">${r.best.maxWeight}${unitLabel(r.best.unit)}</span>
+        <span class="pr-row-reps">× ${r.best.reps}</span>
+        <span class="pr-row-date">${shortDate(r.best.date)}</span>
       </span>
     </div>`;
 
   prListEl.innerHTML = `
-    <div class="card">
-      <h3 style="color:var(--text); margin-bottom:10px;">שיאים אישיים</h3>
-      ${orderedCategories.map((cat) => {
-        const inCat = rows.filter((r) => r.category === cat);
-        if (inCat.length === 0) return '';
-        return `<h4 class="text-muted" style="font-size:0.8rem; margin:12px 0 6px;">${cat}</h4>${inCat.map(rowHtml).join('')}`;
-      }).join('')}
-    </div>`;
+    <h3 style="color:var(--text); margin-bottom:10px;">שיאים אישיים</h3>
+    ${orderedCategories.map((cat) => {
+      const inCat = rows.filter((r) => r.category === cat);
+      if (inCat.length === 0) return '';
+      return `
+        <div class="card pr-category-card">
+          <div class="pr-category-label">${esc(cat)}</div>
+          ${inCat.map(rowHtml).join('')}
+        </div>`;
+    }).join('')}
+  `;
 }
