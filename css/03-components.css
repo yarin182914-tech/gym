@@ -248,15 +248,24 @@
 
 /* The parent itself never carries weight/reps once it has stages — just a
    label plus the group's controls (expand, add another stage, delete). */
+/* Flush with a regular .set-row — no indent — so a drop-set group reads as
+   "a normal set, just tagged" rather than shifting the whole row left.
+   Only its stages (.set-row--child) are indented; the connector line only
+   appears here once the group is actually expanded (.drop-set-header--expanded),
+   since a permanent line on a collapsed header (which shows no children to
+   connect to) has nothing to visually group. */
 .drop-set-header {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
-  margin-inline-start: 20px;
-  padding-inline-start: 10px;
+  padding-inline-start: var(--space-1);
   padding-block: 6px;
-  border-inline-start: 2px solid var(--info);
+  border-inline-start: 2px solid transparent;
+}
+
+.drop-set-header--expanded {
+  border-inline-start-color: var(--info);
 }
 
 .drop-set-pill {
@@ -590,8 +599,15 @@ th {
 /* Both weight and reps read as plain underlined fields — a hairline
    bottom border instead of a filled box — so the grid row reads as one
    clean line of data rather than three separate button-like chips. */
+/* A fixed height, not min-height — .numeric-field-input is a native
+   control whose intrinsic box metrics vary by browser/platform (mobile in
+   particular renders it visibly taller than a plain span), which pushed
+   the weight field's underline lower than the reps field's. Pinning both
+   this wrapper and .numeric-field/.set-field--reps to the same exact
+   height, with box-sizing: border-box already global, guarantees their
+   border-bottoms land on the same row regardless of native input sizing. */
 .set-field {
-  min-height: 40px;
+  height: 40px;
   display: flex;
   align-items: flex-end;
   min-width: 0;
@@ -604,19 +620,25 @@ th {
 .set-field--reps {
   justify-content: flex-start;
   gap: 4px;
+  height: 40px;
   padding: 0;
   padding-bottom: 6px;
   background: transparent;
   border-bottom: 1px solid rgba(255, 255, 255, 0.16);
   color: var(--text);
   transition: border-color 0.2s ease;
+  box-sizing: border-box;
 }
 
 .set-field--reps .reps-value {
   font-family: var(--font-numeric);
   font-size: 1.05rem;
   font-weight: var(--weight-semibold);
-  line-height: var(--leading-tight);
+  /* line-height: 1, not --leading-tight — matches .numeric-field-input's
+     own line-height exactly so both fields' glyphs sit flush against the
+     same bottom edge instead of each carrying a different amount of
+     built-in leading below the baseline. */
+  line-height: 1;
 }
 
 .set-field--reps.set-field--open {
@@ -653,14 +675,18 @@ th {
 /* ===== Numeric weight field ===== */
 .numeric-field {
   display: inline-flex;
-  align-items: baseline;
+  /* flex-end, not baseline — matches .set-field--reps exactly so both
+     fields' text (and therefore both underlines) sit at the same height
+     regardless of the native <input>'s own line-box metrics. */
+  align-items: flex-end;
   gap: 4px;
-  min-height: 40px;
+  height: 40px;
   padding: 0;
   padding-bottom: 6px;
   background: transparent;
   border-bottom: 1px solid rgba(255, 255, 255, 0.16);
   transition: border-color 0.15s ease;
+  box-sizing: border-box;
 }
 
 .numeric-field:focus-within {
@@ -670,6 +696,10 @@ th {
 .numeric-field-input {
   width: 100%;
   min-width: 0;
+  height: 1.15rem;
+  margin: 0;
+  padding: 0;
+  line-height: 1;
   border: none;
   background: transparent;
   font-family: var(--font-numeric);

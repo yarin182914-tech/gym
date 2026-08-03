@@ -992,6 +992,7 @@ function buildDropSetHeaderRow(ex, set) {
 
 function patchDropSetHeaderRow(ex, set, ctrl) {
   ctrl.chevronEl.classList.toggle('history-chevron--open', !set.collapsed);
+  ctrl.row.classList.toggle('drop-set-header--expanded', !set.collapsed);
   ctrl.indexEl.textContent = setIndexLabel(ex, set, 'parent');
   // Collapsed hides every stage, so the header stands in for the first one —
   // a bare "דרופ סט" label with nothing else visible reads as empty/broken.
