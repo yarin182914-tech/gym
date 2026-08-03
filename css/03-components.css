@@ -14,6 +14,51 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* ===== Exercise card header ===== */
+.exercise-num {
+  font-family: var(--font-numeric);
+  font-size: 0.75rem;
+  letter-spacing: var(--tracking-wide);
+  color: var(--rust);
+  flex: none;
+}
+
+.exercise-name {
+  font-family: var(--font-display);
+  font-weight: var(--weight-regular);
+  font-size: 1.25rem;
+  line-height: var(--leading-tight);
+  color: var(--accent-2);
+}
+
+.exercise-meta {
+  font-family: var(--font-numeric);
+  font-size: 0.7rem;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-muted);
+}
+
+.exercise-meta--done {
+  color: var(--success-text);
+}
+
+/* Column labels above a set list — shown once per exercise instead of
+   repeating "משקל"/"חזרות" captions on every single row. */
+.set-table-header {
+  display: grid;
+  grid-template-columns: 28px 1fr 1fr 44px;
+  gap: var(--space-2);
+  padding: 5px var(--space-1);
+  margin-bottom: 4px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.62rem;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 /* ===== Buttons =====
    Primary carries a subtle shadow, secondary/danger stay flat — that
    difference in elevation is itself the visual hierarchy between "the
@@ -31,9 +76,13 @@
   gap: var(--space-2);
 }
 
+/* Dark text, not white — every fill colour in this theme (gold, green,
+   coral) is a medium-light tone that white text doesn't sit well against;
+   the same dark ink works across all of them for a consistent, legible
+   look rather than picking a different text colour per fill. */
 .btn-primary {
   background: var(--accent);
-  color: #FFFFFF;
+  color: var(--gold-text);
   box-shadow: var(--shadow-sm);
 }
 
@@ -41,7 +90,7 @@
 
 .btn-success {
   background: var(--success);
-  color: #FFFFFF;
+  color: var(--gold-text);
   box-shadow: var(--shadow-sm);
 }
 
@@ -51,9 +100,54 @@
   border: 1px solid var(--border);
 }
 
+/* Thin, transparent outline — "+ הוספת תרגיל" and similar low-emphasis
+   actions that shouldn't compete visually with .btn-primary/.btn-secondary's
+   filled backgrounds. */
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.btn-outline:hover, .btn-outline:active {
+  border-color: var(--accent);
+  color: var(--gold);
+}
+
+/* Dashed border reads as "add a placeholder row", distinct from a solid
+   outline's "navigate/confirm" — used for "+ סט" only. */
+.btn-dashed {
+  background: transparent;
+  border: 1px dashed var(--border-strong);
+  color: var(--text-muted);
+}
+
+.btn-dashed:hover, .btn-dashed:active {
+  border-color: var(--accent);
+  color: var(--gold);
+}
+
 .btn-block { width: 100%; }
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* A small inline dashed chip — "+ ירידה", tucked into a set's meta row
+   alongside its type tag, not a full-height .btn. */
+.btn-mini-dashed {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  padding: 3px 9px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.btn-mini-dashed:hover, .btn-mini-dashed:active {
+  border-color: var(--accent);
+  color: var(--gold);
+}
 
 /* ===== Stepper (weight / reps input) ===== */
 .stepper {
@@ -85,24 +179,64 @@
   padding: 0 6px;
 }
 
-/* One logged set: type, weight, reps, done. Too much to fit on one line at
-   375px, so it wraps rather than squeezing the controls below a usable size. */
+/* One logged set: a two-tier row — .set-row-main (index/weight/reps/done,
+   grid-aligned so every set lines up like a table) plus .set-row-meta (the
+   quieter controls: type, drop-set count, previous performance, options,
+   PR) below it. border-inline-start doubles as a "spine": transparent for
+   a regular untouched set, success-green the moment it's done. */
 .set-row {
   display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 2px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  border-inline-start: 2px solid transparent;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.set-row-main {
+  display: grid;
+  grid-template-columns: 28px 1fr 1fr 44px;
+  gap: var(--space-2);
   align-items: center;
+  padding: 6px var(--space-1);
+}
+
+.set-index {
+  font-family: var(--font-numeric);
+  font-size: 1rem;
+  font-weight: var(--weight-semibold);
+  color: var(--rust);
+  text-align: center;
+}
+
+.set-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-  background: var(--surface);
+  padding: 0 var(--space-1);
+  min-height: 26px;
 }
 
 /* Drop-set stage: a child set nested under a .drop-set-header, indented
    with a connector line so the group reads as one unit rather than three
-   unrelated rows — same idea as the "↳" in a plain-text sketch of this. */
+   unrelated rows — same idea as the "↳" in a plain-text sketch of this.
+   The connector is --info (not transparent) while the stage is still open,
+   so an un-done child visually reads as "part of a group" even before its
+   own done-spine (--success) takes over. */
 .set-row--child {
   margin-inline-start: 20px;
   padding-inline-start: 10px;
-  border-inline-start: 2px solid var(--border);
+  border-inline-start-color: var(--info);
+}
+
+.set-row--child .set-index { font-size: 0.85rem; }
+.set-row--child .numeric-field-input, .set-row--child .reps-value { font-size: 1rem; }
+
+.set-row--child.set-row--done {
+  border-inline-start-color: var(--success);
 }
 
 /* A dedicated class, not the `hidden` attribute — [hidden] and .set-row's
@@ -118,10 +252,24 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   margin-inline-start: 20px;
   padding-inline-start: 10px;
-  border-inline-start: 2px solid var(--border);
+  padding-block: 6px;
+  border-inline-start: 2px solid var(--info);
+}
+
+.drop-set-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid var(--info);
+  border-radius: var(--radius-full);
+  background: rgba(91, 143, 176, 0.14);
+  color: var(--info-text);
 }
 
 /* ===== Toggle group (segmented control: ק"ג/lb, טוטאל/כל צד) ===== */
@@ -143,7 +291,7 @@
 
 .toggle-group button.active {
   background: var(--accent);
-  color: #FFFFFF;
+  color: var(--gold-text);
 }
 
 /* ===== Search bar (exercise picker) ===== */
@@ -171,7 +319,7 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(22, 35, 59, 0.35);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -243,7 +391,7 @@ th {
 .pill.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #FFFFFF;
+  color: var(--gold-text);
 }
 
 .modal-close {
@@ -313,17 +461,19 @@ th {
 .plate-dial.compact .dial-value { font-size: 0.8rem; }
 .plate-dial.compact .dial-label { display: none; }
 
-/* ===== PR badge (the one deliberate gold exception in an otherwise navy/white palette) ===== */
+/* ===== PR badge ===== an underline, not a filled chip — it sits in the
+   meta row next to plain text and shouldn't outweigh it. */
 .pr-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: var(--gold);
-  color: var(--gold-text);
-  font-size: 0.75rem;
-  font-weight: var(--weight-bold);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--gold);
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 1px;
 }
 
 /* ===== Bottom nav ===== */
@@ -437,82 +587,99 @@ th {
   100% { transform: scale(1); }
 }
 
+/* Both weight and reps read as plain underlined fields — a hairline
+   bottom border instead of a filled box — so the grid row reads as one
+   clean line of data rather than three separate button-like chips. */
 .set-field {
-  min-height: var(--tap-min);
+  min-height: 40px;
+  display: flex;
+  align-items: flex-end;
+  min-width: 0;
 }
 
 .set-field--weight {
-  min-width: 96px;
+  min-width: 0;
 }
 
 .set-field--reps {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 64px;
-  padding: 4px 10px;
-  background: var(--surface-raised);
-  border-radius: var(--radius-sm);
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 0;
+  padding-bottom: 6px;
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
   color: var(--text);
-  transition: background-color 0.2s ease;
+  transition: border-color 0.2s ease;
 }
 
 .set-field--reps .reps-value {
-  font-size: 1.15rem;
-  font-weight: var(--weight-bold);
+  font-family: var(--font-numeric);
+  font-size: 1.05rem;
+  font-weight: var(--weight-semibold);
   line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-tight);
-}
-
-.set-field--reps .reps-caption {
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
 }
 
 .set-field--reps.set-field--open {
-  background: var(--accent-dim);
+  border-color: var(--accent);
 }
 
 .set-done-btn {
-  transition: background-color 0.2s ease, transform 0.2s ease;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--rust);
+  font-size: 1rem;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.set-done-btn--done {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success-text);
 }
 
 .set-row-previous {
-  flex-basis: 100%;
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
 }
 
 /* ===== Numeric weight field ===== */
 .numeric-field {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 4px;
-  min-height: var(--tap-min);
-  padding: 0 10px;
-  background: var(--surface-raised);
-  border-radius: var(--radius-sm);
-  transition: box-shadow 0.15s ease;
+  min-height: 40px;
+  padding: 0;
+  padding-bottom: 6px;
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  transition: border-color 0.15s ease;
 }
 
-/* Same focus-ring treatment as .search-bar — consistent "premium input"
-   feel across the app's plainest and most bespoke text fields alike. */
 .numeric-field:focus-within {
-  box-shadow: 0 0 0 3px var(--accent-dim);
+  border-color: var(--accent);
 }
 
 .numeric-field-input {
-  /* Wide enough for a 3-digit weight with a decimal (e.g. 132.125 — real
-     plate-math totals commonly land on 3 decimals), not just a round number. */
-  width: 7ch;
+  width: 100%;
+  min-width: 0;
   border: none;
   background: transparent;
+  font-family: var(--font-numeric);
   font-size: 1.15rem;
   font-weight: var(--weight-semibold);
-  text-align: center;
+  /* A physical value, not "start" — the input is forced dir="ltr" (so
+     digits type left-to-right) independent of the page's RTL flow, and
+     "start" would resolve against THAT direction and land the number on
+     the left, opposite the reps field right next to it. */
+  text-align: right;
   color: var(--text);
   -moz-appearance: textfield;
 }
@@ -534,7 +701,7 @@ th {
 
 /* ===== Wheel picker (reps) — see js/ui/wheel-picker.js ===== */
 .wheel-picker-slot {
-  flex-basis: 100%;
+  margin-bottom: 4px;
 }
 
 .wheel-picker {
@@ -616,16 +783,40 @@ th {
 
 .toggle-group--live button.active {
   background: transparent;
-  color: #FFFFFF;
+  color: var(--gold-text);
 }
 
-/* A 3-option segmented control (set type) is noticeably wider than the
-   2-option kg/lb and total/per-side ones — sized down so it doesn't crowd
-   the rest of the set row off onto its own line every time. */
+/* The set-type control lives in the meta row alongside the drop-set tag,
+   previous-performance text and the options button — a full-width iOS-style
+   segmented bar reads as too heavy there, so it drops the connected-track
+   look for individually outlined chips (the sliding indicator only makes
+   sense against a continuous track, so it's hidden here). */
+.toggle-group--compact {
+  background: transparent;
+  border: none;
+  gap: 4px;
+}
+
+.toggle-group--compact .toggle-group-indicator {
+  display: none;
+}
+
 .toggle-group--compact button {
-  min-height: 40px;
-  padding: 0 10px;
-  font-size: 0.78rem;
+  min-height: 26px;
+  padding: 3px 9px;
+  font-size: 0.65rem;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.toggle-group--compact button.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--gold);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -650,6 +841,18 @@ th {
   color: var(--text-muted);
   font-size: 1.4rem;
   line-height: 1;
+}
+
+/* The set row's own options button lives in the quiet meta row, pushed to
+   the row's trailing edge — a full tap-target square there would crowd the
+   drop-set tag and previous-performance text right next to it. */
+.set-more-btn--meta {
+  min-width: 30px;
+  min-height: 26px;
+  width: 30px;
+  height: 26px;
+  margin-inline-start: auto;
+  font-size: 1.1rem;
 }
 
 /* The exercise-card header's delete button shares .set-more-btn with the
@@ -689,13 +892,13 @@ th {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(22, 35, 59, 0);
+  background: rgba(0, 0, 0, 0);
   transition: background-color 0.25s ease;
   z-index: 200;
 }
 
 .sheet-overlay--open {
-  background: rgba(22, 35, 59, 0.4);
+  background: rgba(0, 0, 0, 0.5);
 }
 
 .bottom-sheet {
@@ -745,7 +948,7 @@ th {
 
 .btn-danger {
   background: var(--danger);
-  color: #FFFFFF;
+  color: var(--gold-text);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -885,7 +1088,7 @@ th {
 
 .history-day--workout {
   background: var(--accent);
-  color: #FFFFFF;
+  color: var(--gold-text);
   font-weight: var(--weight-bold);
 }
 

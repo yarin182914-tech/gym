@@ -152,7 +152,7 @@ function render() {
 
     <div id="exercise-list"></div>
 
-    <button class="btn btn-secondary btn-block" id="add-exercise-btn">+ הוספת תרגיל</button>
+    <button class="btn btn-outline btn-block" id="add-exercise-btn">+ הוספת תרגיל</button>
     <button class="btn btn-secondary btn-block" id="finish-workout-btn" style="margin-top:8px;">סיום אימון</button>
 
     ${picker.open ? renderPicker() : ''}
@@ -445,20 +445,23 @@ function buildExerciseCard(ex) {
   // finishing a set could unexpectedly close the whole card out from under
   // the user; now the chevron is the only thing that ever changes this.
   const isOpen = !ex.collapsed;
+  const exNum = String(session.exercises.indexOf(ex) + 1).padStart(2, '0');
+  const { done, total } = exerciseSetsSummary(ex);
+  const allDone = total > 0 && done === total;
 
   el.innerHTML = `
-    <div class="row" style="margin-bottom:8px; flex-wrap:wrap; gap:8px;">
-      <div style="display:flex; align-items:center; gap:6px;">
-        <button type="button" class="set-more-btn exercise-drag-handle" data-role="drag-handle" aria-label="גרירה לשינוי סדר התרגילים">${icon('grip-vertical', { className: 'icon--sm' })}</button>
-        <h3 style="color:var(--text); margin:0;">${esc(ex.name)}</h3>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+      <button type="button" class="set-more-btn exercise-drag-handle" data-role="drag-handle" aria-label="גרירה לשינוי סדר התרגילים" style="flex:none;">${icon('grip-vertical', { className: 'icon--sm' })}</button>
+      <span class="exercise-num" data-role="exercise-num">${esc(exNum)}</span>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
+        <span class="exercise-name">${esc(ex.name)}</span>
+        <span class="exercise-meta${allDone ? ' exercise-meta--done' : ''}" data-role="exercise-meta">${esc(ex.category)} · ${done}/${total} סטים</span>
       </div>
-      <div style="display:flex; align-items:center; gap:8px;">
-        <button class="btn btn-secondary" data-last-time style="padding:0 12px; font-size:0.85rem;">${icon('clock', { className: 'icon--sm' })} פעם קודמת</button>
-        <button type="button" class="set-more-btn set-more-btn--danger" data-delete-exercise aria-label="מחיקת התרגיל">${icon('trash-2', { className: 'icon--sm' })}</button>
-        <button type="button" class="set-more-btn" data-collapse-toggle aria-label="כיווץ/הרחבת התרגיל">
-          <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-collapse-chevron aria-hidden="true">⌄</span>
-        </button>
-      </div>
+      <button type="button" class="set-more-btn" data-last-time aria-label="פעם קודמת">${icon('clock', { className: 'icon--sm' })}</button>
+      <button type="button" class="set-more-btn set-more-btn--danger" data-delete-exercise aria-label="מחיקת התרגיל">${icon('trash-2', { className: 'icon--sm' })}</button>
+      <button type="button" class="set-more-btn" data-collapse-toggle aria-label="כיווץ/הרחבת התרגיל">
+        <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-collapse-chevron aria-hidden="true">⌄</span>
+      </button>
     </div>
     <div class="history-detail${isOpen ? ' history-detail--open' : ''}" data-exercise-detail>
       <div class="history-detail-inner">
@@ -478,8 +481,9 @@ function buildExerciseCard(ex) {
             options: [{ value: 'kg', label: 'ק"ג' }, { value: 'lb', label: 'lb' }],
           })}
         </div>
+        <div class="set-table-header"><span>סט</span><span>${esc(unitLabel(ex.weightUnit).trim() || 'ק"ג')}</span><span>חזרות</span><span></span></div>
         <div class="sets-list"></div>
-        <button class="btn btn-secondary btn-block" data-add-set>+ סט</button>
+        <button class="btn btn-dashed" data-add-set>+ סט</button>
       </div>
     </div>
   `;
@@ -542,6 +546,7 @@ function buildExerciseCard(ex) {
     unitGroupEl,
     detailEl: el.querySelector('[data-exercise-detail]'),
     chevronEl: el.querySelector('[data-collapse-chevron]'),
+    metaEl: el.querySelector('[data-role="exercise-meta"]'),
   };
   exerciseRefs.set(ex._uid, refs);
 
@@ -585,8 +590,24 @@ function patchExerciseCard(ex) {
   syncSetRows(ex, refs);
   patchToggleGroup(refs.modeGroupEl, ex.weightMode);
   patchToggleGroup(refs.unitGroupEl, ex.weightUnit);
+  patchExerciseMeta(ex, refs);
   applyFocusMode();
   patchExerciseCollapse(ex);
+}
+
+// Counts only loggable sets (bare drop-set headers carry no data of their
+// own, same exclusion persistablePosition uses for saving).
+function exerciseSetsSummary(ex) {
+  const loggable = ex.sets.filter((s) => !hasChildren(ex, s));
+  return { done: loggable.filter((s) => s.done).length, total: loggable.length };
+}
+
+function patchExerciseMeta(ex, refs) {
+  if (!refs.metaEl) return;
+  const { done, total } = exerciseSetsSummary(ex);
+  const allDone = total > 0 && done === total;
+  refs.metaEl.textContent = `${ex.category} · ${done}/${total} סטים`;
+  refs.metaEl.classList.toggle('exercise-meta--done', allDone);
 }
 
 // An exercise can be minimized to just its header — the point is that a
@@ -634,6 +655,32 @@ function persistablePosition(ex, set) {
     if (!hasChildren(ex, s)) pos += 1;
   }
   return pos;
+}
+
+// Position among top-level slots only (a drop-set group's children don't
+// get their own slot — the group counts as one, via its header/parent). Used
+// purely for the number shown next to a row, not for persistence lookups
+// (see persistablePosition for that).
+function topLevelPosition(ex, set) {
+  let pos = 0;
+  for (const s of ex.sets) {
+    if (s.parentUid) continue;
+    if (s === set) return pos;
+    pos += 1;
+  }
+  return pos;
+}
+
+// "3" for a regular set or a drop-set group header, "3.1"/"3.2" for its
+// stages — mirrors how the reference design numbers a drop set's children
+// against their parent.
+function setIndexLabel(ex, set, role) {
+  if (role === 'child') {
+    const parent = ex.sets.find((s) => s._uid === set.parentUid);
+    const childIdx = childrenOf(ex, parent).indexOf(set);
+    return `${topLevelPosition(ex, parent) + 1}.${childIdx + 1}`;
+  }
+  return String(topLevelPosition(ex, set) + 1);
 }
 
 // Appends a new stage after a drop set's last existing stage (or right
@@ -740,24 +787,28 @@ function buildSetRow(ex, set, role) {
       groupAttrs: 'data-set-type-group',
       options: SET_TYPES.map((t) => ({ value: t.id, label: t.label })),
     })}
-    ${set.type === 'dropset' ? `<button type="button" class="btn btn-secondary" data-role="add-stage-btn" style="font-size:0.8rem; padding:0 10px;">+ ירידה</button>` : ''}
+    ${set.type === 'dropset' ? `<button type="button" class="btn-mini-dashed" data-role="add-stage-btn">+ ירידה</button>` : ''}
   `;
 
   row.innerHTML = `
-    ${typeAndAddStage}
-    <div class="set-field set-field--weight" data-role="weight-slot"></div>
-    <button type="button" class="set-field set-field--reps" data-role="reps-trigger" aria-expanded="false">
-      <span class="reps-value num">${esc(set.reps)}</span>
-      <span class="reps-caption">חזרות</span>
-    </button>
-    <button type="button" class="set-more-btn" data-role="more-btn" aria-label="עוד אפשרויות לסט">⋯</button>
-    <button type="button" class="btn set-done-btn ${set.done ? 'btn-success' : 'btn-secondary'}" data-role="done-btn">
-      <span class="done-glyph">${set.done ? '✓' : 'סיום'}</span>
-    </button>
-    <span class="pr-badge" data-role="pr-badge" ${set.isPR ? '' : 'hidden'}>שיא חדש ${icon('trophy', { className: 'icon--sm' })}</span>
-    <div class="set-row-previous" data-role="previous" hidden></div>
-    <div class="set-row-notes" data-role="notes" hidden></div>
+    <div class="set-row-main">
+      <span class="set-index" data-role="set-index">${esc(setIndexLabel(ex, set, role))}</span>
+      <div class="set-field set-field--weight" data-role="weight-slot"></div>
+      <button type="button" class="set-field set-field--reps" data-role="reps-trigger" aria-expanded="false">
+        <span class="reps-value num">${esc(set.reps)}</span>
+      </button>
+      <button type="button" class="set-done-btn${set.done ? ' set-done-btn--done' : ''}" data-role="done-btn" aria-label="סימון סט כבוצע">
+        <span class="done-glyph">✓</span>
+      </button>
+    </div>
     <div class="wheel-picker-slot" data-role="wheel-slot" hidden></div>
+    <div class="set-row-meta">
+      ${typeAndAddStage}
+      <span class="set-row-previous" data-role="previous" hidden></span>
+      <span class="set-row-notes" data-role="notes" hidden></span>
+      <button type="button" class="set-more-btn set-more-btn--meta" data-role="more-btn" aria-label="עוד אפשרויות לסט">⋯</button>
+      <span class="pr-badge" data-role="pr-badge" ${set.isPR ? '' : 'hidden'}>שיא</span>
+    </div>
   `;
 
   const typeGroupEl = row.querySelector('[data-set-type-group]');
@@ -829,6 +880,7 @@ function buildSetRow(ex, set, role) {
     numeric,
     repsTrigger,
     doneBtn,
+    indexEl: row.querySelector('[data-role="set-index"]'),
     prBadgeEl: row.querySelector('[data-role="pr-badge"]'),
     previousEl: row.querySelector('[data-role="previous"]'),
     notesEl: row.querySelector('[data-role="notes"]'),
@@ -850,9 +902,9 @@ function patchSetRow(ex, set, idx, ctrl) {
   ctrl.numeric.setUnitLabel(unitLabel(set.weightUnit).trim());
   ctrl.numeric.setValue(set.weight);
   ctrl.repsTrigger.querySelector('.reps-value').textContent = set.reps;
+  ctrl.indexEl.textContent = setIndexLabel(ex, set, ctrl.role);
 
-  ctrl.doneBtn.className = `btn set-done-btn ${set.done ? 'btn-success' : 'btn-secondary'}`;
-  ctrl.doneBtn.querySelector('.done-glyph').textContent = set.done ? '✓' : 'סיום';
+  ctrl.doneBtn.classList.toggle('set-done-btn--done', set.done);
   ctrl.row.classList.toggle('set-row--done', set.done);
 
   if (set.done && !wasDone) {
@@ -900,8 +952,9 @@ function buildDropSetHeaderRow(ex, set) {
     <button type="button" class="set-more-btn" data-role="dropset-toggle" aria-label="כיווץ/הרחבת דרופ סט">
       <span class="history-chevron" data-role="dropset-chevron" aria-hidden="true">⌄</span>
     </button>
-    <span style="font-weight:var(--weight-semibold); flex:1;" data-role="dropset-label">דרופ סט</span>
-    <button type="button" class="btn btn-secondary" data-role="add-stage-btn" style="font-size:0.8rem; padding:0 10px;">+ ירידה</button>
+    <span class="set-index" data-role="dropset-index">${esc(setIndexLabel(ex, set, 'parent'))}</span>
+    <span style="flex:1;"><span class="drop-set-pill" data-role="dropset-label">דרופ סט</span></span>
+    <button type="button" class="btn-mini-dashed" data-role="add-stage-btn">+ ירידה</button>
     <button type="button" class="set-more-btn set-more-btn--danger" data-role="delete-group-btn" aria-label="מחיקת דרופ סט">${icon('trash-2', { className: 'icon--sm' })}</button>
   `;
 
@@ -933,11 +986,13 @@ function buildDropSetHeaderRow(ex, set) {
     row,
     chevronEl: row.querySelector('[data-role="dropset-chevron"]'),
     labelEl: row.querySelector('[data-role="dropset-label"]'),
+    indexEl: row.querySelector('[data-role="dropset-index"]'),
   };
 }
 
 function patchDropSetHeaderRow(ex, set, ctrl) {
   ctrl.chevronEl.classList.toggle('history-chevron--open', !set.collapsed);
+  ctrl.indexEl.textContent = setIndexLabel(ex, set, 'parent');
   // Collapsed hides every stage, so the header stands in for the first one —
   // a bare "דרופ סט" label with nothing else visible reads as empty/broken.
   const first = childrenOf(ex, set)[0];
@@ -1060,7 +1115,7 @@ function openSetDetailSheet(ex, set, ctrl) {
       body.innerHTML = `
         <h3 style="margin:0 0 2px; color:var(--text);">${esc(ex.name)}</h3>
         <p class="text-muted" style="margin:0 0 10px;">
-          סט ${idx + 1}${set.isPR ? ` · <span class="pr-badge">שיא חדש ${icon('trophy', { className: 'icon--sm' })}</span>` : ''}
+          סט ${idx + 1}${set.isPR ? ` · <span class="pr-badge">שיא</span>` : ''}
         </p>
 
         <div class="sheet-field-label">משקל</div>

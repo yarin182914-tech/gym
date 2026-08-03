@@ -83,7 +83,7 @@ button {
   z-index: 200;
   padding: 10px 16px;
   background: var(--accent);
-  color: #FFFFFF;
+  color: var(--gold-text);
   text-decoration: none;
   border-end-end-radius: var(--radius-sm);
 }

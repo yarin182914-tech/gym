@@ -4,11 +4,16 @@
 // selective direct labels (first/last/PR only), gold PR markers, hover
 // tooltip by default, recessive gridlines.
 
-const PURPLE = '#6B4C9A';
-const GOLD = '#C9962C';
-const MUTED = '#5E6B80';
-const GRID = '#DCE3EC';
-const TEXT = '#16233B';
+const PURPLE = '#8b6bb0';
+const GOLD = '#facb8d';
+const MUTED = '#9b9797';
+const GRID = 'rgba(255, 255, 255, 0.12)';
+const TEXT = '#f3f0ec';
+// The tooltip chip stays a dark surface (not TEXT, which is this theme's
+// near-white foreground colour) — Chart.js's default white tooltip text
+// already reads fine against it, same as it did against the old theme's
+// dark-navy tooltip background.
+const TOOLTIP_BG = '#2a2724';
 
 function selectiveLabelsPlugin(values, prFlags, formatValue) {
   return {
@@ -22,7 +27,7 @@ function selectiveLabelsPlugin(values, prFlags, formatValue) {
         if (!isFirst && !isLast && !prFlags[i]) return;
         ctx.save();
         ctx.fillStyle = prFlags[i] ? GOLD : TEXT;
-        ctx.font = "600 11px 'Inter', sans-serif";
+        ctx.font = "600 11px 'Oswald', sans-serif";
         ctx.textAlign = 'center';
         ctx.fillText(formatValue(values[i]), point.x, point.y - 12);
         ctx.restore();
@@ -88,9 +93,9 @@ export async function renderProgressChart(canvas, { labels, values, prFlags, for
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: TEXT,
+          backgroundColor: TOOLTIP_BG,
           titleFont: { family: 'Rubik' },
-          bodyFont: { family: 'Inter' },
+          bodyFont: { family: 'Oswald' },
           padding: 10,
           callbacks: {
             label: (ctx) => formatValue(ctx.parsed.y),
@@ -104,7 +109,7 @@ export async function renderProgressChart(canvas, { labels, values, prFlags, for
         },
         y: {
           grid: { color: GRID },
-          ticks: { font: { family: 'Inter', size: 11 }, color: MUTED },
+          ticks: { font: { family: 'Oswald', size: 11 }, color: MUTED },
         },
       },
     },
