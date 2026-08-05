@@ -7,6 +7,7 @@ import { emptyState } from '../ui/empty-state.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
 import { icon } from '../ui/icon.js';
+import { toCsv, downloadCsv } from '../lib/csv.js';
 
 let container = null;
 let workouts = [];
@@ -86,6 +87,8 @@ function render() {
       <div id="cal-grid" style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center;"></div>
       <div id="cal-hint" class="text-muted" style="font-size:var(--text-sm); text-align:center; min-height:1.2em; margin-top:6px; opacity:0; transition:opacity 0.2s ease;"></div>
     </div>
+    ${workouts.length > 0 ? `<button class="btn btn-secondary btn-block" id="export-csv-btn" style="margin-bottom:10px;">${icon('download', { className: 'icon--sm' })} ייצוא היסטוריה ל-CSV</button>` : ''}
+
     <div id="workout-list"></div>
   `;
 
@@ -109,6 +112,37 @@ function render() {
     calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
     animateCalendarChange();
   });
+  container.querySelector('#export-csv-btn')?.addEventListener('click', exportWorkoutsCsv);
+}
+
+// One row per set, not per workout — the granular format is what's actually
+// useful to paste into a spreadsheet (filter by exercise, chart weight over
+// time, etc). Re-fetches up to the real cap (500) rather than reusing the
+// 200 already loaded for display, so exporting isn't quietly partial.
+async function exportWorkoutsCsv() {
+  const all = await listWorkouts(500);
+  const rows = [];
+  for (const w of all) {
+    const dateLabel = formatDateHe(w.date);
+    for (const ex of (w.exercises || [])) {
+      for (const s of (ex.sets || [])) {
+        rows.push({ date: dateLabel, exercise: ex.name, category: ex.category, ...s });
+      }
+    }
+  }
+  const csv = toCsv(rows, [
+    { label: 'תאריך', value: (r) => r.date },
+    { label: 'תרגיל', value: (r) => r.exercise },
+    { label: 'קבוצת שריר', value: (r) => r.category },
+    { label: 'מספר סט', value: (r) => r.setNumber },
+    { label: 'סוג סט', value: (r) => r.type },
+    { label: 'משקל', value: (r) => r.weight },
+    { label: 'יחידה', value: (r) => r.weightUnit },
+    { label: 'אופן שקילה', value: (r) => r.weightMode },
+    { label: 'חזרות', value: (r) => r.reps },
+    { label: 'הערות', value: (r) => r.notes },
+  ]);
+  downloadCsv(`אימונים-${new Date().toISOString().slice(0, 10)}.csv`, csv);
 }
 
 // A brief fade instead of an instant content swap — only the calendar itself

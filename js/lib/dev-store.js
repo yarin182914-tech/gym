@@ -12,7 +12,7 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw);
   } catch { /* corrupt/blocked storage falls through to defaults */ }
-  return { user: { displayName: 'מצב פיתוח', weddingDate: null }, workouts: [], exerciseLibrary: [], nutritionEntries: [], plans: [] };
+  return { user: { displayName: 'מצב פיתוח', weddingDate: null }, workouts: [], exerciseLibrary: [], nutritionEntries: [], bodyMeasurements: [], plans: [] };
 }
 
 function save(state) {
@@ -126,6 +126,31 @@ export async function devAddNutritionEntry(entry) {
 export async function devListNutritionEntries(max = 200) {
   const state = load();
   return [...state.nutritionEntries]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, max);
+}
+
+export async function devAddBodyMeasurement(entry) {
+  const state = load();
+  // Older saved states predate this collection — never assume it's there.
+  state.bodyMeasurements = state.bodyMeasurements || [];
+  const id = uid();
+  state.bodyMeasurements.unshift({
+    id,
+    date: entry.date instanceof Date ? entry.date.toISOString() : new Date().toISOString(),
+    weightKg: entry.weightKg ?? null,
+    waistCm: entry.waistCm ?? null,
+    chestCm: entry.chestCm ?? null,
+    hipsCm: entry.hipsCm ?? null,
+    armCm: entry.armCm ?? null,
+  });
+  save(state);
+  return id;
+}
+
+export async function devListBodyMeasurements(max = 200) {
+  const state = load();
+  return [...(state.bodyMeasurements || [])]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, max);
 }

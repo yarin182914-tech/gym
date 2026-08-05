@@ -109,3 +109,27 @@ button {
   text-align: center;
   padding: 24px;
 }
+
+.auth-screen .btn-block,
+.auth-screen #email-auth-form {
+  max-width: 320px;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
+  margin: 16px 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}

@@ -9,6 +9,7 @@ import {
   devListExerciseLibrary, devAddExerciseToLibrary,
   devRenameExerciseEverywhere, devDeleteExerciseFromLibrary,
   devAddNutritionEntry, devListNutritionEntries,
+  devAddBodyMeasurement, devListBodyMeasurements,
 } from './dev-store.js';
 
 function uidOrThrow() {
@@ -242,6 +243,35 @@ export async function listNutritionEntries(max = 200) {
   if (!useCloud) return devListNutritionEntries(max);
   const uid = uidOrThrow();
   const ref = collection(db, 'users', uid, 'nutritionEntries');
+  const q = query(ref, orderBy('date', 'desc'), limit(max));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------- body measurements ----------
+// Deliberately no "delete" — same minimal shape as nutrition entries. Every
+// field but date is optional, so a visit that only logged weight doesn't
+// need placeholder zeros for the rest.
+
+export async function addBodyMeasurement(entry) {
+  if (!useCloud) return devAddBodyMeasurement(entry);
+  const uid = uidOrThrow();
+  const ref = collection(db, 'users', uid, 'bodyMeasurements');
+  const docRef = await addDoc(ref, {
+    date: entry.date ?? serverTimestamp(),
+    weightKg: entry.weightKg ?? null,
+    waistCm: entry.waistCm ?? null,
+    chestCm: entry.chestCm ?? null,
+    hipsCm: entry.hipsCm ?? null,
+    armCm: entry.armCm ?? null,
+  });
+  return docRef.id;
+}
+
+export async function listBodyMeasurements(max = 200) {
+  if (!useCloud) return devListBodyMeasurements(max);
+  const uid = uidOrThrow();
+  const ref = collection(db, 'users', uid, 'bodyMeasurements');
   const q = query(ref, orderBy('date', 'desc'), limit(max));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));

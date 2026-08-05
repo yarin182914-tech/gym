@@ -2,12 +2,13 @@ import { renderPlateDial } from '../lib/plate-dial.js';
 import { addNutritionEntry, listNutritionEntries } from '../lib/firestore.js';
 import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
-import { toDate, dateInputValue, parseDateInputValue } from '../lib/format.js';
+import { toDate, dateInputValue, parseDateInputValue, formatDateHe } from '../lib/format.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { stepper } from '../ui/stepper.js';
 import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { mountNumericField } from '../ui/numeric-input.js';
+import { toCsv, downloadCsv } from '../lib/csv.js';
 
 const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
 // 'snack' is kept only so older entries saved under it still display a
@@ -118,6 +119,8 @@ function render() {
             <span class="num" style="font-weight:var(--weight-bold); letter-spacing:var(--tracking-tight);">${esc(e.calories)} קל'</span>
           </div>`).join('')}
     </div>
+
+    ${entries.length > 0 ? `<button class="btn btn-secondary btn-block" id="export-csv-btn">${icon('download', { className: 'icon--sm' })} ייצוא תזונה ל-CSV</button>` : ''}
   `;
 
   renderPlateDial(container.querySelector('#calorie-ring'), {
@@ -141,6 +144,25 @@ function render() {
       render();
     });
   }
+
+  container.querySelector('#export-csv-btn')?.addEventListener('click', exportNutritionCsv);
+}
+
+// `entries` is already the full loaded set (up to 200, same as what's shown
+// here) — no extra fetch needed, unlike history's separate re-fetch to a
+// higher cap.
+function exportNutritionCsv() {
+  const csv = toCsv(entries, [
+    { label: 'תאריך', value: (e) => formatDateHe(e.date) },
+    { label: 'סוג ארוחה', value: (e) => MEAL_LABELS[e.mealType] || e.mealType },
+    { label: 'תיאור', value: (e) => e.description },
+    { label: 'קלוריות', value: (e) => e.calories },
+    { label: 'חלבון (g)', value: (e) => e.proteinG },
+    { label: 'פחמימות (g)', value: (e) => e.carbsG },
+    { label: 'שומן (g)', value: (e) => e.fatG },
+    { label: 'מקור', value: (e) => (e.source === 'photo' ? 'תמונה' : 'ידני') },
+  ]);
+  downloadCsv(`תזונה-${new Date().toISOString().slice(0, 10)}.csv`, csv);
 }
 
 // One labelled amount row in the add-meal form. All four differ only by label,

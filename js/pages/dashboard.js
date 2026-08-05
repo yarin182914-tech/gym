@@ -1,13 +1,17 @@
-import { listWorkouts, getExerciseHistory, listExerciseLibrary, CATEGORY_GROUPS } from '../lib/firestore.js';
+import {
+  listWorkouts, getExerciseHistory, listExerciseLibrary, CATEGORY_GROUPS,
+  addBodyMeasurement, listBodyMeasurements,
+} from '../lib/firestore.js';
 import { renderProgressChart } from '../lib/charts.js';
 import { esc } from '../core/dom.js';
-import { formatDayMonthHe as shortDate, unitLabel, round1 } from '../lib/format.js';
+import { formatDayMonthHe as shortDate, unitLabel, round1, dateInputValue, parseDateInputValue } from '../lib/format.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { statTile } from '../ui/stat-tile.js';
 import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { openExerciseEditSheet } from '../ui/exercise-edit-sheet.js';
+import { openBottomSheet } from '../ui/bottom-sheet.js';
 
 let container = null;
 let allExerciseNames = [];
@@ -22,6 +26,7 @@ let metric = 'weight'; // 'weight' | 'volume'
 let viewMode = 'chart'; // 'chart' | 'table'
 let chartInstance = null;
 let picker = { open: false, query: '', category: null };
+let measurements = []; // body measurements, newest first — independent of any exercise
 
 export function unmountDashboard() {
   if (chartInstance) chartInstance.destroy();
@@ -31,6 +36,7 @@ export function unmountDashboard() {
   categoryByName = new Map();
   libraryByName = new Map();
   picker = { open: false, query: '', category: null };
+  measurements = [];
 }
 
 export async function mountDashboard(rootEl) {
@@ -38,8 +44,11 @@ export async function mountDashboard(rootEl) {
   container = rootEl;
   renderLoading(container, 'טוען נתוני התקדמות...');
 
-  const [workouts, libraryEntries] = await Promise.all([listWorkouts(500), listExerciseLibrary()]);
+  const [workouts, libraryEntries, measurementEntries] = await Promise.all([
+    listWorkouts(500), listExerciseLibrary(), listBodyMeasurements(200),
+  ]);
   if (isStale(token)) return;
+  measurements = measurementEntries;
 
   const namesInRecencyOrder = [];
   const seen = new Set();
@@ -65,7 +74,9 @@ export async function mountDashboard(rootEl) {
       <div class="card" style="text-align:center;">
         <h2>התקדמות</h2>
         ${emptyState('עוד אין נתונים — תתחיל לתעד אימונים כדי לראות כאן גרפים.')}
-      </div>`;
+      </div>
+      <div id="measurements-section"></div>`;
+    renderMeasurementsSection();
     return;
   }
 
@@ -166,6 +177,7 @@ async function render() {
     </div>
 
     <div id="pr-list"></div>
+    <div id="measurements-section"></div>
   `;
 
   const metricGroupEl = container.querySelector('#metric-toggle');
@@ -219,6 +231,114 @@ async function render() {
   });
 
   renderPRList();
+  renderMeasurementsSection();
+}
+
+// ---------- body measurements ----------
+// Independent of the selected-exercise state above — measurements aren't
+// tied to any one lift, so this section never needs a full render() to
+// refresh, only its own slot.
+
+function renderMeasurementsSection() {
+  const slot = container?.querySelector('#measurements-section');
+  if (!slot) return;
+
+  const latest = measurements[0];
+  const prev = measurements[1];
+  let deltaText = '';
+  if (latest?.weightKg != null && prev?.weightKg != null) {
+    const diff = round1(latest.weightKg - prev.weightKg);
+    deltaText = diff === 0
+      ? 'ללא שינוי מהמדידה הקודמת'
+      : `${diff > 0 ? '+' : ''}${diff} ק"ג מהמדידה הקודמת`;
+  }
+
+  slot.innerHTML = `
+    <div class="card">
+      <h3 style="color:var(--text); margin-bottom:10px;">מדידות גוף</h3>
+      ${latest ? `
+        <div class="row" style="margin-bottom:4px;">
+          <span class="text-muted">משקל אחרון</span>
+          <span class="num" style="font-weight:var(--weight-bold); letter-spacing:var(--tracking-tight);">${latest.weightKg != null ? `${latest.weightKg} ק"ג` : '—'}</span>
+        </div>
+        ${deltaText ? `<p class="text-muted" style="font-size:0.8rem; margin-bottom:10px;">${esc(deltaText)}</p>` : ''}
+        <div class="dash-table-view" style="margin-bottom:10px;">
+          ${measurements.slice(0, 5).map((m) => `
+            <div class="dash-table-row">
+              <span class="text-muted">${shortDate(m.date)}</span>
+              <span class="num" style="font-weight:var(--weight-semibold);">${m.weightKg != null ? `${m.weightKg} ק"ג` : '—'}</span>
+            </div>`).join('')}
+        </div>` : emptyState('עוד לא נרשמו מדידות גוף.')}
+      <button class="btn btn-secondary btn-block" id="add-measurement-btn">+ הוספת מדידה</button>
+    </div>`;
+
+  slot.querySelector('#add-measurement-btn').addEventListener('click', openMeasurementSheet);
+}
+
+function openMeasurementSheet() {
+  openBottomSheet({
+    ariaLabel: 'הוספת מדידה',
+    render(body, sheetApi) {
+      const todayStr = dateInputValue(new Date());
+      body.innerHTML = `
+        <h3 style="margin:0 0 14px; color:var(--text);">הוספת מדידה</h3>
+        <div class="sheet-field-label">תאריך</div>
+        <input type="date" id="m-date" class="search-bar" value="${todayStr}" max="${todayStr}" style="margin-bottom:14px;">
+        <div class="sheet-field-label">משקל (ק"ג)</div>
+        <input type="number" id="m-weight" class="search-bar" step="0.1" inputmode="decimal" style="margin-bottom:14px;">
+        <div class="row" style="gap:10px; margin-bottom:14px;">
+          <div style="flex:1;">
+            <div class="sheet-field-label">מותן (ס"מ)</div>
+            <input type="number" id="m-waist" class="search-bar" step="0.5" inputmode="decimal">
+          </div>
+          <div style="flex:1;">
+            <div class="sheet-field-label">חזה (ס"מ)</div>
+            <input type="number" id="m-chest" class="search-bar" step="0.5" inputmode="decimal">
+          </div>
+        </div>
+        <div class="row" style="gap:10px; margin-bottom:14px;">
+          <div style="flex:1;">
+            <div class="sheet-field-label">ירכיים (ס"מ)</div>
+            <input type="number" id="m-hips" class="search-bar" step="0.5" inputmode="decimal">
+          </div>
+          <div style="flex:1;">
+            <div class="sheet-field-label">זרוע (ס"מ)</div>
+            <input type="number" id="m-arm" class="search-bar" step="0.5" inputmode="decimal">
+          </div>
+        </div>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-secondary" id="m-cancel-btn">ביטול</button>
+          <button type="button" class="btn btn-primary" id="m-save-btn">שמירה</button>
+        </div>
+      `;
+
+      body.querySelector('#m-cancel-btn').addEventListener('click', () => sheetApi.close());
+      body.querySelector('#m-save-btn').addEventListener('click', async () => {
+        const num = (selector) => {
+          const v = body.querySelector(selector).value;
+          return v === '' ? null : Number(v);
+        };
+        const weightKg = num('#m-weight');
+        const waistCm = num('#m-waist');
+        const chestCm = num('#m-chest');
+        const hipsCm = num('#m-hips');
+        const armCm = num('#m-arm');
+        // Nothing filled in at all — silently do nothing rather than save
+        // an all-null row (a scale-only visit and a tape-only visit are
+        // both fine; a totally empty one just means "cancel").
+        if ([weightKg, waistCm, chestCm, hipsCm, armCm].every((v) => v == null)) return;
+
+        const dateVal = body.querySelector('#m-date').value;
+        await addBodyMeasurement({
+          date: dateVal ? parseDateInputValue(dateVal) : new Date(),
+          weightKg, waistCm, chestCm, hipsCm, armCm,
+        });
+        sheetApi.close();
+        measurements = await listBodyMeasurements(200);
+        renderMeasurementsSection();
+      });
+    },
+  });
 }
 
 // Replaces a native <select> with the same search + category-pill picker

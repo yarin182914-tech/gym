@@ -5,6 +5,7 @@ import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 import { mountNumericField } from '../ui/numeric-input.js';
 import { mountWheelPicker } from '../ui/wheel-picker.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
+import { renderPlateDial } from '../lib/plate-dial.js';
 import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { openExerciseEditSheet } from '../ui/exercise-edit-sheet.js';
@@ -22,6 +23,23 @@ let container = null;
 let library = [];
 let session = null; // { startedAt, realStartedAt, exercises: [...] }
 let elapsedTimerId = null;
+let restStartedAt = null; // Date the most recently completed set was marked done, or null when no rest is being tracked
+let finishing = false; // guards finishWorkout() against double-submission (double-tap, slow network) while a save is in flight
+
+// How long a rest stopwatch takes to fill its ring — purely visual (the
+// number itself keeps counting up past this), not an alarm or a cutoff.
+const REST_TARGET_SECONDS = 90;
+
+// A page reload — or iOS discarding a backgrounded tab, which it does
+// aggressively — used to wipe `session` outright, since it only ever lived
+// in this module's memory. Mirroring it out to localStorage on every tick
+// (see tickClock) means the workout clock and the rest stopwatch can both
+// be rebuilt from real wall-clock timestamps instead of silently resetting
+// to zero. Sessions older than this are treated as abandoned rather than
+// resumed, so reopening the app days later doesn't resurrect a workout
+// showing an elapsed time of "47:12:03".
+const SESSION_STORAGE_KEY = 'gym-active-session-v1';
+const MAX_RESUMABLE_AGE_MS = 12 * 60 * 60 * 1000;
 let picker = { open: false, query: '', category: null };
 let lastTimeModal = null; // { name, previous }
 let recentExerciseNames = []; // fetched lazily each time the picker opens
@@ -51,6 +69,23 @@ export async function mountActiveSession(rootEl) {
   const token = beginMount();
   container = rootEl;
 
+  // Nothing in memory (fresh page load, or the tab was reloaded/discarded
+  // while backgrounded) — try to pick the workout back up from storage
+  // before doing anything else, so the clock/rest-stopwatch below reflect
+  // the resumed state, not an empty one.
+  let restoredExercises = null;
+  if (!session) {
+    const restored = loadPersistedSession();
+    if (restored) {
+      session = restored.session;
+      restStartedAt = restored.restStartedAt;
+      // Restored _uid values came from a previous page load's counter —
+      // jump past them so any newly-added exercise/set can't collide.
+      uidSeq = Date.now();
+      restoredExercises = session.exercises;
+    }
+  }
+
   let loaded = await listExerciseLibrary();
   if (loaded.length === 0) {
     await seedExerciseLibraryIfEmpty();
@@ -63,11 +98,19 @@ export async function mountActiveSession(rootEl) {
   // A workout survives navigating away, so the clock has to be restarted on
   // the way back in — otherwise it renders once and then sits frozen.
   if (session) startElapsedTicking();
+
+  // Restored exercises were persisted without their "previous performance"
+  // data (see persistSession) — fetch it the same way a freshly-added
+  // exercise does, then patch each card in place once it arrives.
+  if (restoredExercises) {
+    for (const entry of restoredExercises) rehydrateExercise(entry);
+  }
 }
 
 // Stops everything that outlives a render. The in-progress workout itself is
 // deliberately kept, so leaving this tab mid-session doesn't discard it.
 export function unmountActiveSession() {
+  persistSession(); // capture the latest state now that the 1s tick is about to stop
   stopElapsedTicking();
   // The dialog's Escape handler lives on document, so it outlives this page
   // unless removed here.
@@ -99,10 +142,128 @@ function stopElapsedTicking() {
 
 // Repaints only the clock's text. The old code re-rendered the whole screen
 // every second, which tore down open dropdowns, the search field and focus.
+// Also drives the rest stopwatch and the localStorage mirror off the same
+// 1Hz tick rather than running separate timers for each.
 function tickClock() {
   if (!container || !session) return;
   const clock = container.querySelector('#elapsed-clock');
   if (clock) clock.textContent = formatMMSS(elapsedSeconds());
+  patchRestSlot();
+  persistSession();
+}
+
+// ---------- persistence (survive reload / backgrounded-tab discard) ----------
+
+// Only the fields needed to rebuild the workout are kept — deliberately not
+// ex.previous/ex.history (Firestore-fetched lookups, refetched on restore by
+// rehydrateExercise instead of round-tripped through JSON on every tick).
+function persistSession() {
+  if (!session) {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    return;
+  }
+  try {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      startedAt: session.startedAt.toISOString(),
+      realStartedAt: session.realStartedAt.toISOString(),
+      exercises: session.exercises.map((ex) => ({
+        _uid: ex._uid,
+        name: ex.name,
+        category: ex.category,
+        weightMode: ex.weightMode,
+        weightUnit: ex.weightUnit,
+        sets: ex.sets,
+      })),
+      restStartedAt: restStartedAt ? restStartedAt.toISOString() : null,
+    }));
+  } catch { /* storage full/blocked — the session just won't survive a reload */ }
+}
+
+function loadPersistedSession() {
+  let raw;
+  try {
+    raw = localStorage.getItem(SESSION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    const realStartedAt = new Date(parsed.realStartedAt);
+    if (Date.now() - realStartedAt.getTime() > MAX_RESUMABLE_AGE_MS) {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      return null;
+    }
+    return {
+      session: {
+        startedAt: new Date(parsed.startedAt),
+        realStartedAt,
+        exercises: (parsed.exercises || []).map((ex) => ({
+          ...ex,
+          previous: null,
+          prevLoaded: false,
+          history: null,
+        })),
+      },
+      restStartedAt: parsed.restStartedAt ? new Date(parsed.restStartedAt) : null,
+    };
+  } catch {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    return null;
+  }
+}
+
+// Mirrors the tail of addExerciseToSession() for exercises that came back
+// from storage rather than from the picker — same fetch, same patch-in-place.
+async function rehydrateExercise(entry) {
+  const [prev, hist] = await Promise.all([
+    getLastPerformance(entry.name),
+    getExerciseHistory(entry.name),
+  ]);
+  entry.previous = prev;
+  entry.history = hist;
+  entry.prevLoaded = true;
+  if (container) patchExerciseCard(entry);
+}
+
+// ---------- rest stopwatch ----------
+
+function restElapsedSeconds() {
+  return restStartedAt ? (Date.now() - restStartedAt.getTime()) / 1000 : 0;
+}
+
+// Builds (once) or updates the compact rest-timer dial in #rest-slot.
+// Cleared entirely once restStartedAt is null — no set has finished yet,
+// or the user dismissed it.
+function patchRestSlot() {
+  if (!container) return;
+  const slot = container.querySelector('#rest-slot');
+  if (!slot) return;
+
+  if (!restStartedAt) {
+    slot.innerHTML = '';
+    return;
+  }
+
+  if (!slot.querySelector('.rest-timer')) {
+    slot.innerHTML = `
+      <div class="rest-timer">
+        <button type="button" class="rest-timer-dismiss" data-role="rest-dismiss" aria-label="סגירת סטופר מנוחה">${icon('x')}</button>
+        <div class="rest-timer-dial"></div>
+      </div>`;
+    slot.querySelector('[data-role="rest-dismiss"]').addEventListener('click', () => {
+      restStartedAt = null;
+      persistSession();
+      patchRestSlot();
+    });
+  }
+
+  const elapsed = restElapsedSeconds();
+  renderPlateDial(slot.querySelector('.rest-timer-dial'), {
+    progress: Math.min(elapsed / REST_TARGET_SECONDS, 1),
+    valueText: formatMMSS(elapsed),
+    compact: true,
+  });
 }
 
 // ---------- structural render ----------
@@ -149,6 +310,7 @@ function render() {
     </div>
 
     <div id="progress-slot"></div>
+    <div id="rest-slot"></div>
 
     <div id="exercise-list"></div>
 
@@ -167,6 +329,7 @@ function render() {
   });
 
   applyFocusMode();
+  patchRestSlot();
   restoreScroll();
 
   container.querySelector('#finish-workout-btn').addEventListener('click', finishWorkout);
@@ -1234,7 +1397,12 @@ function onToggleDone(ex, set) {
     set.isPR = isNewPR;
     if (navigator.vibrate) navigator.vibrate(isNewPR ? [20, 40, 20] : 15);
     if (isNewPR) showToast(`${icon('trophy', { className: 'icon--sm' })} שיא חדש!`);
+    // Every completed set restarts the rest stopwatch — it always reflects
+    // "time since your last set", not a manually started/stopped timer.
+    restStartedAt = new Date();
+    patchRestSlot();
   }
+  persistSession();
   patchExerciseCard(ex);
 }
 
@@ -1251,6 +1419,8 @@ function computePR(ex, set) {
 function startWorkout(customDate) {
   const real = new Date();
   session = { startedAt: customDate || real, realStartedAt: real, exercises: [] };
+  restStartedAt = null;
+  persistSession();
   render();
   startElapsedTicking();
 }
@@ -1313,29 +1483,68 @@ function buildSavedSets(ex) {
     });
 }
 
+// Guarded against being triggered twice: a slow save used to look like a
+// dead button, so tapping again fired a second createWorkout() before the
+// first one's `session = null` ever landed — duplicate workouts in history,
+// and the screen only cleared once every in-flight save happened to finish.
+// The confirm dialog itself is also the "did that register?" feedback that
+// was missing before.
 async function finishWorkout() {
-  const exercises = session
-    ? session.exercises.map((ex) => ({
+  if (finishing || !session) return;
+  finishing = true;
+
+  try {
+    const confirmed = await confirmDialog({
+      title: 'סיום אימון',
+      message: 'האם אתה בטוח שסיימת את האימון? הוא יישמר בהיסטוריה.',
+      confirmLabel: 'סיום',
+    });
+    if (!confirmed) return;
+
+    const btn = container?.querySelector('#finish-workout-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'שומר...';
+    }
+
+    const exercises = session.exercises
+      .map((ex) => ({
         name: ex.name,
         category: ex.category,
         sets: buildSavedSets(ex),
-      })).filter((ex) => ex.sets.length > 0)
-    : [];
+      }))
+      .filter((ex) => ex.sets.length > 0);
 
-  if (exercises.length > 0) {
-    // endTime is anchored to the picked date plus the real time spent
-    // logging — not wall-clock "now", which would blow up the duration
-    // History computes whenever startedAt is a past retroactive date.
-    const elapsedMs = Date.now() - session.realStartedAt.getTime();
-    await createWorkout({
-      date: session.startedAt,
-      startTime: session.startedAt,
-      endTime: new Date(session.startedAt.getTime() + elapsedMs),
-      exercises,
-    });
+    if (exercises.length > 0) {
+      // endTime is anchored to the picked date plus the real time spent
+      // logging — not wall-clock "now", which would blow up the duration
+      // History computes whenever startedAt is a past retroactive date.
+      const elapsedMs = Date.now() - session.realStartedAt.getTime();
+      await createWorkout({
+        date: session.startedAt,
+        startTime: session.startedAt,
+        endTime: new Date(session.startedAt.getTime() + elapsedMs),
+        exercises,
+      });
+    }
+
+    stopElapsedTicking();
+    session = null;
+    restStartedAt = null;
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    render();
+  } catch (err) {
+    console.error('finishWorkout failed', err);
+    showToast('שגיאה בשמירת האימון — נסה שוב');
+  } finally {
+    finishing = false;
+    // Only re-enable the button if the save actually failed (session is
+    // still set) — on success render() already replaced it with the
+    // "ready to start" screen.
+    const btn = container?.querySelector('#finish-workout-btn');
+    if (btn && session) {
+      btn.disabled = false;
+      btn.textContent = 'סיום אימון';
+    }
   }
-
-  stopElapsedTicking();
-  session = null;
-  render();
 }

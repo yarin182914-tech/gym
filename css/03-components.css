@@ -470,6 +470,31 @@ th {
 .plate-dial.compact .dial-value { font-size: 0.8rem; }
 .plate-dial.compact .dial-label { display: none; }
 
+/* ===== Rest stopwatch (active session, compact plate-dial + dismiss) ===== */
+.rest-timer {
+  position: relative;
+  width: 56px;
+  margin: 4px auto 8px;
+}
+
+.rest-timer-dismiss {
+  position: absolute;
+  top: -6px;
+  inset-inline-end: -6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+}
+
+.rest-timer-dismiss .icon { width: 14px; height: 14px; }
+
 /* ===== PR badge ===== an underline, not a filled chip — it sits in the
    meta row next to plain text and shouldn't outweigh it. */
 .pr-badge {
