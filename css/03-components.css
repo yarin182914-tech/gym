@@ -1269,10 +1269,59 @@ th {
   color: var(--text-muted);
 }
 
+/* ===== "Last time" popup: PR / last-performance swipe (js/pages/active-session.js) =====
+   Only rendered when the two views actually differ — .toggle-group above
+   this provides the segmented-control half; .last-time-swipe is the
+   viewport that also accepts a horizontal drag for the same switch. */
+.last-time-swipe {
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.last-time-track {
+  display: flex;
+  width: 100%;
+  transform: translateX(0%);
+  transition: transform 0.25s ease;
+  touch-action: pan-y; /* horizontal drag drives the swipe; vertical scroll still works */
+}
+
+.last-time-track--last {
+  transform: translateX(-100%);
+}
+
+.last-time-track--dragging {
+  transition: none;
+}
+
+.last-time-pane {
+  flex: 0 0 100%;
+  min-width: 0;
+}
+
+.last-time-headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.last-time-headline-value {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--accent);
+}
+
+.last-time-headline-date {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
 @media (prefers-reduced-motion: reduce) {
   #cal-grid,
   .history-detail,
-  .history-chevron {
+  .history-chevron,
+  .last-time-track {
     transition: none;
   }
 }

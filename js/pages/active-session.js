@@ -350,14 +350,49 @@ function showToast(html) {
 
 // ---------- "last time" popup ----------
 
-function renderLastTimeModal() {
-  const { name, previous } = lastTimeModal;
+// A single pane: a bold headline set (what the toggle/swipe is actually
+// comparing) above the existing full set-by-set breakdown for that workout —
+// same setsTable() the "last time" view always used, just also reused for
+// the PR workout now.
+function renderLastTimePane(point, roleAttr) {
+  return `
+    <div class="last-time-pane" data-role="${roleAttr}">
+      <div class="last-time-headline">
+        <span class="num last-time-headline-value">${esc(formatWeight(point.set))} × ${esc(point.set.reps)}</span>
+        <span class="last-time-headline-date">${esc(formatDateHe(point.date))}</span>
+      </div>
+      ${setsTable(point.sets)}
+    </div>`;
+}
 
-  const body = !previous
-    ? `<p class="text-muted">אין עדיין נתונים מפעם קודמת שביצעת את התרגיל הזה.</p>`
-    : `
-      <p class="text-muted" style="margin-top:-6px;">${formatDateHe(previous.workoutDate)}</p>
-      ${setsTable(previous.sets)}`;
+function renderLastTimeModal() {
+  const { name, pr, last } = lastTimeModal;
+  // "Exactly the same" per the spec — same headline weight and reps — means
+  // there's nothing to toggle between, so no toggle is shown at all.
+  const identical = pr && last && pr.set.weight === last.set.weight && pr.set.reps === last.set.reps;
+  const hasToggle = pr && last && !identical;
+
+  let body;
+  if (!pr && !last) {
+    body = `<p class="text-muted">אין עדיין נתונים מפעם קודמת שביצעת את התרגיל הזה.</p>`;
+  } else if (hasToggle) {
+    body = `
+      ${toggleGroup({
+        name: 'lasttime-view',
+        active: 'pr',
+        label: 'שיא או פעם קודמת',
+        groupAttrs: 'data-role="last-time-toggle"',
+        options: [{ value: 'pr', label: 'שיא' }, { value: 'last', label: 'פעם קודמת' }],
+      })}
+      <div class="last-time-swipe">
+        <div class="last-time-track" data-role="last-time-track">
+          ${renderLastTimePane(pr, 'pane-pr')}
+          ${renderLastTimePane(last, 'pane-last')}
+        </div>
+      </div>`;
+  } else {
+    body = renderLastTimePane(pr || last, 'pane-solo');
+  }
 
   return `
     <div class="modal-overlay" id="last-time-overlay">
@@ -379,12 +414,74 @@ function onLastTimeKeydown(e) {
   if (e.key === 'Escape') closeLastTimeModal();
 }
 
+// Segmented control (click) and horizontal swipe (drag) both drive the same
+// two-pane track — reuses the app's existing sliding-pill toggle-group
+// component and the same pointer-event drag pattern already used for
+// exercise reordering, rather than inventing either from scratch. Purely
+// local DOM state (the track's own transform); nothing here touches
+// lastTimeModal, so a full re-render is never needed just to switch panes.
+function wireLastTimeSwipe() {
+  const toggleEl = container.querySelector('[data-role="last-time-toggle"]');
+  const track = container.querySelector('[data-role="last-time-track"]');
+  if (!toggleEl || !track) return; // identical/solo/no-data case — nothing to wire
+
+  toggleEl.classList.add('toggle-group--live');
+  let view = 'pr';
+
+  function setView(next) {
+    view = next;
+    track.classList.toggle('last-time-track--last', view === 'last');
+    patchToggleGroup(toggleEl, view);
+  }
+
+  toggleEl.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => setView(btn.dataset.value));
+  });
+
+  let dragStartX = null;
+  let dragging = false;
+
+  track.addEventListener('pointerdown', (e) => {
+    dragStartX = e.clientX;
+    dragging = true;
+    track.classList.add('last-time-track--dragging');
+    track.setPointerCapture(e.pointerId);
+  });
+
+  track.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dxPercent = ((e.clientX - dragStartX) / track.offsetWidth) * 100;
+    const base = view === 'pr' ? 0 : -100;
+    // Clamp so a drag past either edge just resists instead of overshooting
+    // into blank space — there are only ever two panes.
+    track.style.transform = `translateX(${Math.max(-100, Math.min(0, base + dxPercent))}%)`;
+  });
+
+  function endDrag(e) {
+    if (!dragging) return;
+    dragging = false;
+    track.classList.remove('last-time-track--dragging');
+    track.style.transform = '';
+    const dx = e.clientX - dragStartX;
+    const SWIPE_THRESHOLD = 40;
+    // RTL: the PR pane sits first/rightmost, so a right-to-left swipe
+    // (negative dx) advances to "last", mirroring the reading direction.
+    if (dx <= -SWIPE_THRESHOLD && view === 'pr') setView('last');
+    else if (dx >= SWIPE_THRESHOLD && view === 'last') setView('pr');
+  }
+  track.addEventListener('pointerup', endDrag);
+  track.addEventListener('pointercancel', endDrag);
+
+  setView('pr');
+}
+
 function wireLastTimeModal() {
   const overlay = container.querySelector('#last-time-overlay');
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) closeLastTimeModal();
   });
   container.querySelector('#last-time-close').addEventListener('click', closeLastTimeModal);
+  wireLastTimeSwipe();
 
   // Escape is the expected way out of a dialog; there was no keyboard route
   // to close this at all before.
@@ -609,12 +706,13 @@ function buildExerciseCard(ex) {
         <div class="set-table-header"><span>סט</span><span>${esc(unitLabel(ex.weightUnit).trim() || 'ק"ג')}</span><span>חזרות</span><span></span></div>
         <div class="sets-list"></div>
         <button class="btn btn-dashed" data-add-set>+ סט</button>
+        <button type="button" class="btn btn-outline btn-block" data-finish-exercise style="margin-top:8px;">סיום תרגיל</button>
       </div>
     </div>
   `;
 
   el.querySelector('[data-last-time]').addEventListener('click', () => {
-    lastTimeModal = { name: ex.name, previous: ex.previous };
+    lastTimeModal = { name: ex.name, pr: findExercisePR(ex), last: findExerciseLast(ex) };
     render();
   });
 
@@ -622,9 +720,15 @@ function buildExerciseCard(ex) {
     requestDeleteExercise(ex);
   });
 
+  // Both buttons are the exact same collapse action — the bottom one exists
+  // purely so finishing an exercise doesn't force a scroll back up to the
+  // header, not as a second mechanism. The exercise stays fully editable
+  // either way; collapsing never touches its sets/data, only ex.collapsed.
   el.querySelector('[data-collapse-toggle]').addEventListener('click', () => {
-    ex.collapsed = !ex.collapsed;
-    patchExerciseCollapse(ex);
+    toggleExerciseCollapse(ex);
+  });
+  el.querySelector('[data-finish-exercise]').addEventListener('click', () => {
+    toggleExerciseCollapse(ex);
   });
 
   wireExerciseDragHandle(el.querySelector('[data-role="drag-handle"]'), ex, el);
@@ -737,14 +841,21 @@ function patchExerciseMeta(ex, refs) {
 
 // An exercise can be minimized to just its header — the point is that a
 // finished exercise doesn't have to keep eating the whole screen once
-// you've moved on. Purely manual: only the chevron (data-collapse-toggle)
-// ever changes ex.collapsed.
+// you've moved on. Purely manual: only toggleExerciseCollapse() (the header
+// chevron and the "סיום תרגיל" button both call it) ever changes ex.collapsed.
 function patchExerciseCollapse(ex) {
   const refs = exerciseRefs.get(ex._uid);
   if (!refs) return;
   const isOpen = !ex.collapsed;
   refs.detailEl.classList.toggle('history-detail--open', isOpen);
   refs.chevronEl.classList.toggle('history-chevron--open', isOpen);
+}
+
+// The one place ex.collapsed is ever flipped — both collapse triggers on
+// the card call this instead of duplicating the two-line toggle themselves.
+function toggleExerciseCollapse(ex) {
+  ex.collapsed = !ex.collapsed;
+  patchExerciseCollapse(ex);
 }
 
 // ---------- drop sets: a set with children becomes a bare group header,
@@ -1372,6 +1483,40 @@ function computePR(ex, set) {
     .filter((s) => s.weightMode === set.weightMode && (s.weightUnit || 'kg') === set.weightUnit)
     .reduce((max, s) => Math.max(max, s.weight), 0);
   return set.weight > bestPrev;
+}
+
+// ---------- "last time" popup: PR vs last-performance lookup ----------
+// Same definitions as elsewhere in the app, not new ones: the mode/unit
+// filter matches computePR() above, and the "heaviest single set of a
+// workout" reduction matches Dashboard's PR list (js/pages/dashboard.js
+// loadSeries/renderPRList) — both just read data already on `ex`, nothing
+// fetched or computed differently here.
+
+// The exercise's all-time PR: across every past workout, the heaviest
+// single set logged in the exercise's current weight mode/unit.
+function findExercisePR(ex) {
+  const history = ex.history || [];
+  let best = null;
+  for (const point of history) {
+    const topSet = (point.sets || [])
+      .filter((s) => s.weightMode === ex.weightMode && (s.weightUnit || 'kg') === ex.weightUnit)
+      .reduce((top, s) => (!top || s.weight > top.weight ? s : top), null);
+    if (topSet && (!best || topSet.weight > best.set.weight)) {
+      best = { date: point.date, sets: point.sets, set: topSet };
+    }
+  }
+  return best;
+}
+
+// The most recent workout's heaviest set — ex.previous is already that
+// workout's full breakdown (see getLastPerformance), this just picks out
+// its headline set the same way findExercisePR does per workout.
+function findExerciseLast(ex) {
+  if (!ex.previous) return null;
+  const topSet = (ex.previous.sets || [])
+    .reduce((top, s) => (!top || s.weight > top.weight ? s : top), null);
+  if (!topSet) return null;
+  return { date: ex.previous.workoutDate, sets: ex.previous.sets, set: topSet };
 }
 
 // ---------- timers ----------
