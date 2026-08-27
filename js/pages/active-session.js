@@ -22,6 +22,7 @@ let container = null;
 let library = [];
 let session = null; // { startedAt, realStartedAt, exercises: [...] }
 let elapsedTimerId = null;
+let finishingWorkout = false; // guards finishWorkout() against double-submission while a save is in flight
 
 // A page reload — or iOS discarding a backgrounded tab, which it does
 // aggressively — used to wipe `session` outright, since it only ever lived
@@ -257,7 +258,8 @@ function render() {
         <p class="text-muted">לחיצה תתחיל שעון אימון וסטופר מנוחה בין סטים.</p>
         <button class="btn btn-primary btn-block" id="start-workout-btn">התחלת אימון</button>
         <button class="btn btn-secondary btn-block" id="start-past-workout-btn" style="margin-top:8px;">הוספת אימון שכבר בוצע</button>
-      </div>`;
+      </div>
+      <div id="toast-slot" class="toast-slot" aria-live="polite"></div>`;
     container.querySelector('#start-workout-btn').addEventListener('click', () => startWorkout());
     container.querySelector('#start-past-workout-btn').addEventListener('click', openPastWorkoutSheet);
     restoreScroll();
@@ -824,11 +826,8 @@ function patchExerciseCard(ex) {
   patchExerciseCollapse(ex);
 }
 
-// Counts only loggable sets (bare drop-set headers carry no data of their
-// own, same exclusion persistablePosition uses for saving).
 function exerciseSetsSummary(ex) {
-  const loggable = ex.sets.filter((s) => !hasChildren(ex, s));
-  return { done: loggable.filter((s) => s.done).length, total: loggable.length };
+  return { done: ex.sets.filter((s) => s.done).length, total: ex.sets.length };
 }
 
 function patchExerciseMeta(ex, refs) {
@@ -858,13 +857,14 @@ function toggleExerciseCollapse(ex) {
   patchExerciseCollapse(ex);
 }
 
-// ---------- drop sets: a set with children becomes a bare group header,
-// its own weight/reps no longer shown or persisted — every stage lives on
-// a child instead. Children are never DOM-nested inside their parent; they
-// stay flat, ordinary siblings in ex.sets/#sets-list (just indented via
-// CSS), which is what lets all the existing uid-keyed diffing below keep
-// working unchanged. A child is simply a set with `parentUid` set; a
-// parent is derived (never stored) as "any set something else points at".
+// ---------- drop sets: a set with children becomes the group's leader —
+// a normal, fully editable set (own weight/reps/done-state, saved like any
+// other) that also carries the group's controls (collapse, add another
+// stage). Its stages are never DOM-nested inside it; they stay flat,
+// ordinary siblings in ex.sets/#sets-list (just indented via CSS), which is
+// what lets all the existing uid-keyed diffing below keep working
+// unchanged. A child is simply a set with `parentUid` set; a parent is
+// derived (never stored) as "any set something else points at".
 
 function hasChildren(ex, set) {
   return ex.sets.some((s) => s.parentUid === set._uid);
@@ -880,17 +880,12 @@ function computeSetRole(ex, set) {
   return 'regular';
 }
 
-// Position among sets that actually carry loggable data (skips bare parent
-// headers) — matches how finishWorkout() numbers sets when saving, so
-// "previous performance" lookups against last time's flat saved array stay
-// aligned even though the live in-session list also contains headers.
+// Position within ex.sets — matches how finishWorkout() now saves the
+// array (a drop-set group's leader is a normal loggable set again, so
+// nothing is skipped here), so "previous performance" lookups against last
+// time's flat saved array stay positionally aligned.
 function persistablePosition(ex, set) {
-  let pos = 0;
-  for (const s of ex.sets) {
-    if (s === set) return pos;
-    if (!hasChildren(ex, s)) pos += 1;
-  }
-  return pos;
+  return ex.sets.indexOf(set);
 }
 
 // Position among top-level slots only (a drop-set group's children don't
@@ -951,7 +946,7 @@ function syncSetRows(ex, refs) {
   const currentUids = new Set(ex.sets.map((s) => s._uid));
   for (const [uid, ctrl] of refs.setsEls) {
     if (!currentUids.has(uid)) {
-      ctrl.closeWheel?.(); // drop-set header rows have no wheel to close
+      ctrl.closeWheel?.();
       ctrl.row.remove();
       refs.setsEls.delete(uid);
     }
@@ -960,14 +955,12 @@ function syncSetRows(ex, refs) {
   ex.sets.forEach((set, idx) => {
     let ctrl = refs.setsEls.get(set._uid);
     const role = computeSetRole(ex, set);
-    // A regular row also needs rebuilding the moment its type flips to/from
-    // 'dropset' — that's what shows or hides its "+ ירידה" button, and
-    // patchSetRow never touches that element (only buildSetRow creates it).
-    const isDropsetType = set.type === 'dropset';
-    const needsRebuild = ctrl && (ctrl.role !== role || (role === 'regular' && ctrl.builtAsDropsetType !== isDropsetType));
+    // Every role shares the same row shape now (own editable weight/reps) —
+    // only the meta row's content differs (type picker vs. group controls
+    // vs. nothing for a stage) — but that content is built once up front,
+    // not patched, so a role change still needs a rebuild.
+    const needsRebuild = ctrl && ctrl.role !== role;
     if (needsRebuild) {
-      // The row's whole DOM shape differs by role (header vs. full set row)
-      // — patching one into the other isn't meaningful, so rebuild instead.
       ctrl.closeWheel?.();
       ctrl.row.remove();
       refs.setsEls.delete(set._uid);
@@ -975,9 +968,8 @@ function syncSetRows(ex, refs) {
     }
     const nodeAtIdx = refs.setsListEl.children[idx] || null;
     if (!ctrl) {
-      ctrl = role === 'parent' ? buildDropSetHeaderRow(ex, set) : buildSetRow(ex, set, role);
+      ctrl = buildSetRow(ex, set, role);
       ctrl.role = role;
-      ctrl.builtAsDropsetType = isDropsetType;
       refs.setsEls.set(set._uid, ctrl);
       refs.setsListEl.insertBefore(ctrl.row, nodeAtIdx);
       // Two rAFs, not one: the browser must paint the "entering" state before
@@ -991,40 +983,49 @@ function syncSetRows(ex, refs) {
       // move its existing row rather than rebuilding it.
       refs.setsListEl.insertBefore(ctrl.row, nodeAtIdx);
     }
-    if (role === 'parent') {
-      patchDropSetHeaderRow(ex, set, ctrl);
-    } else {
-      patchSetRow(ex, set, persistablePosition(ex, set), ctrl);
-      if (role === 'child') {
-        // Not the `hidden` attribute — .set-row's own `display: flex` rule
-        // and the UA's `[hidden] { display: none }` rule are equal
-        // specificity, and the author rule wins the tie, so `hidden` was
-        // silently having no visual effect at all.
-        const parent = ex.sets.find((s) => s._uid === set.parentUid);
-        ctrl.row.classList.toggle('set-row--group-collapsed', !!parent?.collapsed);
-      }
+    patchSetRow(ex, set, persistablePosition(ex, set), ctrl);
+    if (role === 'child') {
+      // Not the `hidden` attribute — .set-row's own `display: flex` rule
+      // and the UA's `[hidden] { display: none }` rule are equal
+      // specificity, and the author rule wins the tie, so `hidden` was
+      // silently having no visual effect at all.
+      const parent = ex.sets.find((s) => s._uid === set.parentUid);
+      ctrl.row.classList.toggle('set-row--group-collapsed', !!parent?.collapsed);
     }
+  });
+}
+
+// A child stage is implicitly a drop set already — no type selector, and
+// no point re-labeling it warmup/working. A drop-set group's leader (role
+// 'parent') shows the group's own controls instead of the type picker, for
+// the same reason: once it has a stage, its "type" isn't really editable
+// warmup/working/failure anymore, it's the group. Only a genuinely regular
+// set gets the 3-way type picker — see buildSetRow's click handler for what
+// picking "דרופ סט" there does.
+function buildSetRowMeta(set, role) {
+  if (role === 'child') return '';
+  if (role === 'parent') {
+    return `
+      <button type="button" class="set-more-btn" data-role="dropset-toggle" aria-label="כיווץ/הרחבת דרופ סט">
+        <span class="history-chevron${set.collapsed ? '' : ' history-chevron--open'}" data-role="dropset-chevron" aria-hidden="true">⌄</span>
+      </button>
+      <span class="drop-set-pill">דרופ סט</span>
+      <button type="button" class="btn-mini-dashed" data-role="add-stage-btn">+ ירידה</button>
+    `;
+  }
+  return toggleGroup({
+    name: 'type',
+    active: set.type,
+    label: 'סוג סט',
+    groupAttrs: 'data-set-type-group',
+    options: SET_TYPES.map((t) => ({ value: t.id, label: t.label })),
   });
 }
 
 function buildSetRow(ex, set, role) {
   const row = document.createElement('div');
-  row.className = role === 'child' ? 'set-row set-row--entering set-row--child' : 'set-row set-row--entering';
-
-  // A child stage is implicitly a drop set already — no type selector, and
-  // no point re-labeling it warmup/working. A regular set gets the normal
-  // type pill, plus (only once it's actually tagged as a drop set) a button
-  // to start turning it into a group by adding its first stage.
-  const typeAndAddStage = role === 'child' ? '' : `
-    ${toggleGroup({
-      name: 'type',
-      active: set.type,
-      label: 'סוג סט',
-      groupAttrs: 'data-set-type-group',
-      options: SET_TYPES.map((t) => ({ value: t.id, label: t.label })),
-    })}
-    ${set.type === 'dropset' ? `<button type="button" class="btn-mini-dashed" data-role="add-stage-btn">+ ירידה</button>` : ''}
-  `;
+  const roleClass = role === 'child' ? ' set-row--child' : role === 'parent' ? ' set-row--parent' : '';
+  row.className = `set-row set-row--entering${roleClass}`;
 
   row.innerHTML = `
     <div class="set-row-main">
@@ -1039,7 +1040,7 @@ function buildSetRow(ex, set, role) {
     </div>
     <div class="wheel-picker-slot" data-role="wheel-slot" hidden></div>
     <div class="set-row-meta">
-      ${typeAndAddStage}
+      ${buildSetRowMeta(set, role)}
       <span class="set-row-previous" data-role="previous" hidden></span>
       <span class="set-row-notes" data-role="notes" hidden></span>
       <button type="button" class="set-more-btn set-more-btn--meta" data-role="more-btn" aria-label="עוד אפשרויות לסט">⋯</button>
@@ -1054,14 +1055,28 @@ function buildSetRow(ex, set, role) {
     typeGroupEl.querySelectorAll('button').forEach((btn) => {
       btn.addEventListener('click', () => {
         set.type = btn.dataset.type;
+        if (set.type === 'dropset') {
+          // Picking "דרופ סט" immediately adds the group's first stage —
+          // the set itself stays exactly as it is (still 80×8, still the
+          // exact same set, never replaced or emptied) and becomes the
+          // group's leader; addDropStage() below also patches the card,
+          // which is what rebuilds this row into its 'parent' meta.
+          addDropStage(ex, set);
+          return;
+        }
         patchToggleGroup(typeGroupEl, set.type);
-        patchExerciseCard(ex); // type change may add/remove the "+ ירידה" button, which needs a rebuild
+        patchExerciseCard(ex);
       });
     });
   }
 
   row.querySelector('[data-role="add-stage-btn"]')?.addEventListener('click', () => {
     addDropStage(ex, set);
+  });
+
+  row.querySelector('[data-role="dropset-toggle"]')?.addEventListener('click', () => {
+    set.collapsed = !set.collapsed;
+    patchExerciseCard(ex);
   });
 
   const weightSlot = row.querySelector('[data-role="weight-slot"]');
@@ -1118,6 +1133,7 @@ function buildSetRow(ex, set, role) {
     repsTrigger,
     doneBtn,
     indexEl: row.querySelector('[data-role="set-index"]'),
+    chevronEl: row.querySelector('[data-role="dropset-chevron"]'), // role 'parent' only
     prBadgeEl: row.querySelector('[data-role="pr-badge"]'),
     previousEl: row.querySelector('[data-role="previous"]'),
     notesEl: row.querySelector('[data-role="notes"]'),
@@ -1140,6 +1156,7 @@ function patchSetRow(ex, set, idx, ctrl) {
   ctrl.numeric.setValue(set.weight);
   ctrl.repsTrigger.querySelector('.reps-value').textContent = set.reps;
   ctrl.indexEl.textContent = setIndexLabel(ex, set, ctrl.role);
+  if (ctrl.chevronEl) ctrl.chevronEl.classList.toggle('history-chevron--open', !set.collapsed);
 
   ctrl.doneBtn.classList.toggle('set-done-btn--done', set.done);
   ctrl.row.classList.toggle('set-row--done', set.done);
@@ -1176,67 +1193,6 @@ function patchSetRow(ex, set, idx, ctrl) {
   } else {
     ctrl.notesEl.hidden = true;
   }
-}
-
-// A drop set's parent renders as a bare group header once it has any
-// stages — it never carried its own loggable weight/reps, so there's
-// nothing to show or edit on it directly beyond the group controls.
-function buildDropSetHeaderRow(ex, set) {
-  const row = document.createElement('div');
-  row.className = 'drop-set-header set-row--entering';
-
-  row.innerHTML = `
-    <button type="button" class="set-more-btn" data-role="dropset-toggle" aria-label="כיווץ/הרחבת דרופ סט">
-      <span class="history-chevron" data-role="dropset-chevron" aria-hidden="true">⌄</span>
-    </button>
-    <span class="set-index" data-role="dropset-index">${esc(setIndexLabel(ex, set, 'parent'))}</span>
-    <span style="flex:1;"><span class="drop-set-pill" data-role="dropset-label">דרופ סט</span></span>
-    <button type="button" class="btn-mini-dashed" data-role="add-stage-btn">+ ירידה</button>
-    <button type="button" class="set-more-btn set-more-btn--danger" data-role="delete-group-btn" aria-label="מחיקת דרופ סט">${icon('trash-2', { className: 'icon--sm' })}</button>
-  `;
-
-  row.querySelector('[data-role="dropset-toggle"]').addEventListener('click', () => {
-    set.collapsed = !set.collapsed;
-    patchExerciseCard(ex);
-  });
-
-  row.querySelector('[data-role="add-stage-btn"]').addEventListener('click', () => {
-    addDropStage(ex, set);
-  });
-
-  row.querySelector('[data-role="delete-group-btn"]').addEventListener('click', async () => {
-    const confirmed = await confirmDialog({
-      title: 'מחיקת דרופ סט',
-      message: 'למחוק את הדרופ סט וכל השלבים שבו? הפעולה לא הפיכה.',
-      confirmLabel: 'מחיקה',
-      danger: true,
-    });
-    if (!confirmed) return;
-    [set, ...childrenOf(ex, set)].forEach((s) => {
-      const idx = ex.sets.indexOf(s);
-      if (idx !== -1) ex.sets.splice(idx, 1);
-    });
-    patchExerciseCard(ex);
-  });
-
-  return {
-    row,
-    chevronEl: row.querySelector('[data-role="dropset-chevron"]'),
-    labelEl: row.querySelector('[data-role="dropset-label"]'),
-    indexEl: row.querySelector('[data-role="dropset-index"]'),
-  };
-}
-
-function patchDropSetHeaderRow(ex, set, ctrl) {
-  ctrl.chevronEl.classList.toggle('history-chevron--open', !set.collapsed);
-  ctrl.row.classList.toggle('drop-set-header--expanded', !set.collapsed);
-  ctrl.indexEl.textContent = setIndexLabel(ex, set, 'parent');
-  // Collapsed hides every stage, so the header stands in for the first one —
-  // a bare "דרופ סט" label with nothing else visible reads as empty/broken.
-  const first = childrenOf(ex, set)[0];
-  ctrl.labelEl.textContent = (set.collapsed && first)
-    ? `דרופ סט: ${formatWeight(first)} × ${first.reps}`
-    : 'דרופ סט';
 }
 
 // Always confirms, unlike requestDeleteSet — removing a whole exercise loses
@@ -1308,20 +1264,32 @@ function wireExerciseDragHandle(handleEl, ex, cardEl) {
   handleEl.addEventListener('pointercancel', endDrag);
 }
 
+// Deleting a set that hasChildren also removes its stages — leaving them
+// behind with a parentUid pointing at a set that no longer exists would
+// orphan them (and break setIndexLabel, which assumes a child's parent is
+// always still present). Confirming a group deletion, if needed, is the
+// caller's job (see openSetDetailSheet's delete handler).
 function requestDeleteSet(ex, set) {
   const idx = ex.sets.indexOf(set);
   if (idx === -1) return;
-  ex.sets.splice(idx, 1);
+  [set, ...childrenOf(ex, set)].forEach((s) => {
+    const i = ex.sets.indexOf(s);
+    if (i !== -1) ex.sets.splice(i, 1);
+  });
   patchExerciseCard(ex);
 }
 
 function duplicateSet(ex, set) {
   const idx = ex.sets.indexOf(set);
   if (idx === -1) return;
+  // Duplicating a drop-set group's leader shouldn't silently create another
+  // "dropset"-typed set with no stages of its own — same fallback
+  // prefillForNewSet() already uses when copying a set whose type was 'dropset'.
+  const type = (!set.parentUid && set.type === 'dropset') ? 'working' : set.type;
   ex.sets.splice(idx + 1, 0, {
     _uid: nextUid(),
     parentUid: set.parentUid, // a duplicated stage stays in the same drop set
-    type: set.type,
+    type,
     weight: set.weight,
     reps: set.reps,
     notes: set.notes || '',
@@ -1407,7 +1375,24 @@ function openSetDetailSheet(ex, set, ctrl) {
         sheetApi.close();
       });
 
-      body.querySelector('[data-role="sheet-delete"]').addEventListener('click', () => {
+      body.querySelector('[data-role="sheet-delete"]').addEventListener('click', async () => {
+        const children = childrenOf(ex, set);
+        if (children.length > 0) {
+          // Deleting a drop-set group's leader takes its stages with it —
+          // a louder, explicit confirmation than the plain "already done"
+          // one below, since it can remove several logged sets at once.
+          // Closed first: confirmDialog reuses .modal-overlay, whose
+          // z-index sits below the open bottom sheet's.
+          sheetApi.close();
+          const confirmed = await confirmDialog({
+            title: 'מחיקת דרופ סט',
+            message: 'למחוק את הדרופ סט וכל השלבים שבו? הפעולה לא הפיכה.',
+            confirmLabel: 'מחיקה',
+            danger: true,
+          });
+          if (confirmed) requestDeleteSet(ex, set);
+          return;
+        }
         if (set.done && !confirm('הסט הזה כבר סומן כהושלם. למחוק בכל זאת?')) return;
         requestDeleteSet(ex, set);
         sheetApi.close();
@@ -1441,10 +1426,8 @@ function applyFocusMode() {
 
   session.exercises.forEach((ex, exIdx) => {
     const refs = exerciseRefs.get(ex._uid);
-    const loggableSets = ex.sets.filter((s) => !hasChildren(ex, s));
+    const loggableSets = ex.sets; // drop-set group leaders are loggable sets again too
     loggableSets.forEach((set, setIdx) => {
-      // A bare drop-set header (skipped via loggableSets above) carries no
-      // weight/reps/done of its own — nothing here to focus on or count.
       totalSets += 1;
       if (set.done) completedSets += 1;
 
@@ -1558,16 +1541,16 @@ function openPastWorkoutSheet() {
   });
 }
 
-// A drop-set parent is a bare header with no weight/reps of its own, so it's
-// never saved as a row — only its stages are, each tagged with a small
-// per-exercise `dropGroup` number so History can regroup them later. That
-// number is assigned fresh here (session-local parent uids aren't stable
-// across saves) in the order each drop set first appears in the exercise.
+// A drop set's group leader is a normal loggable set now (own weight/reps),
+// saved as its own row same as any other — not just its stages. Both the
+// leader and its stages share one per-exercise `dropGroup` number so a
+// future consumer (e.g. History) can regroup them; assigned fresh here
+// since session-local uids aren't stable across saves, in the order each
+// drop set first appears in the exercise.
 function buildSavedSets(ex) {
   let nextDropGroup = 1;
   const dropGroupByParentUid = new Map();
   return ex.sets
-    .filter((s) => !hasChildren(ex, s))
     .filter((s) => s.done)
     .map((s, i) => {
       const entry = {
@@ -1579,38 +1562,78 @@ function buildSavedSets(ex) {
         reps: s.reps,
         notes: s.notes || '',
       };
-      if (s.parentUid) {
-        if (!dropGroupByParentUid.has(s.parentUid)) dropGroupByParentUid.set(s.parentUid, nextDropGroup++);
-        entry.dropGroup = dropGroupByParentUid.get(s.parentUid);
+      // A group's identity is always its leader's uid — a child's is its
+      // own parentUid; the leader is its own group's identity.
+      const groupUid = s.parentUid || (hasChildren(ex, s) ? s._uid : null);
+      if (groupUid) {
+        if (!dropGroupByParentUid.has(groupUid)) dropGroupByParentUid.set(groupUid, nextDropGroup++);
+        entry.dropGroup = dropGroupByParentUid.get(groupUid);
       }
       return entry;
     });
 }
 
+// Previously had no try/catch at all: a network hiccup or a rejected
+// createWorkout() call just threw, unhandled, out of this async function —
+// no error shown, session never cleared, the button just sat there looking
+// like it hadn't responded to the tap at all. That silent failure (not
+// literally a missed click) was almost certainly the "sometimes doesn't
+// respond" symptom. Also had no guard against a second tap firing a second
+// save while the first was still in flight.
 async function finishWorkout() {
-  const exercises = session
-    ? session.exercises.map((ex) => ({
-        name: ex.name,
-        category: ex.category,
-        sets: buildSavedSets(ex),
-      })).filter((ex) => ex.sets.length > 0)
-    : [];
+  if (finishingWorkout || !session) return;
+  finishingWorkout = true;
 
-  if (exercises.length > 0) {
-    // endTime is anchored to the picked date plus the real time spent
-    // logging — not wall-clock "now", which would blow up the duration
-    // History computes whenever startedAt is a past retroactive date.
-    const elapsedMs = Date.now() - session.realStartedAt.getTime();
-    await createWorkout({
-      date: session.startedAt,
-      startTime: session.startedAt,
-      endTime: new Date(session.startedAt.getTime() + elapsedMs),
-      exercises,
-    });
+  const btn = container?.querySelector('#finish-workout-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('btn--loading');
+    btn.textContent = 'שומר...';
   }
 
-  stopElapsedTicking();
-  session = null;
-  localStorage.removeItem(SESSION_STORAGE_KEY);
-  render();
+  try {
+    const exercises = session.exercises
+      .map((ex) => ({ name: ex.name, category: ex.category, sets: buildSavedSets(ex) }))
+      .filter((ex) => ex.sets.length > 0);
+
+    if (exercises.length > 0) {
+      // endTime is anchored to the picked date plus the real time spent
+      // logging — not wall-clock "now", which would blow up the duration
+      // History computes whenever startedAt is a past retroactive date.
+      const elapsedMs = Date.now() - session.realStartedAt.getTime();
+      await createWorkout({
+        date: session.startedAt,
+        startTime: session.startedAt,
+        endTime: new Date(session.startedAt.getTime() + elapsedMs),
+        exercises,
+      });
+    }
+
+    // Only reached on success — a thrown error skips straight to catch,
+    // leaving session (and the persisted draft) untouched so nothing is
+    // lost if the save actually failed.
+    stopElapsedTicking();
+    session = null;
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    // render() first: the "ready to start" screen has its own #toast-slot
+    // (see render()'s !session branch), and this toast would otherwise be
+    // destroyed the instant it appears — render() replaces the whole
+    // active-session DOM (this toast included) wholesale right after.
+    render();
+    showToast('✓ האימון נשמר בהצלחה');
+  } catch (err) {
+    console.error('finishWorkout failed', err);
+    showToast('שגיאה בשמירת האימון — נסה שוב');
+  } finally {
+    finishingWorkout = false;
+    // Only re-enable the button if the workout is still open — on success
+    // render() already swapped it out for the "ready to start" screen,
+    // which has no #finish-workout-btn to restore.
+    const btnAfter = session ? container?.querySelector('#finish-workout-btn') : null;
+    if (btnAfter) {
+      btnAfter.disabled = false;
+      btnAfter.classList.remove('btn--loading');
+      btnAfter.textContent = 'סיום אימון';
+    }
+  }
 }

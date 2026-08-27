@@ -220,12 +220,12 @@
   min-height: 26px;
 }
 
-/* Drop-set stage: a child set nested under a .drop-set-header, indented
-   with a connector line so the group reads as one unit rather than three
-   unrelated rows — same idea as the "↳" in a plain-text sketch of this.
-   The connector is --info (not transparent) while the stage is still open,
-   so an un-done child visually reads as "part of a group" even before its
-   own done-spine (--success) takes over. */
+/* Drop-set stage: a child set nested under its drop-set group's leading
+   (parent) row, indented with a connector line so the group reads as one
+   unit rather than unrelated rows — same idea as the "↳" in a plain-text
+   sketch of this. The connector is --info (not transparent) while the
+   stage is still open, so an un-done child visually reads as "part of a
+   group" even before its own done-spine (--success) takes over. */
 .set-row--child {
   margin-inline-start: 20px;
   padding-inline-start: 10px;
@@ -246,28 +246,9 @@
   display: none;
 }
 
-/* The parent itself never carries weight/reps once it has stages — just a
-   label plus the group's controls (expand, add another stage, delete). */
-/* Flush with a regular .set-row — no indent — so a drop-set group reads as
-   "a normal set, just tagged" rather than shifting the whole row left.
-   Only its stages (.set-row--child) are indented; the connector line only
-   appears here once the group is actually expanded (.drop-set-header--expanded),
-   since a permanent line on a collapsed header (which shows no children to
-   connect to) has nothing to visually group. */
-.drop-set-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  padding-inline-start: var(--space-1);
-  padding-block: 6px;
-  border-inline-start: 2px solid transparent;
-}
-
-.drop-set-header--expanded {
-  border-inline-start-color: var(--info);
-}
-
+/* The group leader is a normal .set-row (own editable weight/reps, own
+   done-state spine) — this pill just tags its meta row as a drop set's
+   parent, reused as-is for the group's stages' meta row being empty. */
 .drop-set-pill {
   display: inline-flex;
   align-items: center;
@@ -549,8 +530,7 @@ th {
    Steady states — done/active/upcoming — are mutually exclusive and reflect
    where a set sits relative to the workout's current point. Entering/
    celebrate are transient, removed once their transition/animation ends. */
-.set-row,
-.drop-set-header {
+.set-row {
   /* box-shadow, not outline: outline removal has known repaint-reliability
      issues on Safari/iOS when a class is removed without a forced reflow —
      the exact symptom of a highlight appearing "stuck" after the state that
@@ -851,7 +831,6 @@ th {
 
 @media (prefers-reduced-motion: reduce) {
   .set-row,
-  .drop-set-header,
   .set-field--reps,
   .toggle-group-indicator,
   .toggle-group--live button,
@@ -1121,6 +1100,19 @@ th {
   transform: scale(0.96);
 }
 
+/* A short, subtle loading state for a button mid-async-action (e.g. "סיום
+   אימון" while the save is in flight) — a gentle pulse rather than a
+   spinner, consistent with how understated the rest of this theme's motion
+   already is. */
+.btn--loading {
+  animation: btn-loading-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes btn-loading-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .workout-progress-fill,
   .toast {
@@ -1128,6 +1120,10 @@ th {
   }
 
   .pr-badge--celebrate {
+    animation: none;
+  }
+
+  .btn--loading {
     animation: none;
   }
 
