@@ -1051,6 +1051,41 @@ th {
   transform: translateY(0);
 }
 
+/* ===== Install-app banner (see js/ui/install-banner.js) ===== */
+.install-banner {
+  position: fixed;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-3));
+  z-index: 60; /* above .bottom-nav (50), below bottom-sheet/modal (200+) */
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  animation: install-banner-in 0.25s ease;
+}
+
+.install-banner-text {
+  flex: 1;
+  font-size: var(--text-sm);
+}
+
+.install-banner-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex: none;
+}
+
+@keyframes install-banner-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .install-banner {
+    animation: none;
+  }
+}
+
 /* ===== PR badge celebration ===== */
 .pr-badge--celebrate {
   animation: pr-badge-celebrate 0.5s ease;

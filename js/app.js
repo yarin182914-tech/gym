@@ -7,6 +7,7 @@ import { mountHistory, unmountHistory } from './pages/history.js';
 import { mountDashboard, unmountDashboard } from './pages/dashboard.js';
 import { mountNutrition, unmountNutrition } from './pages/nutrition.js';
 import { mountPlan } from './pages/plan.js';
+import { captureInstallPrompt, notifyAppEntered } from './ui/install-banner.js';
 
 const authScreen = document.getElementById('auth-screen');
 const appRoot = document.getElementById('app');
@@ -16,6 +17,14 @@ const signInBtn = document.getElementById('google-signin-btn');
 signInBtn.addEventListener('click', () => {
   signIn().catch((err) => alert('ההתחברות נכשלה: ' + err.message));
 });
+
+if ('serviceWorker' in navigator) {
+  // Registered unconditionally (dev sandbox included) — network-first means
+  // it never masks a fresh edit, it only adds an offline fallback.
+  navigator.serviceWorker.register('./sw.js').catch((err) => console.error('[sw] registration failed', err));
+}
+
+captureInstallPrompt();
 
 let routerStarted = false;
 
@@ -29,6 +38,7 @@ async function enterApp() {
   authScreen.classList.add('hidden');
   appRoot.classList.remove('hidden');
   nav.classList.remove('hidden');
+  notifyAppEntered();
   await ensureUserDoc();
   if (!routerStarted) {
     startRouter();

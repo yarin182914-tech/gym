@@ -22,6 +22,16 @@ let container = null;
 let library = [];
 let session = null; // { startedAt, realStartedAt, exercises: [...] }
 let elapsedTimerId = null;
+
+// A page reload — or iOS discarding a backgrounded tab, which it does
+// aggressively — used to wipe `session` outright, since it only ever lived
+// in this module's memory. Mirroring it out to localStorage lets it be
+// rebuilt from real wall-clock timestamps instead of silently resetting to
+// nothing. Sessions older than this are treated as abandoned rather than
+// resumed, so reopening the app days later doesn't resurrect a workout
+// showing an elapsed time of "47:12:03".
+const SESSION_STORAGE_KEY = 'gym-active-session-v1';
+const MAX_RESUMABLE_AGE_MS = 12 * 60 * 60 * 1000;
 let picker = { open: false, query: '', category: null };
 let lastTimeModal = null; // { name, previous }
 let recentExerciseNames = []; // fetched lazily each time the picker opens
@@ -51,6 +61,21 @@ export async function mountActiveSession(rootEl) {
   const token = beginMount();
   container = rootEl;
 
+  // Nothing in memory (fresh page load, or the tab was reloaded/discarded
+  // while backgrounded) — try to pick the workout back up from storage
+  // before doing anything else.
+  let restoredExercises = null;
+  if (!session) {
+    const restored = loadPersistedSession();
+    if (restored) {
+      session = restored;
+      // Restored _uid values came from a previous page load's counter —
+      // jump past them so any newly-added exercise/set can't collide.
+      uidSeq = Date.now();
+      restoredExercises = session.exercises;
+    }
+  }
+
   let loaded = await listExerciseLibrary();
   if (loaded.length === 0) {
     await seedExerciseLibraryIfEmpty();
@@ -63,11 +88,19 @@ export async function mountActiveSession(rootEl) {
   // A workout survives navigating away, so the clock has to be restarted on
   // the way back in — otherwise it renders once and then sits frozen.
   if (session) startElapsedTicking();
+
+  // Restored exercises were persisted without their "previous performance"
+  // data (see persistSession) — fetch it the same way a freshly-added
+  // exercise does, then patch each card in place once it arrives.
+  if (restoredExercises) {
+    for (const entry of restoredExercises) rehydrateExercise(entry);
+  }
 }
 
 // Stops everything that outlives a render. The in-progress workout itself is
 // deliberately kept, so leaving this tab mid-session doesn't discard it.
 export function unmountActiveSession() {
+  persistSession(); // capture the latest state now that the 1s tick is about to stop
   stopElapsedTicking();
   // The dialog's Escape handler lives on document, so it outlives this page
   // unless removed here.
@@ -99,10 +132,102 @@ function stopElapsedTicking() {
 
 // Repaints only the clock's text. The old code re-rendered the whole screen
 // every second, which tore down open dropdowns, the search field and focus.
+// Also drives the localStorage mirror off the same 1Hz tick.
 function tickClock() {
   if (!container || !session) return;
   const clock = container.querySelector('#elapsed-clock');
   if (clock) clock.textContent = formatMMSS(elapsedSeconds());
+  persistSession();
+}
+
+// ---------- persistence (survive reload / backgrounded-tab discard) ----------
+
+// Only the fields needed to rebuild the workout are kept — deliberately not
+// ex.previous/ex.history (Firestore-fetched lookups, refetched on restore by
+// rehydrateExercise instead of round-tripped through JSON on every tick).
+function persistSession() {
+  if (!session) {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    return;
+  }
+  try {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+      startedAt: session.startedAt.toISOString(),
+      realStartedAt: session.realStartedAt.toISOString(),
+      exercises: session.exercises.map((ex) => ({
+        _uid: ex._uid,
+        name: ex.name,
+        category: ex.category,
+        weightMode: ex.weightMode,
+        weightUnit: ex.weightUnit,
+        sets: ex.sets,
+      })),
+    }));
+  } catch { /* storage full/blocked — the session just won't survive a reload */ }
+}
+
+function loadPersistedSession() {
+  let raw;
+  try {
+    raw = localStorage.getItem(SESSION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    const realStartedAt = new Date(parsed.realStartedAt);
+    if (Date.now() - realStartedAt.getTime() > MAX_RESUMABLE_AGE_MS) {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      return null;
+    }
+    return {
+      startedAt: new Date(parsed.startedAt),
+      realStartedAt,
+      exercises: (parsed.exercises || []).map((ex) => ({
+        ...ex,
+        previous: null,
+        prevLoaded: false,
+        history: null,
+      })),
+    };
+  } catch {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    return null;
+  }
+}
+
+// A route change (unmountActiveSession) isn't the only way a workout goes
+// dark: backgrounding the tab, locking the phone, or the OS discarding the
+// page under memory pressure never call it. visibilitychange -> 'hidden' is
+// the Page Lifecycle API's reliable signal for all of those, firing right
+// before a mobile browser suspends/kills the tab — unlike beforeunload,
+// which is unreliable on mobile and deprecated for this. pagehide is a
+// backstop for bfcache-eligible navigations Safari handles differently.
+// This is module-top-level code, so it only runs once per page load no
+// matter how many times mount/unmountActiveSession run — no double-
+// registration to guard against. The !container/!session guard makes it a
+// silent no-op whenever a different page is mounted or no workout is live.
+function persistIfActive() {
+  if (!container || !session) return;
+  persistSession();
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') persistIfActive();
+});
+window.addEventListener('pagehide', persistIfActive);
+
+// Mirrors the tail of addExerciseToSession() for exercises that came back
+// from storage rather than from the picker — same fetch, same patch-in-place.
+async function rehydrateExercise(entry) {
+  const [prev, hist] = await Promise.all([
+    getLastPerformance(entry.name),
+    getExerciseHistory(entry.name),
+  ]);
+  entry.previous = prev;
+  entry.history = hist;
+  entry.prevLoaded = true;
+  if (container) patchExerciseCard(entry);
 }
 
 // ---------- structural render ----------
@@ -832,7 +957,7 @@ function buildSetRow(ex, set, role) {
   const numeric = mountNumericField(weightSlot, {
     value: set.weight,
     unitLabel: unitLabel(set.weightUnit).trim(),
-    onCommit: (v) => { set.weight = v; },
+    onCommit: (v) => { set.weight = v; persistSession(); },
   });
 
   const repsTrigger = row.querySelector('[data-role="reps-trigger"]');
@@ -863,6 +988,7 @@ function buildSetRow(ex, set, role) {
       onCommit: (v) => {
         set.reps = v;
         repsTrigger.querySelector('.reps-value').textContent = v;
+        persistSession();
       },
     });
     openWheelCloser = closeWheel;
@@ -1180,6 +1306,7 @@ function openSetDetailSheet(ex, set, ctrl) {
       // Covers weight/reps/notes edits made while the sheet was open —
       // delete/duplicate already patch immediately on their own.
       if (exerciseRefs.has(ex._uid)) patchExerciseCard(ex);
+      persistSession();
     },
   });
 }
@@ -1235,6 +1362,7 @@ function onToggleDone(ex, set) {
     if (navigator.vibrate) navigator.vibrate(isNewPR ? [20, 40, 20] : 15);
     if (isNewPR) showToast(`${icon('trophy', { className: 'icon--sm' })} שיא חדש!`);
   }
+  persistSession();
   patchExerciseCard(ex);
 }
 
@@ -1251,6 +1379,7 @@ function computePR(ex, set) {
 function startWorkout(customDate) {
   const real = new Date();
   session = { startedAt: customDate || real, realStartedAt: real, exercises: [] };
+  persistSession();
   render();
   startElapsedTicking();
 }
@@ -1337,5 +1466,6 @@ async function finishWorkout() {
 
   stopElapsedTicking();
   session = null;
+  localStorage.removeItem(SESSION_STORAGE_KEY);
   render();
 }

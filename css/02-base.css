@@ -9,6 +9,12 @@ html, body {
   color: var(--text);
   font-family: var(--font-body);
   -webkit-tap-highlight-color: transparent;
+  /* Kills the whole-page rubber-band bounce / pull-to-refresh — one of the
+     biggest "this is a browser tab" tells on mobile. Y-axis only; nothing
+     here uses horizontal edge-swipe. Independent of .wheel-picker's own
+     overscroll-behavior: contain, which already stops scroll-chaining there
+     regardless of what this rule sets. */
+  overscroll-behavior-y: none;
 }
 
 body {
