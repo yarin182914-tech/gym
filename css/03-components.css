@@ -1347,6 +1347,14 @@ th {
 .last-time-track {
   display: flex;
   width: 100%;
+  /* Pinned to ltr regardless of the page's dir="rtl": the JS/transform math
+     below (translateX(-100%) reveals the second pane) is written for a plain
+     left-to-right two-pane carousel. Without this, the browser lays the two
+     .last-time-pane children out right-to-left (inheriting the page's rtl),
+     which silently breaks the toggle — "last" would slide further offscreen
+     instead of into view. .last-time-pane restores rtl so the Hebrew content
+     inside each pane still reads normally. */
+  direction: ltr;
   transform: translateX(0%);
   transition: transform 0.25s ease;
   touch-action: pan-y; /* horizontal drag drives the swipe; vertical scroll still works */
@@ -1363,6 +1371,7 @@ th {
 .last-time-pane {
   flex: 0 0 100%;
   min-width: 0;
+  direction: rtl;
 }
 
 .last-time-headline {
