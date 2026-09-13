@@ -9,6 +9,7 @@ import {
   devListExerciseLibrary, devAddExerciseToLibrary,
   devRenameExerciseEverywhere, devDeleteExerciseFromLibrary,
   devAddNutritionEntry, devListNutritionEntries,
+  devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
 } from './dev-store.js';
 
 function uidOrThrow() {
@@ -245,6 +246,54 @@ export async function listNutritionEntries(max = 200) {
   const q = query(ref, orderBy('date', 'desc'), limit(max));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------- site feedback ----------
+// A shared board, not per-user data — unlike everything above this, these
+// documents live at the top-level siteFeedback/ collection instead of under
+// users/{uid}/, so every signed-in user reads and writes the same list. See
+// firestore.rules for the matching access rule. Deliberately no query
+// caching like allWorkouts() below has: that exists to stop one screen from
+// re-fetching the same collection dozens of times in parallel (Dashboard's
+// PR list did exactly that), which doesn't apply here — this is read once
+// per page visit by the one screen that shows it.
+
+export async function createFeedback({ text, author, category }) {
+  if (!useCloud) return devCreateFeedback({ text, author, category, authorUid: currentUid() });
+  const uid = uidOrThrow();
+  const ref = collection(db, 'siteFeedback');
+  const docRef = await addDoc(ref, {
+    text: text ?? '',
+    author: author ?? '',
+    authorUid: uid,
+    category: category ?? 'other',
+    status: 'new',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return docRef.id;
+}
+
+// Newest first.
+export async function listFeedback(max = 200) {
+  if (!useCloud) return devListFeedback(max);
+  const ref = collection(db, 'siteFeedback');
+  const q = query(ref, orderBy('createdAt', 'desc'), limit(max));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// `patch` is any subset of { text, author, category, status } — covers
+// editing the text, recategorizing, and changing status through the same
+// one function, all of which bump updatedAt.
+export async function updateFeedback(feedbackId, patch) {
+  if (!useCloud) return devUpdateFeedback(feedbackId, patch);
+  await updateDoc(doc(db, 'siteFeedback', feedbackId), { ...patch, updatedAt: serverTimestamp() });
+}
+
+export async function deleteFeedback(feedbackId) {
+  if (!useCloud) return devDeleteFeedback(feedbackId);
+  await deleteDoc(doc(db, 'siteFeedback', feedbackId));
 }
 
 // Plan persistence (getActivePlan/savePlan) and the profile helpers

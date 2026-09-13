@@ -5,12 +5,14 @@ import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 import { mountNumericField } from '../ui/numeric-input.js';
 import { mountWheelPicker } from '../ui/wheel-picker.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
+import { showToast } from '../ui/toast.js';
 import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { openExerciseEditSheet } from '../ui/exercise-edit-sheet.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
+import { renderProgressChart, buildWeightSeries } from '../lib/charts.js';
 import {
-  formatMMSS, formatDateHe, formatWeight, unitLabel, convertWeight, SET_TYPES,
+  formatDateHe, formatWeight, unitLabel, convertWeight, SET_TYPES,
   dateInputValue, parseDateInputValue,
 } from '../lib/format.js';
 import {
@@ -21,18 +23,16 @@ import {
 let container = null;
 let library = [];
 let session = null; // { startedAt, realStartedAt, exercises: [...] }
-let elapsedTimerId = null;
 let finishingWorkout = false; // guards finishWorkout() against double-submission while a save is in flight
 
 // A page reload — or iOS discarding a backgrounded tab, which it does
 // aggressively — used to wipe `session` outright, since it only ever lived
 // in this module's memory. Mirroring it out to localStorage lets it be
 // rebuilt from real wall-clock timestamps instead of silently resetting to
-// nothing. Sessions older than this are treated as abandoned rather than
-// resumed, so reopening the app days later doesn't resurrect a workout
-// showing an elapsed time of "47:12:03".
+// nothing. Resumable regardless of how old the draft is — deliberately no
+// age cutoff: a workout left open for a day or two is exactly the case
+// this exists for, not a reason to discard it.
 const SESSION_STORAGE_KEY = 'gym-active-session-v1';
-const MAX_RESUMABLE_AGE_MS = 12 * 60 * 60 * 1000;
 let picker = { open: false, query: '', category: null };
 let lastTimeModal = null; // { name, previous }
 let recentExerciseNames = []; // fetched lazily each time the picker opens
@@ -86,9 +86,6 @@ export async function mountActiveSession(rootEl) {
   library = loaded;
 
   render();
-  // A workout survives navigating away, so the clock has to be restarted on
-  // the way back in — otherwise it renders once and then sits frozen.
-  if (session) startElapsedTicking();
 
   // Restored exercises were persisted without their "previous performance"
   // data (see persistSession) — fetch it the same way a freshly-added
@@ -101,8 +98,7 @@ export async function mountActiveSession(rootEl) {
 // Stops everything that outlives a render. The in-progress workout itself is
 // deliberately kept, so leaving this tab mid-session doesn't discard it.
 export function unmountActiveSession() {
-  persistSession(); // capture the latest state now that the 1s tick is about to stop
-  stopElapsedTicking();
+  persistSession(); // capture the latest state now that this page is going away
   // The dialog's Escape handler lives on document, so it outlives this page
   // unless removed here.
   document.removeEventListener('keydown', onLastTimeKeydown);
@@ -113,32 +109,8 @@ export function unmountActiveSession() {
   container = null;
 }
 
-function elapsedSeconds() {
-  return session ? (Date.now() - session.realStartedAt.getTime()) / 1000 : 0;
-}
-
 function isSameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
-function startElapsedTicking() {
-  stopElapsedTicking();
-  elapsedTimerId = setInterval(tickClock, 1000);
-}
-
-function stopElapsedTicking() {
-  if (elapsedTimerId) clearInterval(elapsedTimerId);
-  elapsedTimerId = null;
-}
-
-// Repaints only the clock's text. The old code re-rendered the whole screen
-// every second, which tore down open dropdowns, the search field and focus.
-// Also drives the localStorage mirror off the same 1Hz tick.
-function tickClock() {
-  if (!container || !session) return;
-  const clock = container.querySelector('#elapsed-clock');
-  if (clock) clock.textContent = formatMMSS(elapsedSeconds());
-  persistSession();
 }
 
 // ---------- persistence (survive reload / backgrounded-tab discard) ----------
@@ -177,14 +149,9 @@ function loadPersistedSession() {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    const realStartedAt = new Date(parsed.realStartedAt);
-    if (Date.now() - realStartedAt.getTime() > MAX_RESUMABLE_AGE_MS) {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
-      return null;
-    }
     return {
       startedAt: new Date(parsed.startedAt),
-      realStartedAt,
+      realStartedAt: new Date(parsed.realStartedAt),
       exercises: (parsed.exercises || []).map((ex) => ({
         ...ex,
         previous: null,
@@ -247,7 +214,7 @@ function render() {
   // Rebuilding the whole screen via innerHTML resets scroll to the top on
   // mobile browsers (most visibly iOS Safari) even though nothing about the
   // visible content above the fold changed — most jarring on "add exercise",
-  // which used to always throw the user back up to the elapsed-clock header.
+  // which used to always throw the user back up to the top of the screen.
   const scrollY = window.scrollY;
   const restoreScroll = () => window.scrollTo(0, scrollY);
 
@@ -255,11 +222,10 @@ function render() {
     container.innerHTML = `
       <div class="card" style="text-align:center;">
         <h2>מוכן להתחיל?</h2>
-        <p class="text-muted">לחיצה תתחיל שעון אימון וסטופר מנוחה בין סטים.</p>
+        <p class="text-muted">לחיצה תתחיל מעקב אחר האימון.</p>
         <button class="btn btn-primary btn-block" id="start-workout-btn">התחלת אימון</button>
         <button class="btn btn-secondary btn-block" id="start-past-workout-btn" style="margin-top:8px;">הוספת אימון שכבר בוצע</button>
-      </div>
-      <div id="toast-slot" class="toast-slot" aria-live="polite"></div>`;
+      </div>`;
     container.querySelector('#start-workout-btn').addEventListener('click', () => startWorkout());
     container.querySelector('#start-past-workout-btn').addEventListener('click', openPastWorkoutSheet);
     restoreScroll();
@@ -269,11 +235,10 @@ function render() {
   const isRetroactive = !isSameDay(session.startedAt, new Date());
 
   container.innerHTML = `
+    ${isRetroactive ? `
     <div class="card" style="text-align:center;">
-      <h3 style="margin:0;">זמן אימון</h3>
-      ${isRetroactive ? `<div class="text-muted" style="font-size:var(--text-sm);">${icon('calendar-days', { className: 'icon--sm' })} ${esc(formatDateHe(session.startedAt))}</div>` : ''}
-      <div class="num" id="elapsed-clock" style="font-size:1.8rem; font-weight:var(--weight-bold); letter-spacing:var(--tracking-tight);">${formatMMSS(elapsedSeconds())}</div>
-    </div>
+      <div class="text-muted" style="font-size:var(--text-sm);">${icon('calendar-days', { className: 'icon--sm' })} ${esc(formatDateHe(session.startedAt))}</div>
+    </div>` : ''}
 
     <div id="progress-slot"></div>
 
@@ -284,8 +249,6 @@ function render() {
 
     ${picker.open ? renderPicker() : ''}
     ${lastTimeModal ? renderLastTimeModal() : ''}
-
-    <div id="toast-slot" class="toast-slot" aria-live="polite"></div>
   `;
 
   const list = container.querySelector('#exercise-list');
@@ -332,24 +295,6 @@ function patchProgressSlot({ current, totalSets, completedSets }) {
     </div>`;
 }
 
-// ---------- toasts ----------
-
-// `html` is always one of this module's own hardcoded strings (never user
-// input), so innerHTML here is safe and is what lets a toast carry an icon.
-function showToast(html) {
-  const slot = container?.querySelector('#toast-slot');
-  if (!slot) return;
-  const el = document.createElement('div');
-  el.className = 'toast';
-  el.innerHTML = html;
-  slot.appendChild(el);
-  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('toast--visible')));
-  setTimeout(() => {
-    el.classList.remove('toast--visible');
-    setTimeout(() => el.remove(), 300);
-  }, 1800);
-}
-
 // ---------- "last time" popup ----------
 
 // A single pane: a bold headline set (what the toggle/swipe is actually
@@ -369,10 +314,12 @@ function renderLastTimePane(point, roleAttr) {
 
 function renderLastTimeModal() {
   const { name, pr, last } = lastTimeModal;
-  // "Exactly the same" per the spec — same headline weight and reps — means
-  // there's nothing to toggle between, so no toggle is shown at all.
-  const identical = pr && last && pr.set.weight === last.set.weight && pr.set.reps === last.set.reps;
-  const hasToggle = pr && last && !identical;
+  // Always shown once both sides exist — including when they happen to be
+  // identical (a single logged workout, or no progress since) — for a
+  // consistent toggle across every exercise instead of some having it and
+  // some not. Only genuinely missing data (no pr, or no last) falls back
+  // to a single plain view.
+  const hasToggle = !!(pr && last);
 
   let body;
   if (!pr && !last) {
@@ -1198,9 +1145,24 @@ function patchSetRow(ex, set, idx, ctrl) {
 // Always confirms, unlike requestDeleteSet — removing a whole exercise loses
 // every set logged under it (done or not), and the button sits right in the
 // card header where a mis-tap while reaching for something else is exactly
-// the accident this is meant to guard against.
-function requestDeleteExercise(ex) {
-  if (!confirm(`למחוק את התרגיל "${ex.name}" מהאימון?`)) return;
+// the accident this is meant to guard against. Uses the app's own
+// confirmDialog, not the native confirm() this used to call — a native
+// dialog is exactly the kind of browser chrome that can go missing or
+// behave unreliably once the app is running installed/standalone (no
+// address bar), which is what made this "sometimes not respond" at all;
+// confirmDialog is plain in-app markup, so it can't depend on that.
+async function requestDeleteExercise(ex) {
+  const confirmed = await confirmDialog({
+    title: 'מחיקת תרגיל',
+    // confirmDialog renders via innerHTML (unlike the native confirm() this
+    // replaces, which only ever took plain text) — ex.name can be a
+    // user-typed custom exercise name, so it has to stay escaped here same
+    // as everywhere else this file puts a name into markup.
+    message: `למחוק את התרגיל "${esc(ex.name)}" מהאימון?`,
+    confirmLabel: 'מחיקה',
+    danger: true,
+  });
+  if (!confirmed) return;
   const idx = session.exercises.indexOf(ex);
   if (idx === -1) return;
   session.exercises.splice(idx, 1);
@@ -1312,6 +1274,11 @@ function openSetDetailSheet(ex, set, ctrl) {
   // both the label here and the "previous performance" lookup line up with
   // how finishWorkout() actually numbers/saves sets — see persistablePosition.
   const idx = persistablePosition(ex, set);
+  // Shared by render() and onClose() below — the chart loads lazily (Chart.js
+  // itself is fetched on first use) and needs destroying if the sheet closes
+  // before or after it finishes rendering, same lifecycle Dashboard's own
+  // chart instance goes through.
+  let chartInstance = null;
 
   openBottomSheet({
     ariaLabel: `${ex.name}, סט ${idx + 1}`,
@@ -1339,6 +1306,9 @@ function openSetDetailSheet(ex, set, ctrl) {
           <p class="text-muted" style="margin:0;">${esc(formatWeight(prev))} × ${esc(prev.reps)} · ${esc(formatDateHe(ex.previous.workoutDate))}</p>
         ` : ''}
 
+        <button type="button" class="btn btn-outline btn-block" data-role="sheet-show-chart" style="margin-top:14px;">הצג גרף התקדמות</button>
+        <div data-role="sheet-chart-container" hidden style="height:220px; margin-top:10px;"><canvas data-role="sheet-chart-canvas"></canvas></div>
+
         <div class="sheet-actions">
           <button type="button" class="btn btn-secondary" data-role="sheet-duplicate">שכפול סט</button>
           <button type="button" class="btn btn-danger" data-role="sheet-delete">מחיקת סט</button>
@@ -1364,6 +1334,33 @@ function openSetDetailSheet(ex, set, ctrl) {
 
       body.querySelector('[data-role="sheet-notes"]').addEventListener('input', (e) => {
         set.notes = e.target.value;
+      });
+
+      // Loaded on demand, not built into the sheet up front — most taps here
+      // are a quick weight/reps edit, not a request for history, so the
+      // chart (and the Chart.js library fetch behind it) only happens if
+      // asked for. A second tap just toggles visibility rather than
+      // re-fetching/re-rendering.
+      const chartBtn = body.querySelector('[data-role="sheet-show-chart"]');
+      const chartContainer = body.querySelector('[data-role="sheet-chart-container"]');
+      chartBtn.addEventListener('click', async () => {
+        if (chartInstance) {
+          chartContainer.hidden = !chartContainer.hidden;
+          return;
+        }
+        chartContainer.hidden = false;
+        chartBtn.disabled = true;
+        try {
+          const history = await getExerciseHistory(ex.name);
+          const canvas = body.querySelector('[data-role="sheet-chart-canvas"]');
+          if (!canvas?.isConnected) return; // sheet closed while this was in flight
+          chartInstance = await renderProgressChart(canvas, buildWeightSeries(history));
+        } catch (err) {
+          console.error('progress chart failed to render', err);
+          chartContainer.hidden = true;
+        } finally {
+          chartBtn.disabled = false;
+        }
       });
 
       const closeSheetAndPatch = () => { sheetApi.close(); };
@@ -1403,6 +1400,8 @@ function openSetDetailSheet(ex, set, ctrl) {
       // delete/duplicate already patch immediately on their own.
       if (exerciseRefs.has(ex._uid)) patchExerciseCard(ex);
       persistSession();
+      chartInstance?.destroy();
+      chartInstance = null;
     },
   });
 }
@@ -1477,13 +1476,22 @@ function computePR(ex, set) {
 
 // The exercise's all-time PR: across every past workout, the heaviest
 // single set logged in the exercise's current weight mode/unit.
+// No weightMode/weightUnit filter — matches Dashboard's own PR definition
+// (js/pages/dashboard.js loadSeries/renderPRList) exactly, which doesn't
+// filter either. An earlier version of this filtered by the exercise's
+// *current* mode/unit, same as the per-set computePR() below — but that's
+// a different question ("is this set, logged this way, a new best for that
+// way of logging it") than "what's the heaviest this exercise has ever
+// been logged at, period", which is what a PR headline should answer. The
+// filtered version could silently exclude real history (e.g. a dumbbell
+// exercise logged "per side" once and "total" another time) and land on a
+// PR lower than — or equal to — the last-performance figure it's meant to
+// be compared against.
 function findExercisePR(ex) {
   const history = ex.history || [];
   let best = null;
   for (const point of history) {
-    const topSet = (point.sets || [])
-      .filter((s) => s.weightMode === ex.weightMode && (s.weightUnit || 'kg') === ex.weightUnit)
-      .reduce((top, s) => (!top || s.weight > top.weight ? s : top), null);
+    const topSet = (point.sets || []).reduce((top, s) => (!top || s.weight > top.weight ? s : top), null);
     if (topSet && (!best || topSet.weight > best.set.weight)) {
       best = { date: point.date, sets: point.sets, set: topSet };
     }
@@ -1502,19 +1510,21 @@ function findExerciseLast(ex) {
   return { date: ex.previous.workoutDate, sets: ex.previous.sets, set: topSet };
 }
 
-// ---------- timers ----------
-
 function startWorkout(customDate) {
   const real = new Date();
+  // realStartedAt is real wall-clock time even for a retroactive (backdated)
+  // workout — startedAt is what gets saved/displayed as the workout's date,
+  // realStartedAt is only ever used to measure how long finishing it took
+  // (see finishWorkout's endTime calc), which is unrelated to which day the
+  // user picked.
   session = { startedAt: customDate || real, realStartedAt: real, exercises: [] };
   persistSession();
   render();
-  startElapsedTicking();
 }
 
 // Bottom sheet for logging a workout that already happened — lets the
-// saved date differ from today without touching the live elapsed timer
-// (that keeps ticking off session.realStartedAt regardless).
+// saved date (session.startedAt) differ from today, while session.realStartedAt
+// still tracks the actual moment logging began (see startWorkout).
 function openPastWorkoutSheet() {
   openBottomSheet({
     ariaLabel: 'הוספת אימון שכבר בוצע',
@@ -1612,13 +1622,8 @@ async function finishWorkout() {
     // Only reached on success — a thrown error skips straight to catch,
     // leaving session (and the persisted draft) untouched so nothing is
     // lost if the save actually failed.
-    stopElapsedTicking();
     session = null;
     localStorage.removeItem(SESSION_STORAGE_KEY);
-    // render() first: the "ready to start" screen has its own #toast-slot
-    // (see render()'s !session branch), and this toast would otherwise be
-    // destroyed the instant it appears — render() replaces the whole
-    // active-session DOM (this toast included) wholesale right after.
     render();
     showToast('✓ האימון נשמר בהצלחה');
   } catch (err) {

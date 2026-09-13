@@ -1,5 +1,5 @@
 import { listWorkouts, getExerciseHistory, listExerciseLibrary, CATEGORY_GROUPS } from '../lib/firestore.js';
-import { renderProgressChart } from '../lib/charts.js';
+import { renderProgressChart, heaviestSet } from '../lib/charts.js';
 import { esc } from '../core/dom.js';
 import { formatDayMonthHe as shortDate, unitLabel, round1 } from '../lib/format.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
@@ -79,7 +79,7 @@ export async function mountDashboard(rootEl) {
 async function loadSeries(exerciseName) {
   const history = await getExerciseHistory(exerciseName);
   return history.map((point) => {
-    const maxWeightSet = point.sets.reduce((best, s) => (s.weight > (best?.weight ?? -1) ? s : best), null);
+    const maxWeightSet = heaviestSet(point.sets);
     const volume = point.sets.reduce((sum, s) => sum + s.weight * s.reps, 0);
     return {
       date: point.date,

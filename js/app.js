@@ -7,7 +7,9 @@ import { mountHistory, unmountHistory } from './pages/history.js';
 import { mountDashboard, unmountDashboard } from './pages/dashboard.js';
 import { mountNutrition, unmountNutrition } from './pages/nutrition.js';
 import { mountPlan } from './pages/plan.js';
+import { mountFeedback, unmountFeedback } from './pages/feedback.js';
 import { captureInstallPrompt, notifyAppEntered } from './ui/install-banner.js';
+import { mountFeedbackFab } from './ui/feedback-fab.js';
 
 const authScreen = document.getElementById('auth-screen');
 const appRoot = document.getElementById('app');
@@ -33,12 +35,14 @@ registerRoute('history', () => mountHistory(appRoot), unmountHistory);
 registerRoute('dashboard', () => mountDashboard(appRoot), unmountDashboard);
 registerRoute('nutrition', () => mountNutrition(appRoot), unmountNutrition);
 registerRoute('plan', () => mountPlan(appRoot));
+registerRoute('feedback', () => mountFeedback(appRoot), unmountFeedback);
 
 async function enterApp() {
   authScreen.classList.add('hidden');
   appRoot.classList.remove('hidden');
   nav.classList.remove('hidden');
   notifyAppEntered();
+  mountFeedbackFab();
   await ensureUserDoc();
   if (!routerStarted) {
     startRouter();

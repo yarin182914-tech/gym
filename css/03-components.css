@@ -1065,6 +1065,65 @@ th {
   }
 }
 
+/* ===== Feedback FAB (see js/ui/feedback-fab.js) =====
+   Fixed, site-wide — not page-scoped markup, so it survives every route
+   change instead of being rebuilt (or briefly missing) on navigation. */
+.feedback-fab {
+  position: fixed;
+  inset-inline-end: var(--space-4);
+  bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-4));
+  z-index: 55; /* above .bottom-nav (50), below the install banner/sheets/modals */
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--gold-text);
+  box-shadow: var(--shadow-lg);
+}
+
+.feedback-fab:hover {
+  background: var(--accent-hover);
+}
+
+/* ===== Feedback status pill (see js/pages/feedback.js) ===== */
+.feedback-status {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.65rem;
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+}
+
+.feedback-status--new {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--gold);
+}
+
+.feedback-status--in_progress {
+  background: rgba(91, 143, 176, 0.14);
+  border-color: var(--info);
+  color: var(--info-text);
+}
+
+.feedback-status--done {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  border-color: var(--success);
+  color: var(--success-text);
+}
+
+.feedback-status--dismissed {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
 /* ===== PR badge celebration ===== */
 .pr-badge--celebrate {
   animation: pr-badge-celebrate 0.5s ease;
@@ -1086,7 +1145,8 @@ th {
 .pill,
 .set-more-btn,
 .toggle-group button,
-.bottom-nav a {
+.bottom-nav a,
+.feedback-fab {
   transition: transform 0.1s ease;
 }
 
@@ -1096,7 +1156,8 @@ th {
 .toggle-group button:active,
 .set-done-btn:active,
 .set-field--reps:active,
-.bottom-nav a:active {
+.bottom-nav a:active,
+.feedback-fab:active {
   transform: scale(0.96);
 }
 
@@ -1131,7 +1192,8 @@ th {
   .pill,
   .set-more-btn,
   .toggle-group button,
-  .bottom-nav a {
+  .bottom-nav a,
+  .feedback-fab {
     transition: none;
   }
 }
@@ -1244,8 +1306,16 @@ th {
   font-size: var(--text-sm);
 }
 
+/* A drop-set stage (label like "3.1") — indented the same way the live
+   workout screen nests a drop set's stages under its leader, so a saved
+   drop set reads as a group here too, not just via the numbering alone. */
+.sets-list-row--child {
+  margin-inline-start: 16px;
+  border-inline-start: 2px solid var(--info);
+}
+
 .sets-list-index {
-  min-width: 1.5ch;
+  min-width: 2.5ch;
   color: var(--text-muted);
 }
 

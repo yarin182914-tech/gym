@@ -12,7 +12,7 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw);
   } catch { /* corrupt/blocked storage falls through to defaults */ }
-  return { user: { displayName: 'מצב פיתוח', weddingDate: null }, workouts: [], exerciseLibrary: [], nutritionEntries: [], plans: [] };
+  return { user: { displayName: 'מצב פיתוח', weddingDate: null }, workouts: [], exerciseLibrary: [], nutritionEntries: [], plans: [], feedback: [] };
 }
 
 function save(state) {
@@ -128,5 +128,50 @@ export async function devListNutritionEntries(max = 200) {
   return [...state.nutritionEntries]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, max);
+}
+
+// ---------- site feedback (shared board — see firestore.js for why this
+// isn't scoped under the user, unlike everything above) ----------
+
+export async function devCreateFeedback({ text, author, category, authorUid }) {
+  const state = load();
+  if (!state.feedback) state.feedback = []; // localStorage blobs saved before this field existed
+  const id = uid();
+  const now = new Date().toISOString();
+  state.feedback.unshift({
+    id,
+    text: text ?? '',
+    author: author ?? '',
+    authorUid: authorUid ?? null,
+    category: category ?? 'other',
+    status: 'new',
+    createdAt: now,
+    updatedAt: now,
+  });
+  save(state);
+  return id;
+}
+
+export async function devListFeedback(max = 200) {
+  const state = load();
+  return [...(state.feedback || [])]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, max);
+}
+
+export async function devUpdateFeedback(feedbackId, patch) {
+  const state = load();
+  if (!state.feedback) state.feedback = [];
+  const item = state.feedback.find((f) => f.id === feedbackId);
+  if (item) {
+    Object.assign(item, patch, { updatedAt: new Date().toISOString() });
+    save(state);
+  }
+}
+
+export async function devDeleteFeedback(feedbackId) {
+  const state = load();
+  state.feedback = (state.feedback || []).filter((f) => f.id !== feedbackId);
+  save(state);
 }
 

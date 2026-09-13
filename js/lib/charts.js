@@ -4,6 +4,8 @@
 // selective direct labels (first/last/PR only), gold PR markers, hover
 // tooltip by default, recessive gridlines.
 
+import { round1, unitLabel, formatDayMonthHe } from './format.js';
+
 const PURPLE = '#8b6bb0';
 const GOLD = '#facb8d';
 const MUTED = '#9b9797';
@@ -58,6 +60,40 @@ function loadChartLib() {
     });
   }
   return chartLib;
+}
+
+// The heaviest single set in one workout's sets array — the one bit of math
+// both this module and js/pages/dashboard.js's own (richer) series-building
+// need, so it lives here rather than being computed twice.
+export function heaviestSet(sets) {
+  return sets.reduce((best, s) => (s.weight > (best?.weight ?? -1) ? s : best), null);
+}
+
+// Turns getExerciseHistory()'s raw output into exactly what renderProgressChart
+// needs for a weight-only series — what Active Session's per-set progress
+// graph wants. Dashboard needs a richer per-point shape (volume/reps/mode
+// too, for its table view and metric toggle) so it builds its own via
+// heaviestSet() above rather than calling this; this is for a caller that
+// only ever wants the weight line.
+export function buildWeightSeries(history) {
+  const points = history.map((point) => {
+    const top = heaviestSet(point.sets);
+    return { date: point.date, maxWeight: top.weight, unit: top.weightUnit || 'kg' };
+  });
+  const values = points.map((p) => p.maxWeight);
+  let max = -Infinity;
+  const prFlags = values.map((v) => {
+    const isPR = v > max;
+    if (v > max) max = v;
+    return isPR;
+  });
+  const unit = points[0] ? unitLabel(points[0].unit) : '';
+  return {
+    labels: points.map((p) => formatDayMonthHe(p.date)),
+    values,
+    prFlags,
+    formatValue: (v) => `${round1(v)}${unit}`,
+  };
 }
 
 // labels: x-axis labels (dates). values: numeric y per point (already the
