@@ -211,9 +211,8 @@
   text-align: center;
 }
 
-/* One line, always: type picker, previous, ⋯ and the PR badge. Only the
-   "previous" text gives way when space runs out (ellipsis, below) — notes
-   live on their own line under it (.set-row-notes). */
+/* One line, always: type picker (or drop-set controls), ⋯ and the PR
+   badge — notes live on their own line under it (.set-row-notes). */
 .set-row-meta {
   display: flex;
   align-items: center;
@@ -688,15 +687,6 @@ th {
   color: var(--success-text);
 }
 
-.set-row-previous {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  flex-shrink: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* ===== Numeric weight field ===== */
 .numeric-field {
@@ -851,8 +841,8 @@ th {
   font-size: var(--text-sm);
 }
 
-/* The set-type control lives in the meta row alongside the drop-set tag,
-   previous-performance text and the options button — a full-width iOS-style
+/* The set-type control lives in the meta row alongside the options
+   button and PR badge — a full-width iOS-style
    segmented bar reads as too heavy there, so it drops the connected-track
    look for individually outlined chips (the sliding indicator only makes
    sense against a continuous track, so it's hidden here). */
@@ -909,7 +899,7 @@ th {
 
 /* The set row's own options button lives in the quiet meta row, pushed to
    the row's trailing edge — a full tap-target square there would crowd the
-   drop-set tag and previous-performance text right next to it. */
+   type chips and drop-set controls next to it. */
 .set-more-btn--meta {
   min-width: 30px;
   min-height: 26px;

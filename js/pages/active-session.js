@@ -945,7 +945,7 @@ function syncSetRows(ex, refs) {
       // move its existing row rather than rebuilding it.
       refs.setsListEl.insertBefore(ctrl.row, nodeAtIdx);
     }
-    patchSetRow(ex, set, persistablePosition(ex, set), ctrl);
+    patchSetRow(ex, set, ctrl);
     if (role === 'child') {
       // Not the `hidden` attribute — .set-row's own `display: flex` rule
       // and the UA's `[hidden] { display: none }` rule are equal
@@ -1007,7 +1007,6 @@ function buildSetRow(ex, set, role) {
     <div class="wheel-picker-slot" data-role="wheel-slot" hidden></div>
     <div class="set-row-meta">
       ${buildSetRowMeta(set, role)}
-      <span class="set-row-previous" data-role="previous" hidden></span>
       <button type="button" class="set-more-btn set-more-btn--meta" data-role="more-btn" aria-label="עוד אפשרויות לסט">⋯</button>
       <span class="pr-badge" data-role="pr-badge" ${set.isPR ? '' : 'hidden'}>שיא</span>
     </div>
@@ -1106,7 +1105,6 @@ function buildSetRow(ex, set, role) {
     indexEl: row.querySelector('[data-role="set-index"]'),
     chevronEl: row.querySelector('[data-role="dropset-chevron"]'), // role 'parent' only
     prBadgeEl: row.querySelector('[data-role="pr-badge"]'),
-    previousEl: row.querySelector('[data-role="previous"]'),
     notesEl: row.querySelector('[data-role="notes"]'),
     closeWheel,
   };
@@ -1119,7 +1117,7 @@ function buildSetRow(ex, set, role) {
   return ctrl;
 }
 
-function patchSetRow(ex, set, idx, ctrl) {
+function patchSetRow(ex, set, ctrl) {
   const wasDone = ctrl.row.classList.contains('set-row--done');
 
   patchToggleGroup(ctrl.typeGroupEl, set.type);
@@ -1146,19 +1144,6 @@ function patchSetRow(ex, set, idx, ctrl) {
     ctrl.prBadgeEl.classList.remove('pr-badge--celebrate');
     void ctrl.prBadgeEl.offsetWidth;
     ctrl.prBadgeEl.classList.add('pr-badge--celebrate');
-  }
-
-  // Not shown on a drop set's rows: their saved position doesn't line up
-  // with a matching set from last time, and the group reads cleaner without.
-  const inDropSet = ctrl.role === 'parent' || ctrl.role === 'child';
-  const prev = ex.prevLoaded && !inDropSet ? ex.previous?.sets?.[idx] : null;
-  if (prev) {
-    ctrl.previousEl.hidden = false;
-    // Short label: this shares one line with the type picker and ⋯, and the
-    // longer "פעם קודמת:" got the numbers themselves cut off on a phone.
-    ctrl.previousEl.textContent = `קודם: ${formatWeight(prev)} × ${prev.reps}`;
-  } else {
-    ctrl.previousEl.hidden = true;
   }
 
   if (set.notes) {
