@@ -5,7 +5,7 @@ import {
 import { db, useCloud } from '../firebase-config.js';
 import { currentUid } from '../auth.js';
 import {
-  devEnsureUserDoc, devCreateWorkout, devDeleteWorkout, devListWorkouts,
+  devEnsureUserDoc, devCreateWorkout, devUpdateWorkout, devDeleteWorkout, devListWorkouts,
   devListExerciseLibrary, devAddExerciseToLibrary,
   devRenameExerciseEverywhere, devDeleteExerciseFromLibrary,
   devAddNutritionEntry, devListNutritionEntries,
@@ -50,6 +50,18 @@ export async function createWorkout(workout) {
       exercises: workout.exercises ?? [],
     });
     return docRef.id;
+  } finally {
+    invalidateWorkouts();
+  }
+}
+
+// `patch` is any subset of the workout's fields — used when a finished
+// workout is reopened from History and saved again.
+export async function updateWorkout(workoutId, patch) {
+  try {
+    if (!useCloud) return await devUpdateWorkout(workoutId, patch);
+    const uid = uidOrThrow();
+    await updateDoc(doc(db, 'users', uid, 'workouts', workoutId), patch);
   } finally {
     invalidateWorkouts();
   }
@@ -109,9 +121,12 @@ export async function listWorkouts(max = 100) {
 
 // Most recent prior workout that logged this exercise, so the Active
 // Session screen can show a "previous" value per set.
-export async function getLastPerformance(exerciseName) {
+// excludeWorkoutId: a workout reopened for editing must not count as its
+// own "last time" or history.
+export async function getLastPerformance(exerciseName, excludeWorkoutId = null) {
   const workouts = await allWorkouts();
   for (const w of workouts) {
+    if (w.id === excludeWorkoutId) continue;
     const ex = (w.exercises || []).find((e) => e.name === exerciseName);
     if (ex) return { workoutDate: w.date, sets: ex.sets };
   }
@@ -120,10 +135,11 @@ export async function getLastPerformance(exerciseName) {
 
 // All sets ever logged for an exercise, oldest first — used for progress
 // charts and personal-record calculation.
-export async function getExerciseHistory(exerciseName) {
+export async function getExerciseHistory(exerciseName, excludeWorkoutId = null) {
   const workouts = await allWorkouts();
   const points = [];
   for (const w of workouts) {
+    if (w.id === excludeWorkoutId) continue;
     const ex = (w.exercises || []).find((e) => e.name === exerciseName);
     if (ex) points.push({ date: w.date, sets: ex.sets });
   }

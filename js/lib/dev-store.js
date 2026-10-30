@@ -40,6 +40,16 @@ export async function devCreateWorkout(workout) {
   return id;
 }
 
+export async function devUpdateWorkout(workoutId, patch) {
+  const state = load();
+  const w = state.workouts.find((x) => x.id === workoutId);
+  if (!w) throw new Error('Workout not found');
+  for (const [key, value] of Object.entries(patch)) {
+    w[key] = value instanceof Date ? value.toISOString() : value;
+  }
+  save(state);
+}
+
 export async function devDeleteWorkout(workoutId) {
   const state = load();
   state.workouts = state.workouts.filter((x) => x.id !== workoutId);

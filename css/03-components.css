@@ -1273,7 +1273,10 @@ th {
   min-height: 0;
 }
 
-.history-detail--open .history-detail-inner {
+/* Child combinator: workout rows nest inside an (open) month section that
+   uses these same classes, and a descendant selector padded every closed
+   row inside an open month too — leaving 10px of its content peeking out. */
+.history-detail--open > .history-detail-inner {
   padding-top: 10px;
 }
 

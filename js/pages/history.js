@@ -7,6 +7,9 @@ import { emptyState } from '../ui/empty-state.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
 import { icon } from '../ui/icon.js';
+import { showToast } from '../ui/toast.js';
+import { navigate } from '../lib/router.js';
+import { openWorkoutForEditing } from './active-session.js';
 
 let container = null;
 let workouts = [];
@@ -317,7 +320,10 @@ function buildWorkoutRow(w) {
             <strong>${esc(ex.name)}</strong>
             ${setsTable(ex.sets)}
           </div>`).join('')}
-        <button class="btn btn-secondary" data-delete style="color:var(--danger); margin-top:6px;">${icon('trash-2', { className: 'icon--sm' })} מחיקת אימון</button>
+        <div class="sheet-actions" style="margin-top:6px;">
+          <button class="btn btn-secondary" data-edit>${icon('pencil', { className: 'icon--sm' })} עריכת אימון</button>
+          <button class="btn btn-secondary" data-delete style="color:var(--danger);">${icon('trash-2', { className: 'icon--sm' })} מחיקת אימון</button>
+        </div>
       </div>
     </div>
   `;
@@ -332,6 +338,15 @@ function buildWorkoutRow(w) {
     detailEl.classList.toggle('history-detail--open', nowOpen);
     chevronEl.classList.toggle('history-chevron--open', nowOpen);
     if (nowOpen) syncCalendarToDate(toDate(w.date));
+  });
+
+  el.querySelector('[data-edit]').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!openWorkoutForEditing(w)) {
+      showToast('יש אימון פתוח — צריך לסיים אותו לפני עריכת אימון אחר');
+      return;
+    }
+    navigate('session');
   });
 
   el.querySelector('[data-delete]').addEventListener('click', async (e) => {

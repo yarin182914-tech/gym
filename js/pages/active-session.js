@@ -13,11 +13,11 @@ import { confirmDialog } from '../ui/confirm-dialog.js';
 import { renderProgressChart, buildWeightSeries } from '../lib/charts.js';
 import {
   formatDateHe, formatWeight, unitLabel, convertWeight, SET_TYPES,
-  dateInputValue, parseDateInputValue,
+  dateInputValue, parseDateInputValue, toDate,
 } from '../lib/format.js';
 import {
   listExerciseLibrary, seedExerciseLibraryIfEmpty, addExerciseToLibrary,
-  getLastPerformance, createWorkout, getExerciseHistory, listWorkouts, CATEGORY_GROUPS,
+  getLastPerformance, createWorkout, updateWorkout, getExerciseHistory, listWorkouts, CATEGORY_GROUPS,
 } from '../lib/firestore.js';
 
 let container = null;
@@ -118,16 +118,20 @@ function isSameDay(a, b) {
 // Only the fields needed to rebuild the workout are kept — deliberately not
 // ex.previous/ex.history (Firestore-fetched lookups, refetched on restore by
 // rehydrateExercise instead of round-tripped through JSON on every tick).
-function persistSession() {
-  if (!session) {
+// Takes an explicit session so openWorkoutForEditing() can stage a draft
+// for the next mount without making it the live in-memory one.
+function persistSession(s = session) {
+  if (!s) {
     localStorage.removeItem(SESSION_STORAGE_KEY);
     return;
   }
   try {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
-      startedAt: session.startedAt.toISOString(),
-      realStartedAt: session.realStartedAt.toISOString(),
-      exercises: session.exercises.map((ex) => ({
+      startedAt: s.startedAt.toISOString(),
+      realStartedAt: s.realStartedAt.toISOString(),
+      editingWorkoutId: s.editingWorkoutId || null,
+      originalEndTime: s.originalEndTime ? s.originalEndTime.toISOString() : null,
+      exercises: s.exercises.map((ex) => ({
         _uid: ex._uid,
         name: ex.name,
         category: ex.category,
@@ -152,6 +156,8 @@ function loadPersistedSession() {
     return {
       startedAt: new Date(parsed.startedAt),
       realStartedAt: new Date(parsed.realStartedAt),
+      editingWorkoutId: parsed.editingWorkoutId || null,
+      originalEndTime: parsed.originalEndTime ? new Date(parsed.originalEndTime) : null,
       exercises: (parsed.exercises || []).map((ex) => ({
         ...ex,
         previous: null,
@@ -189,8 +195,8 @@ window.addEventListener('pagehide', persistIfActive);
 // from storage rather than from the picker — same fetch, same patch-in-place.
 async function rehydrateExercise(entry) {
   const [prev, hist] = await Promise.all([
-    getLastPerformance(entry.name),
-    getExerciseHistory(entry.name),
+    getLastPerformance(entry.name, session?.editingWorkoutId),
+    getExerciseHistory(entry.name, session?.editingWorkoutId),
   ]);
   entry.previous = prev;
   entry.history = hist;
@@ -233,9 +239,14 @@ function render() {
   }
 
   const isRetroactive = !isSameDay(session.startedAt, new Date());
+  const isEditing = !!session.editingWorkoutId;
 
   container.innerHTML = `
-    ${isRetroactive ? `
+    ${isEditing ? `
+    <div class="card" style="text-align:center;">
+      <div class="text-muted" style="font-size:var(--text-sm);">${icon('calendar-days', { className: 'icon--sm' })} עריכת אימון מ-${esc(formatDateHe(session.startedAt))}</div>
+      <button class="btn btn-secondary btn-block" id="cancel-edit-btn" style="margin-top:10px;">ביטול עריכה</button>
+    </div>` : isRetroactive ? `
     <div class="card" style="text-align:center;">
       <div class="text-muted" style="font-size:var(--text-sm);">${icon('calendar-days', { className: 'icon--sm' })} ${esc(formatDateHe(session.startedAt))}</div>
     </div>` : ''}
@@ -260,6 +271,7 @@ function render() {
   restoreScroll();
 
   container.querySelector('#finish-workout-btn').addEventListener('click', finishWorkout);
+  container.querySelector('#cancel-edit-btn')?.addEventListener('click', cancelEditing);
   container.querySelector('#add-exercise-btn').addEventListener('click', () => {
     picker = { open: true, query: '', category: null };
     render();
@@ -569,8 +581,8 @@ async function addExerciseToSession(lib) {
   render();
 
   const [prev, hist] = await Promise.all([
-    getLastPerformance(lib.name),
-    getExerciseHistory(lib.name),
+    getLastPerformance(lib.name, session?.editingWorkoutId),
+    getExerciseHistory(lib.name, session?.editingWorkoutId),
   ]);
   entry.previous = prev;
   entry.history = hist;
@@ -1351,7 +1363,7 @@ function openSetDetailSheet(ex, set, ctrl) {
         chartContainer.hidden = false;
         chartBtn.disabled = true;
         try {
-          const history = await getExerciseHistory(ex.name);
+          const history = await getExerciseHistory(ex.name, session?.editingWorkoutId);
           const canvas = body.querySelector('[data-role="sheet-chart-canvas"]');
           if (!canvas?.isConnected) return; // sheet closed while this was in flight
           chartInstance = await renderProgressChart(canvas, buildWeightSeries(history));
@@ -1551,6 +1563,73 @@ function startWorkout(customDate) {
   render();
 }
 
+// History's "continue / edit" button. Turns a saved workout back into a live
+// session — the reverse of buildSavedSets(), with dropGroup turned back into
+// parentUid links — and stages it as the persisted draft, so the next mount
+// restores it exactly like a resumed workout (fetching "last time" data on
+// the way). Finishing it then updates that same record instead of creating
+// a second one. Returns false, changing nothing, if a workout is already in
+// progress: that one is never overwritten.
+export function openWorkoutForEditing(workout) {
+  if (session || loadPersistedSession()) return false;
+
+  const exercises = (workout.exercises || []).map((savedEx) => {
+    const leaderUidByGroup = new Map();
+    const sets = (savedEx.sets || []).map((s) => {
+      const set = {
+        _uid: nextUid(),
+        type: s.type,
+        weight: s.weight,
+        reps: s.reps,
+        notes: s.notes || '',
+        done: true,
+        isPR: false,
+        weightMode: s.weightMode || 'total',
+        weightUnit: s.weightUnit || 'kg',
+      };
+      if (s.dropGroup) {
+        // The first set of a group is its leader; the rest are its stages.
+        if (leaderUidByGroup.has(s.dropGroup)) set.parentUid = leaderUidByGroup.get(s.dropGroup);
+        else leaderUidByGroup.set(s.dropGroup, set._uid);
+      }
+      return set;
+    });
+    return {
+      _uid: nextUid(),
+      name: savedEx.name,
+      category: savedEx.category || '',
+      weightMode: sets[0]?.weightMode || 'total',
+      weightUnit: sets[0]?.weightUnit || 'kg',
+      sets,
+    };
+  });
+
+  const startedAt = toDate(workout.startTime || workout.date);
+  persistSession({
+    startedAt,
+    realStartedAt: new Date(),
+    editingWorkoutId: workout.id,
+    originalEndTime: workout.endTime ? toDate(workout.endTime) : startedAt,
+    exercises,
+  });
+  return true;
+}
+
+// Leaves a reopened workout without saving — the stored one stays as it was.
+async function cancelEditing() {
+  const confirmed = await confirmDialog({
+    title: 'ביטול עריכה',
+    message: 'לצאת בלי לשמור? האימון השמור יישאר כמו שהיה.',
+    confirmLabel: 'יציאה בלי שמירה',
+    cancelLabel: 'המשך עריכה',
+    danger: true,
+  });
+  if (!confirmed || !session) return;
+  session = null;
+  persistSession();
+  render();
+}
+
 // Bottom sheet for logging a workout that already happened — lets the
 // saved date (session.startedAt) differ from today, while session.realStartedAt
 // still tracks the actual moment logging began (see startWorkout).
@@ -1621,7 +1700,21 @@ function buildSavedSets(ex) {
 // save while the first was still in flight.
 async function finishWorkout() {
   if (finishingWorkout || !session) return;
+  // Set before the dialog, not after, so a second tap while it's open
+  // can't stack another one on top.
   finishingWorkout = true;
+
+  const isEdit = !!session.editingWorkoutId;
+  const confirmed = await confirmDialog({
+    title: isEdit ? 'שמירת השינויים' : 'סיום אימון',
+    message: isEdit ? 'לשמור את השינויים באימון?' : 'לסיים ולשמור את האימון?',
+    confirmLabel: isEdit ? 'שמירה' : 'סיום ושמירה',
+    cancelLabel: 'המשך באימון',
+  });
+  if (!confirmed || !session) {
+    finishingWorkout = false;
+    return;
+  }
 
   const btn = container?.querySelector('#finish-workout-btn');
   if (btn) {
@@ -1635,11 +1728,22 @@ async function finishWorkout() {
       .map((ex) => ({ name: ex.name, category: ex.category, sets: buildSavedSets(ex) }))
       .filter((ex) => ex.sets.length > 0);
 
-    if (exercises.length > 0) {
+    const elapsedMs = Date.now() - session.realStartedAt.getTime();
+    if (isEdit) {
+      // A reopened workout keeps its own date; the time spent now is added
+      // on top of its original end, covering a workout closed by mistake
+      // and then continued. Removing every set doesn't delete the saved
+      // workout — that's what History's own delete button is for.
+      if (exercises.length > 0) {
+        await updateWorkout(session.editingWorkoutId, {
+          endTime: new Date(session.originalEndTime.getTime() + elapsedMs),
+          exercises,
+        });
+      }
+    } else if (exercises.length > 0) {
       // endTime is anchored to the picked date plus the real time spent
       // logging — not wall-clock "now", which would blow up the duration
       // History computes whenever startedAt is a past retroactive date.
-      const elapsedMs = Date.now() - session.realStartedAt.getTime();
       await createWorkout({
         date: session.startedAt,
         startTime: session.startedAt,
@@ -1654,7 +1758,7 @@ async function finishWorkout() {
     session = null;
     localStorage.removeItem(SESSION_STORAGE_KEY);
     render();
-    showToast('✓ האימון נשמר בהצלחה');
+    showToast(isEdit ? '✓ האימון עודכן' : '✓ האימון נשמר בהצלחה');
   } catch (err) {
     console.error('finishWorkout failed', err);
     showToast('שגיאה בשמירת האימון — נסה שוב');
