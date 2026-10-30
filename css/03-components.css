@@ -46,7 +46,7 @@
    repeating "משקל"/"חזרות" captions on every single row. */
 .set-table-header {
   display: grid;
-  grid-template-columns: 28px 1fr 1fr 44px;
+  grid-template-columns: 28px 1fr 1fr 36px;
   gap: var(--space-2);
   padding: 5px var(--space-1);
   margin-bottom: 4px;
@@ -129,6 +129,14 @@
 
 .btn-block { width: 100%; }
 
+/* Secondary in-card actions ("+ סט", "סיום תרגיל"): lower and quieter than
+   a full primary button, but kept at 36px — still easy to hit mid-set. */
+.btn--compact {
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* A small inline dashed chip — "+ ירידה", tucked into a set's meta row
@@ -197,7 +205,7 @@
 
 .set-row-main {
   display: grid;
-  grid-template-columns: 28px 1fr 1fr 44px;
+  grid-template-columns: 28px 1fr 1fr 36px;
   gap: var(--space-2);
   align-items: center;
   padding: 6px var(--space-1);
@@ -648,11 +656,13 @@ th {
   border-color: var(--accent);
 }
 
+/* 36px: the same visual height as the weight/reps fields beside it (40px
+   boxes whose text sits low), rather than towering over the row. */
 .set-done-btn {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   display: grid;
   place-items: center;
   padding: 0;

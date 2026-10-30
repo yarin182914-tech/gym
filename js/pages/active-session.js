@@ -666,8 +666,8 @@ function buildExerciseCard(ex) {
         </div>
         <div class="set-table-header"><span>סט</span><span>${esc(unitLabel(ex.weightUnit).trim() || 'ק"ג')}</span><span>חזרות</span><span></span></div>
         <div class="sets-list"></div>
-        <button class="btn btn-dashed" data-add-set>+ סט</button>
-        <button type="button" class="btn btn-outline btn-block" data-finish-exercise style="margin-top:8px;">סיום תרגיל</button>
+        <button class="btn btn-dashed btn--compact" data-add-set>+ סט</button>
+        <button type="button" class="btn btn-outline btn-block btn--compact" data-finish-exercise style="margin-top:8px;">סיום תרגיל</button>
       </div>
     </div>
   `;
