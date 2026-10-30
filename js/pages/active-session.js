@@ -1001,10 +1001,10 @@ function buildSetRow(ex, set, role) {
     <div class="set-row-meta">
       ${buildSetRowMeta(set, role)}
       <span class="set-row-previous" data-role="previous" hidden></span>
-      <span class="set-row-notes" data-role="notes" hidden></span>
       <button type="button" class="set-more-btn set-more-btn--meta" data-role="more-btn" aria-label="עוד אפשרויות לסט">⋯</button>
       <span class="pr-badge" data-role="pr-badge" ${set.isPR ? '' : 'hidden'}>שיא</span>
     </div>
+    <span class="set-row-notes" data-role="notes" hidden></span>
   `;
 
   const typeGroupEl = row.querySelector('[data-set-type-group]');
@@ -1139,7 +1139,9 @@ function patchSetRow(ex, set, idx, ctrl) {
   const prev = ex.prevLoaded ? ex.previous?.sets?.[idx] : null;
   if (prev) {
     ctrl.previousEl.hidden = false;
-    ctrl.previousEl.textContent = `פעם קודמת: ${formatWeight(prev)} × ${prev.reps}`;
+    // Short label: this shares one line with the type picker and ⋯, and the
+    // longer "פעם קודמת:" got the numbers themselves cut off on a phone.
+    ctrl.previousEl.textContent = `קודם: ${formatWeight(prev)} × ${prev.reps}`;
   } else {
     ctrl.previousEl.hidden = true;
   }
