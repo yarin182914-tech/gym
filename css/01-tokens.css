@@ -102,7 +102,13 @@
   --icon-md: 1.25rem;
   --icon-lg: 1.5rem;
 
-  --tap-min: 48px;
+  --tap-min: 48px;   /* icon-only tap targets, bottom nav */
+
+  /* ---- Control heights — one compact scale for the whole app, set by
+     the workout screen's exercise card. ---- */
+  --control-h: 36px; /* buttons, text fields, search */
+  --switch-h: 34px;  /* segmented switches (ק"ג/lb, משקל/נפח...) */
+  --chip-h: 26px;    /* small pill chips (set type, picker categories) */
 
   --nav-height: 64px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);

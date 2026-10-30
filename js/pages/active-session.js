@@ -255,8 +255,8 @@ function render() {
 
     <div id="exercise-list"></div>
 
-    <button class="btn btn-outline btn-block btn--compact" id="add-exercise-btn">+ הוספת תרגיל</button>
-    <button class="btn btn-secondary btn-block btn--compact" id="finish-workout-btn" style="margin-top:8px;">סיום אימון</button>
+    <button class="btn btn-outline btn-block" id="add-exercise-btn">+ הוספת תרגיל</button>
+    <button class="btn btn-secondary btn-block" id="finish-workout-btn" style="margin-top:8px;">סיום אימון</button>
 
     ${picker.open ? renderPicker() : ''}
     ${lastTimeModal ? renderLastTimeModal() : ''}
@@ -508,9 +508,9 @@ function renderPicker() {
         style="margin:10px 0;">
       <div id="picker-results">
         ${matches.map((e) => `
-          <div class="row" style="gap:6px; margin-bottom:6px;">
-            <button class="btn btn-secondary" style="flex:1;" data-pick="${esc(e.id)}">${esc(e.name)}</button>
-            <button type="button" class="set-more-btn" data-edit-lib="${esc(e.id)}" aria-label="עריכת התרגיל">${icon('pencil', { className: 'icon--sm' })}</button>
+          <div class="row" style="gap:6px; margin-bottom:4px;">
+            <button class="btn btn-secondary" style="flex:1; justify-content:flex-start;" data-pick="${esc(e.id)}">${esc(e.name)}</button>
+            <button type="button" class="set-more-btn" style="min-width:var(--control-h); min-height:var(--control-h);" data-edit-lib="${esc(e.id)}" aria-label="עריכת התרגיל">${icon('pencil', { className: 'icon--sm' })}</button>
           </div>`).join('')}
         ${matches.length === 0 ? emptyState('אין תרגילים בקטגוריה הזו.', { centered: true }) : ''}
         ${q && !exactMatch ? `<button class="btn btn-primary btn-block" id="picker-add-new">+ הוספת "${esc(q)}" כתרגיל חדש</button>` : ''}
@@ -666,8 +666,8 @@ function buildExerciseCard(ex) {
         </div>
         <div class="sets-list"></div>
         <div class="row" style="gap:8px; margin-top:10px;">
-          <button class="btn btn-dashed btn--compact" data-add-set>+ סט</button>
-          <button type="button" class="btn btn-outline btn--compact" data-finish-exercise style="flex:1;">סיום תרגיל</button>
+          <button class="btn btn-dashed" data-add-set>+ סט</button>
+          <button type="button" class="btn btn-outline" data-finish-exercise style="flex:1;">סיום תרגיל</button>
         </div>
       </div>
     </div>

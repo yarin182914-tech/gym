@@ -47,11 +47,11 @@
    difference in elevation is itself the visual hierarchy between "the
    action on this screen" and everything else. */
 .btn {
-  min-height: var(--tap-min);
-  min-width: var(--tap-min);
-  padding: 0 var(--space-5);
+  min-height: var(--control-h);
+  min-width: var(--control-h);
+  padding: 0 var(--space-4);
   border-radius: var(--radius-sm);
-  font-size: var(--text-md);
+  font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   display: inline-flex;
   align-items: center;
@@ -112,14 +112,6 @@
 
 .btn-block { width: 100%; }
 
-/* Secondary in-card actions ("+ סט", "סיום תרגיל"): lower and quieter than
-   a full primary button, but kept at 36px — still easy to hit mid-set. */
-.btn--compact {
-  min-height: 36px;
-  padding: 0 var(--space-4);
-  font-size: var(--text-sm);
-}
-
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* A small inline dashed chip — "+ ירידה" in a drop stage's meta row.
@@ -129,7 +121,7 @@
 .btn-mini-dashed {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
+  min-height: var(--chip-h);
   font-size: 0.65rem;
   font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-wide);
@@ -160,9 +152,9 @@
 }
 
 .stepper button {
-  width: var(--tap-min);
-  height: var(--tap-min);
-  font-size: 1.3rem;
+  width: var(--control-h);
+  height: var(--control-h);
+  font-size: 1.15rem;
   color: var(--accent);
   flex-shrink: 0;
 }
@@ -170,7 +162,7 @@
 .stepper .stepper-value {
   min-width: 3.5ch;
   text-align: center;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: var(--weight-semibold);
   padding: 0 6px;
 }
@@ -223,7 +215,7 @@
   align-items: center;
   gap: 6px;
   padding: 0 var(--space-1);
-  min-height: 26px;
+  min-height: var(--chip-h);
 }
 
 .set-row-meta > * {
@@ -255,9 +247,9 @@
 }
 
 .toggle-group button {
-  min-height: var(--tap-min);
-  padding: 0 14px;
-  font-size: 0.85rem;
+  min-height: var(--switch-h);
+  padding: 0 12px;
+  font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   color: var(--text-muted);
 }
@@ -270,12 +262,20 @@
 /* ===== Search bar (exercise picker) ===== */
 .search-bar {
   width: 100%;
-  min-height: var(--tap-min);
-  padding: 0 14px;
+  min-height: var(--control-h);
+  padding: 0 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface);
+  /* Stays 16px despite the compact height: iOS Safari zooms the whole page
+     into any text field whose font is smaller than that on focus. */
   font-size: 1rem;
+}
+
+/* Multi-line fields (feedback text, set notes) share the look, but need
+   vertical padding the single-line height doesn't. */
+textarea.search-bar {
+  padding: 8px 12px;
 }
 
 /* Keeps the accent border as an affordance, but no longer suppresses the
@@ -351,20 +351,24 @@ th {
   margin-bottom: 4px;
 }
 
+/* Same chip as the set-type picker (.toggle-group--compact): small,
+   outlined, and an accent outline + tint when active rather than a solid
+   gold fill. */
 .pill {
-  padding: 6px 14px;
+  min-height: var(--chip-h);
+  padding: 3px 10px;
   border-radius: var(--radius-full);
   border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-size: 0.85rem;
-  min-height: 36px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
 }
 
 .pill.active {
-  background: var(--accent);
   border-color: var(--accent);
-  color: var(--gold-text);
+  background: var(--accent-dim);
+  color: var(--gold);
 }
 
 .modal-close {
@@ -803,15 +807,6 @@ th {
   color: var(--gold-text);
 }
 
-/* The exercise card's weight mode / unit switches: lower and lighter than
-   the full 48px segmented control, which other screens still use as-is. */
-[data-weight-mode-group] button,
-[data-weight-unit-group] button {
-  min-height: 34px;
-  padding: 0 12px;
-  font-size: var(--text-sm);
-}
-
 /* The set-type control lives in the meta row alongside the options
    button and PR badge — a full-width iOS-style
    segmented bar reads as too heavy there, so it drops the connected-track
@@ -828,7 +823,7 @@ th {
 }
 
 .toggle-group--compact button {
-  min-height: 26px;
+  min-height: var(--chip-h);
   padding: 3px 9px;
   font-size: 0.65rem;
   letter-spacing: var(--tracking-wide);
@@ -873,7 +868,7 @@ th {
    type chips and drop-set controls next to it. */
 .set-more-btn--meta {
   min-width: 30px;
-  min-height: 26px;
+  min-height: var(--chip-h);
   width: 30px;
   height: 26px;
   margin-inline-start: auto;
@@ -1325,12 +1320,11 @@ th {
   font-size: var(--text-sm);
 }
 
-/* A drop-set stage (label like "3.1") — indented the same way the live
-   workout screen nests a drop set's stages under its leader, so a saved
-   drop set reads as a group here too, not just via the numbering alone. */
+/* A drop-set stage (label like "3.1") — indented exactly like the live
+   workout screen's stages (no connector line or extra colour there
+   either), so a saved drop set reads the same way. */
 .sets-list-row--child {
   margin-inline-start: 16px;
-  border-inline-start: 2px solid var(--info);
 }
 
 .sets-list-index {
@@ -1426,7 +1420,7 @@ th {
    .search-bar, but a button so it can open the custom picker card below it. */
 .dash-exercise-trigger {
   width: 100%;
-  min-height: var(--tap-min);
+  min-height: var(--control-h);
   padding: 0 var(--space-4);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
