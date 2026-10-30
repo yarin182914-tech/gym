@@ -633,6 +633,11 @@ th {
   box-sizing: border-box;
 }
 
+/* Pushed to the field's far end, the same place the weight field's ק"ג sits. */
+.set-field--reps .numeric-field-unit {
+  margin-inline-start: auto;
+}
+
 .set-field--reps .reps-value {
   font-family: var(--font-numeric);
   font-size: 1.05rem;
