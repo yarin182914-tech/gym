@@ -492,6 +492,11 @@ th {
     padding: 24px 24px 24px 240px;
   }
 
+  .theme-bar {
+    max-width: 880px;
+    padding: 24px 24px 0 240px;
+  }
+
   .bottom-nav {
     top: 0;
     bottom: 0;

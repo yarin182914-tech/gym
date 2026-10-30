@@ -108,6 +108,21 @@ button {
   padding: 16px 16px calc(24px);
 }
 
+/* DARK · RANDOM · BRIGHT switch (js/ui/theme-switch.js), just above #app
+   and lined up with it. */
+.theme-bar {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 12px 16px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.theme-bar .toggle-group button {
+  letter-spacing: var(--tracking-wide);
+  font-size: var(--text-xs);
+}
+
 /* ===== Auth screen ===== */
 .auth-screen {
   min-height: 100vh;

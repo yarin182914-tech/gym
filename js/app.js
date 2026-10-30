@@ -10,6 +10,7 @@ import { mountPlan } from './pages/plan.js';
 import { mountFeedback, unmountFeedback } from './pages/feedback.js';
 import { captureInstallPrompt, notifyAppEntered } from './ui/install-banner.js';
 import { mountFeedbackFab } from './ui/feedback-fab.js';
+import { mountThemeSwitch } from './ui/theme-switch.js';
 
 const authScreen = document.getElementById('auth-screen');
 const appRoot = document.getElementById('app');
@@ -43,6 +44,7 @@ async function enterApp() {
   nav.classList.remove('hidden');
   notifyAppEntered();
   mountFeedbackFab();
+  mountThemeSwitch(appRoot);
   await ensureUserDoc();
   if (!routerStarted) {
     startRouter();

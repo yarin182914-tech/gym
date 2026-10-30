@@ -23,6 +23,12 @@ let viewMode = 'chart'; // 'chart' | 'table'
 let chartInstance = null;
 let picker = { open: false, query: '', category: null };
 
+// A canvas chart doesn't follow CSS colour changes on its own — redraw it
+// when the theme switch flips while this screen is showing.
+window.addEventListener('gym-theme-change', () => {
+  if (container && chartInstance) render();
+});
+
 export function unmountDashboard() {
   if (chartInstance) chartInstance.destroy();
   chartInstance = null;
