@@ -237,9 +237,13 @@
   display: none;
 }
 
-/* Drop-set stages deliberately have no styling of their own: same width,
-   type sizes, colours and active ring as any set. What marks a stage is
-   its "3.1" number and its "+ ירידה" in place of the type picker. */
+/* Drop-set stages share every bit of a regular set's design — type sizes,
+   colours, active ring — only nudged in a little so 2.1, 2.2 read as
+   sub-sets of 2. No connector line or extra colour; the number and the
+   "+ ירידה" in place of the type picker do the rest. */
+.set-row--child {
+  margin-inline-start: 16px;
+}
 
 /* ===== Toggle group (segmented control: ק"ג/lb, טוטאל/כל צד) ===== */
 .toggle-group {
