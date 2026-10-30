@@ -1263,6 +1263,10 @@ function requestDeleteSet(ex, set) {
     const i = ex.sets.indexOf(s);
     if (i !== -1) ex.sets.splice(i, 1);
   });
+  // Deleting a group's last stage leaves its leader a plain set — without
+  // this it kept type 'dropset' and showed "דרופ סט" with no stages.
+  const leader = set.parentUid && ex.sets.find((s) => s._uid === set.parentUid);
+  if (leader && !hasChildren(ex, leader)) leader.type = 'working';
   patchExerciseCard(ex);
 }
 
