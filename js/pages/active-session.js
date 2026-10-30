@@ -877,9 +877,11 @@ function setIndexLabel(ex, set, role) {
 // Appends a new stage after a drop set's last existing stage (or right
 // after the parent itself if this is its first). Prefills from the
 // previous stage, same "repeat the last one" convention as a plain +סט.
-function addDropStage(ex, parent) {
-  const children = childrenOf(ex, parent);
-  const last = children.at(-1);
+// `after`: the stage whose own "+ ירידה" was tapped — the new stage goes
+// right after it and starts from its numbers. The leader's button (no
+// `after`) appends to the end of the group.
+function addDropStage(ex, parent, after = null) {
+  const last = after || childrenOf(ex, parent).at(-1);
   const insertAfter = last || parent;
   ex.sets.splice(ex.sets.indexOf(insertAfter) + 1, 0, {
     _uid: nextUid(),
@@ -917,7 +919,7 @@ function syncSetRows(ex, refs) {
     const role = computeSetRole(ex, set);
     // Every role shares the same row shape now (own editable weight/reps) —
     // only the meta row's content differs (type picker vs. group controls
-    // vs. nothing for a stage) — but that content is built once up front,
+    // vs. a stage's own "+ ירידה") — but that content is built once up front,
     // not patched, so a role change still needs a rebuild.
     const needsRebuild = ctrl && ctrl.role !== role;
     if (needsRebuild) {
@@ -956,14 +958,17 @@ function syncSetRows(ex, refs) {
 }
 
 // A child stage is implicitly a drop set already — no type selector, and
-// no point re-labeling it warmup/working. A drop-set group's leader (role
+// no point re-labeling it warmup/working; it only gets its own "+ ירידה",
+// which adds the next stage right after it. A drop-set group's leader (role
 // 'parent') shows the group's own controls instead of the type picker, for
 // the same reason: once it has a stage, its "type" isn't really editable
 // warmup/working/failure anymore, it's the group. Only a genuinely regular
 // set gets the 3-way type picker — see buildSetRow's click handler for what
 // picking "דרופ סט" there does.
 function buildSetRowMeta(set, role) {
-  if (role === 'child') return '';
+  if (role === 'child') {
+    return `<button type="button" class="btn-mini-dashed" data-role="add-stage-btn">+ ירידה</button>`;
+  }
   if (role === 'parent') {
     return `
       <button type="button" class="set-more-btn" data-role="dropset-toggle" aria-label="כיווץ/הרחבת דרופ סט">
@@ -1032,7 +1037,12 @@ function buildSetRow(ex, set, role) {
   }
 
   row.querySelector('[data-role="add-stage-btn"]')?.addEventListener('click', () => {
-    addDropStage(ex, set);
+    if (role === 'child') {
+      const parent = ex.sets.find((s) => s._uid === set.parentUid);
+      if (parent) addDropStage(ex, parent, set);
+    } else {
+      addDropStage(ex, set);
+    }
   });
 
   row.querySelector('[data-role="dropset-toggle"]')?.addEventListener('click', () => {
@@ -1138,7 +1148,10 @@ function patchSetRow(ex, set, idx, ctrl) {
     ctrl.prBadgeEl.classList.add('pr-badge--celebrate');
   }
 
-  const prev = ex.prevLoaded ? ex.previous?.sets?.[idx] : null;
+  // Not shown on a drop set's rows: their saved position doesn't line up
+  // with a matching set from last time, and the group reads cleaner without.
+  const inDropSet = ctrl.role === 'parent' || ctrl.role === 'child';
+  const prev = ex.prevLoaded && !inDropSet ? ex.previous?.sets?.[idx] : null;
   if (prev) {
     ctrl.previousEl.hidden = false;
     // Short label: this shares one line with the type picker and ⋯, and the
