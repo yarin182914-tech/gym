@@ -122,12 +122,17 @@
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* A small inline dashed chip — "+ ירידה", tucked into a set's meta row
-   alongside its type tag, not a full-height .btn. */
+/* A small inline dashed chip — "+ ירידה" in a drop stage's meta row.
+   Same size and type as the set-type chips (.toggle-group--compact) it
+   stands in for, so a stage's line matches every other set's; only the
+   dashed border says "add". */
 .btn-mini-dashed {
   display: inline-flex;
   align-items: center;
+  min-height: 26px;
   font-size: 0.65rem;
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
   padding: 3px 9px;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-full);
@@ -232,24 +237,9 @@
   display: none;
 }
 
-/* Drop-set stage: a child set nested under its drop-set group's leading
-   (parent) row, indented with a connector line so the group reads as one
-   unit rather than unrelated rows — same idea as the "↳" in a plain-text
-   sketch of this. The connector is --info (not transparent) while the
-   stage is still open, so an un-done child visually reads as "part of a
-   group" even before its own done-spine (--success) takes over. */
-.set-row--child {
-  margin-inline-start: 20px;
-  padding-inline-start: 10px;
-  border-inline-start-color: var(--info);
-}
-
-.set-row--child .set-index { font-size: 0.85rem; }
-.set-row--child .numeric-field-input, .set-row--child .reps-value { font-size: 1rem; }
-
-.set-row--child.set-row--done {
-  border-inline-start-color: var(--success);
-}
+/* Drop-set stages deliberately have no styling of their own: same width,
+   type sizes, colours and active ring as any set. What marks a stage is
+   its "3.1" number and its "+ ירידה" in place of the type picker. */
 
 /* ===== Toggle group (segmented control: ק"ג/lb, טוטאל/כל צד) ===== */
 .toggle-group {
