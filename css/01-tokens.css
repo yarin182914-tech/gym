@@ -139,15 +139,17 @@
   --border-strong: rgba(58, 45, 30, 0.28);
   --field-line: rgba(58, 45, 30, 0.22);
   --text: #2b241d;
-  --text-muted: #7a6f63;
-  --accent: #b07a2e;
-  --accent-hover: #9a6a22;
-  --accent-dim: rgba(176, 122, 46, 0.14);
+  --text-muted: #665c50;
+  --accent: #93601f;
+  --accent-hover: #7d5119;
+  --accent-dim: rgba(147, 96, 31, 0.14);
   --accent-contrast: #ffffff;
   --gold: #8a5a18;
-  --gold-text: #2b1d0a;
-  --danger: #b4533f;
-  --success: #3f8a5a;
+  /* White, not dark ink: on a light theme the gold/green/red fills are
+     deep enough that white text is the readable one. */
+  --gold-text: #ffffff;
+  --danger: #a3432f;
+  --success: #2f7a4c;
   --success-text: #2e7048;
   --purple: #7a55a8;
   --info: #3f76a0;
@@ -215,7 +217,7 @@
   --info-text: #ffe38a;
   --info-dim: rgba(255, 207, 63, 0.16);
   --accent-2: #ffcf3f;
-  --rust: #ff3d7f;
+  --rust: #ff5a92;
 }
 
 /* Pop art: bright yellow, black, pink, blue — the one light RANDOM palette. */
@@ -234,7 +236,7 @@
   --accent-contrast: #ffffff;
   --gold: #d1005e;
   --gold-text: #ffffff;
-  --danger: #e0001b;
+  --danger: #c40018;
   --success: #00873f;
   --success-text: #006b32;
   --purple: #1f4dff;
@@ -266,7 +268,7 @@
   --accent-contrast: #0a1f00;
   --gold: #c9a9ff;
   --gold-text: #0a1f00;
-  --danger: #ff6b6b;
+  --danger: #ff8a8a;
   --success: #00f5c4;
   --success-text: #00f5c4;
   --purple: #c9a9ff;
@@ -293,7 +295,7 @@
   --accent-contrast: #2a1000;
   --gold: #5fd6c8;
   --gold-text: #2a1000;
-  --danger: #ff5a4e;
+  --danger: #ff8a7a;
   --success: #2bb3a3;
   --success-text: #5fd6c8;
   --purple: #f2b134;
