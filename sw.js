@@ -5,7 +5,7 @@
 // build step, so every successful same-origin GET is just cached
 // opportunistically as it's fetched instead of enumerating every page module
 // here that would drift out of sync.
-const CACHE_NAME = 'gym-site-v2';
+const CACHE_NAME = 'gym-site-v3';
 
 // The one exception: the top-level shell IS worth precaching explicitly, so
 // a launch from the home-screen icon is instant/offline even on the very
@@ -21,6 +21,7 @@ const APP_SHELL = [
   './css/03-components.css',
   './css/04-utilities.css',
   './js/app.js',
+  './js/theme-boot.js',
   './images/favicon-32.png',
   './images/apple-touch-icon.png',
   './images/icon-192.png',

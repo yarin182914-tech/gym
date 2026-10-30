@@ -6,18 +6,23 @@
 
 import { round1, unitLabel, formatDayMonthHe } from './format.js';
 
-const PURPLE = '#8b6bb0';
-const GOLD = '#facb8d';
-const MUTED = '#9b9797';
-const GRID = 'rgba(255, 255, 255, 0.12)';
-const TEXT = '#f3f0ec';
-// The tooltip chip stays a dark surface (not TEXT, which is this theme's
-// near-white foreground colour) — Chart.js's default white tooltip text
-// already reads fine against it, same as it did against the old theme's
-// dark-navy tooltip background.
-const TOOLTIP_BG = '#2a2724';
+// Read from the active colour theme (css/01-tokens.css) each time a chart is
+// drawn, so it always matches whichever theme is on — a canvas can't use
+// CSS variables directly.
+function themeColors() {
+  const css = getComputedStyle(document.documentElement);
+  const v = (name) => css.getPropertyValue(name).trim();
+  return {
+    line: v('--purple'),
+    pr: v('--gold'),
+    muted: v('--text-muted'),
+    grid: v('--border'),
+    text: v('--text'),
+    tooltipBg: v('--surface-raised'),
+  };
+}
 
-function selectiveLabelsPlugin(values, prFlags, formatValue) {
+function selectiveLabelsPlugin(values, prFlags, formatValue, colors) {
   return {
     id: 'selectiveLabels',
     afterDatasetsDraw(chart) {
@@ -28,7 +33,7 @@ function selectiveLabelsPlugin(values, prFlags, formatValue) {
         const isLast = i === values.length - 1;
         if (!isFirst && !isLast && !prFlags[i]) return;
         ctx.save();
-        ctx.fillStyle = prFlags[i] ? GOLD : TEXT;
+        ctx.fillStyle = prFlags[i] ? colors.pr : colors.text;
         ctx.font = "600 11px 'Oswald', sans-serif";
         ctx.textAlign = 'center';
         ctx.fillText(formatValue(values[i]), point.x, point.y - 12);
@@ -103,7 +108,8 @@ export async function renderProgressChart(canvas, { labels, values, prFlags, for
   const Chart = await loadChartLib();
   if (existingChart) existingChart.destroy();
 
-  const pointColors = values.map((_, i) => (prFlags[i] ? GOLD : PURPLE));
+  const colors = themeColors();
+  const pointColors = values.map((_, i) => (prFlags[i] ? colors.pr : colors.line));
 
   return new Chart(canvas, {
     type: 'line',
@@ -111,7 +117,7 @@ export async function renderProgressChart(canvas, { labels, values, prFlags, for
       labels,
       datasets: [{
         data: values,
-        borderColor: PURPLE,
+        borderColor: colors.line,
         borderWidth: 2,
         pointRadius: 5,
         pointHoverRadius: 6,
@@ -129,7 +135,9 @@ export async function renderProgressChart(canvas, { labels, values, prFlags, for
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: TOOLTIP_BG,
+          backgroundColor: colors.tooltipBg,
+          titleColor: colors.text,
+          bodyColor: colors.text,
           titleFont: { family: 'Rubik' },
           bodyFont: { family: 'Oswald' },
           padding: 10,
@@ -141,14 +149,14 @@ export async function renderProgressChart(canvas, { labels, values, prFlags, for
       scales: {
         x: {
           grid: { display: false },
-          ticks: { font: { family: 'Rubik', size: 11 }, color: MUTED },
+          ticks: { font: { family: 'Rubik', size: 11 }, color: colors.muted },
         },
         y: {
-          grid: { color: GRID },
-          ticks: { font: { family: 'Oswald', size: 11 }, color: MUTED },
+          grid: { color: colors.grid },
+          ticks: { font: { family: 'Oswald', size: 11 }, color: colors.muted },
         },
       },
     },
-    plugins: [selectiveLabelsPlugin(values, prFlags, formatValue)],
+    plugins: [selectiveLabelsPlugin(values, prFlags, formatValue, colors)],
   });
 }

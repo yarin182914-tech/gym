@@ -38,6 +38,13 @@
   --success-text: #7fc79a; /* lighter than --success, for text/glyphs on a done state */
   --rust: #7c3e3d;       /* index numbers, progress fill, done-check glyph */
   --border-strong: rgba(255, 255, 255, 0.22); /* dashed/emphasis borders */
+  --field-line: rgba(255, 255, 255, 0.16);    /* underline under weight/reps */
+  --info-dim: rgba(91, 143, 176, 0.14);       /* faint --info tint behind a tag */
+  --overlay: rgba(0, 0, 0, 0.5);              /* backdrop behind dialogs/sheets */
+  --accent-contrast: #ffffff;                 /* a mark drawn on an --accent fill */
+
+  /* Native controls (date picker, scrollbars) follow the theme too. */
+  color-scheme: dark;
 
   /* ---- Typography ---- */
   --font-display: 'Suez One', serif;   /* headings — round, classic Hebrew display face; single weight only */
@@ -112,4 +119,187 @@
 
   --nav-height: 64px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ===== Colour themes =====
+   The :root block above is DARK, the default. Each theme below swaps only
+   colour tokens — never sizes, spacing or type — so every screen keeps the
+   exact same design in every theme. js/theme-boot.js sets data-theme on
+   <html> before first paint: "bright" for BRIGHT, or one of the five
+   palettes RANDOM picks from. Text tokens are chosen for readable contrast
+   on that theme's own surfaces (--gold doubles as a text colour on chips
+   and the PR badge, so on light themes it's a deep tone, not a pale one). */
+
+/* BRIGHT — "warm paper": cream and gold. */
+:root[data-theme="bright"] {
+  --bg: #f5efe6;
+  --surface: #fffaf3;
+  --surface-raised: #f0e7da;
+  --border: rgba(58, 45, 30, 0.14);
+  --border-strong: rgba(58, 45, 30, 0.28);
+  --field-line: rgba(58, 45, 30, 0.22);
+  --text: #2b241d;
+  --text-muted: #7a6f63;
+  --accent: #b07a2e;
+  --accent-hover: #9a6a22;
+  --accent-dim: rgba(176, 122, 46, 0.14);
+  --accent-contrast: #ffffff;
+  --gold: #8a5a18;
+  --gold-text: #2b1d0a;
+  --danger: #b4533f;
+  --success: #3f8a5a;
+  --success-text: #2e7048;
+  --purple: #7a55a8;
+  --info: #3f76a0;
+  --info-text: #2f5f86;
+  --info-dim: rgba(63, 118, 160, 0.12);
+  --accent-2: #8f5f1c;
+  --rust: #a2483f;
+  --overlay: rgba(43, 36, 29, 0.4);
+  --shadow-sm: 0 1px 3px rgba(60, 40, 20, 0.1);
+  --shadow-md: 0 8px 20px rgba(60, 40, 20, 0.14);
+  --shadow-lg: 0 12px 32px rgba(60, 40, 20, 0.18);
+  color-scheme: light;
+}
+
+/* RANDOM palettes */
+
+/* Synthwave: night purple, neon pink, cyan. */
+:root[data-theme="synthwave"] {
+  --bg: #140b2e;
+  --surface: #1f1442;
+  --surface-raised: #2a1b55;
+  --border: rgba(255, 255, 255, 0.14);
+  --border-strong: rgba(255, 255, 255, 0.28);
+  --field-line: rgba(255, 255, 255, 0.2);
+  --text: #f4ecff;
+  --text-muted: #a99bd1;
+  --accent: #ff2fa8;
+  --accent-hover: #ff5cbc;
+  --accent-dim: rgba(255, 47, 168, 0.18);
+  --accent-contrast: #ffffff;
+  --gold: #2de2e6;
+  --gold-text: #1a0520;
+  --danger: #ff5470;
+  --success: #3dffb0;
+  --success-text: #3dffb0;
+  --purple: #b388ff;
+  --info: #2de2e6;
+  --info-text: #9ff3f5;
+  --info-dim: rgba(45, 226, 230, 0.16);
+  --accent-2: #ff4fd8;
+  --rust: #2de2e6;
+}
+
+/* Acid sunset: dark plum, orange, pink, yellow. */
+:root[data-theme="acid-sunset"] {
+  --bg: #24091f;
+  --surface: #33102c;
+  --surface-raised: #43173a;
+  --border: rgba(255, 200, 150, 0.18);
+  --border-strong: rgba(255, 200, 150, 0.32);
+  --field-line: rgba(255, 200, 150, 0.24);
+  --text: #fff2e6;
+  --text-muted: #d6a4b8;
+  --accent: #ff6a1a;
+  --accent-hover: #ff8540;
+  --accent-dim: rgba(255, 106, 26, 0.2);
+  --accent-contrast: #2a0a00;
+  --gold: #ffcf3f;
+  --gold-text: #2a0a00;
+  --danger: #ff4d6d;
+  --success: #b8ff4a;
+  --success-text: #b8ff4a;
+  --purple: #ff7fae;
+  --info: #ffcf3f;
+  --info-text: #ffe38a;
+  --info-dim: rgba(255, 207, 63, 0.16);
+  --accent-2: #ffcf3f;
+  --rust: #ff3d7f;
+}
+
+/* Pop art: bright yellow, black, pink, blue — the one light RANDOM palette. */
+:root[data-theme="pop-art"] {
+  --bg: #ffe94a;
+  --surface: #fffbe0;
+  --surface-raised: #fff3a8;
+  --border: #111111;
+  --border-strong: #111111;
+  --field-line: rgba(17, 17, 17, 0.45);
+  --text: #111111;
+  --text-muted: #4a4329;
+  --accent: #1f4dff;
+  --accent-hover: #3a63ff;
+  --accent-dim: rgba(31, 77, 255, 0.14);
+  --accent-contrast: #ffffff;
+  --gold: #d1005e;
+  --gold-text: #ffffff;
+  --danger: #e0001b;
+  --success: #00873f;
+  --success-text: #006b32;
+  --purple: #1f4dff;
+  --info: #1f4dff;
+  --info-text: #1f4dff;
+  --info-dim: rgba(31, 77, 255, 0.12);
+  --accent-2: #d1005e;
+  --rust: #d1005e;
+  --overlay: rgba(17, 17, 17, 0.45);
+  --shadow-sm: 0 1px 3px rgba(17, 17, 17, 0.15);
+  --shadow-md: 0 8px 20px rgba(17, 17, 17, 0.18);
+  --shadow-lg: 0 12px 32px rgba(17, 17, 17, 0.22);
+  color-scheme: light;
+}
+
+/* Acid jungle: deep green, neon lime, purple. */
+:root[data-theme="acid-jungle"] {
+  --bg: #05211c;
+  --surface: #0a2e27;
+  --surface-raised: #103c33;
+  --border: rgba(198, 255, 0, 0.18);
+  --border-strong: rgba(198, 255, 0, 0.34);
+  --field-line: rgba(198, 255, 0, 0.26);
+  --text: #eafff4;
+  --text-muted: #8fbfae;
+  --accent: #c6ff00;
+  --accent-hover: #d4ff40;
+  --accent-dim: rgba(198, 255, 0, 0.16);
+  --accent-contrast: #0a1f00;
+  --gold: #c9a9ff;
+  --gold-text: #0a1f00;
+  --danger: #ff6b6b;
+  --success: #00f5c4;
+  --success-text: #00f5c4;
+  --purple: #c9a9ff;
+  --info: #00f5c4;
+  --info-text: #7dffe3;
+  --info-dim: rgba(0, 245, 196, 0.14);
+  --accent-2: #c6ff00;
+  --rust: #ff7a59;
+}
+
+/* '70s groove: brown, mustard, orange, turquoise. */
+:root[data-theme="groove70"] {
+  --bg: #2e1c0f;
+  --surface: #3d2715;
+  --surface-raised: #4a311b;
+  --border: rgba(242, 177, 52, 0.22);
+  --border-strong: rgba(242, 177, 52, 0.38);
+  --field-line: rgba(242, 177, 52, 0.3);
+  --text: #fbeedd;
+  --text-muted: #cfae86;
+  --accent: #ff6b35;
+  --accent-hover: #ff8455;
+  --accent-dim: rgba(255, 107, 53, 0.2);
+  --accent-contrast: #2a1000;
+  --gold: #5fd6c8;
+  --gold-text: #2a1000;
+  --danger: #ff5a4e;
+  --success: #2bb3a3;
+  --success-text: #5fd6c8;
+  --purple: #f2b134;
+  --info: #2bb3a3;
+  --info-text: #8fe3d9;
+  --info-dim: rgba(43, 179, 163, 0.2);
+  --accent-2: #f2b134;
+  --rust: #f2b134;
 }

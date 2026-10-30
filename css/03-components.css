@@ -292,7 +292,7 @@ textarea.search-bar {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -601,7 +601,7 @@ th {
   padding: 0;
   padding-bottom: 6px;
   background: transparent;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 1px solid var(--field-line);
   color: var(--text);
   transition: border-color 0.2s ease;
   box-sizing: border-box;
@@ -675,7 +675,7 @@ th {
   padding: 0;
   padding-bottom: 6px;
   background: transparent;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  border-bottom: 1px solid var(--field-line);
   transition: border-color 0.15s ease;
   box-sizing: border-box;
 }
@@ -918,7 +918,7 @@ th {
 }
 
 .sheet-overlay--open {
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
 }
 
 .bottom-sheet {
@@ -1118,7 +1118,7 @@ th {
 }
 
 .feedback-status--in_progress {
-  background: rgba(91, 143, 176, 0.14);
+  background: var(--info-dim);
   border-color: var(--info);
   color: var(--info-text);
 }
@@ -1234,7 +1234,7 @@ th {
    the rest of the grid, so the ring switches to white to stay visible on top
    of it instead of doubling up on the same accent colour. */
 .history-day--today.history-day--workout {
-  box-shadow: inset 0 0 0 2px #FFFFFF;
+  box-shadow: inset 0 0 0 2px var(--accent-contrast);
 }
 
 /* "Selected" (synced with whichever workout is open in the list below) is a
@@ -1254,7 +1254,7 @@ th {
 }
 
 .history-day--selected.history-day--workout::after {
-  background: #FFFFFF;
+  background: var(--accent-contrast);
 }
 
 #cal-grid {
