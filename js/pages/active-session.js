@@ -1468,46 +1468,75 @@ function computePR(ex, set) {
 }
 
 // ---------- "last time" popup: PR vs last-performance lookup ----------
-// Same definitions as elsewhere in the app, not new ones: the mode/unit
-// filter matches computePR() above, and the "heaviest single set of a
-// workout" reduction matches Dashboard's PR list (js/pages/dashboard.js
-// loadSeries/renderPRList) — both just read data already on `ex`, nothing
-// fetched or computed differently here.
+// Reads only data already on `ex` (ex.history, ex.previous). Separate from
+// computePR() below, which answers a different question (is this one set,
+// logged this way, a new best) and drives the trophy, not this popup.
+//
+// The PR is the best whole workout across all history. Workouts are ranked by weight only, never reps, compared set by set from
+// the heaviest down: 80/80/80 beats 80/80/75 even if the 75 set had more
+// reps. Comparing only the single heaviest set (the earlier version) made
+// those two a tie, and a tie kept the *older* workout — so "last time"
+// could plainly outweigh the "PR" shown next to it. A full tie now goes to
+// the newer workout, so a matched PR shows the same thing as last time.
 
-// The exercise's all-time PR: across every past workout, the heaviest
-// single set logged in the exercise's current weight mode/unit.
-// No weightMode/weightUnit filter — matches Dashboard's own PR definition
-// (js/pages/dashboard.js loadSeries/renderPRList) exactly, which doesn't
-// filter either. An earlier version of this filtered by the exercise's
-// *current* mode/unit, same as the per-set computePR() below — but that's
-// a different question ("is this set, logged this way, a new best for that
-// way of logging it") than "what's the heaviest this exercise has ever
-// been logged at, period", which is what a PR headline should answer. The
-// filtered version could silently exclude real history (e.g. a dumbbell
-// exercise logged "per side" once and "total" another time) and land on a
-// PR lower than — or equal to — the last-performance figure it's meant to
-// be compared against.
-function findExercisePR(ex) {
-  const history = ex.history || [];
-  let best = null;
-  for (const point of history) {
-    const topSet = (point.sets || []).reduce((top, s) => (!top || s.weight > top.weight ? s : top), null);
-    if (topSet && (!best || topSet.weight > best.set.weight)) {
-      best = { date: point.date, sets: point.sets, set: topSet };
-    }
+// kg, total — so a set logged per side or in lb still compares fairly.
+function comparableWeight(s) {
+  const kg = convertWeight(Number(s.weight) || 0, s.weightUnit || 'kg', 'kg');
+  return s.weightMode === 'perSide' ? kg * 2 : kg;
+}
+
+// A workout's set weights, heaviest first. Warm-ups don't count toward a PR.
+function weightProfile(sets) {
+  return (sets || [])
+    .filter((s) => s.type !== 'warmup')
+    .map(comparableWeight)
+    .sort((a, b) => b - a);
+}
+
+// > 0 when profile a lifted more than b, 0 on an exact weight tie.
+// Having an extra set at all beats not having it.
+function compareWeightProfiles(a, b) {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] ?? -1;
+    const y = b[i] ?? -1;
+    if (x !== y) return x - y;
   }
+  return 0;
+}
+
+// The headline row: heaviest set, and among equally heavy sets the one
+// with the most reps.
+function headlineSet(sets) {
+  return (sets || []).reduce((top, s) => {
+    if (!top) return s;
+    const diff = comparableWeight(s) - comparableWeight(top);
+    return diff > 0 || (diff === 0 && (Number(s.reps) || 0) > (Number(top.reps) || 0)) ? s : top;
+  }, null);
+}
+
+function toPoint(date, sets) {
+  const set = headlineSet(sets);
+  return set ? { date, sets, set, profile: weightProfile(sets) } : null;
+}
+
+function findExercisePR(ex) {
+  // ex.history is oldest first; `>= 0` lets a later workout take over a tie.
+  let best = null;
+  for (const h of ex.history || []) {
+    const point = toPoint(h.date, h.sets);
+    if (point && (!best || compareWeightProfiles(point.profile, best.profile) >= 0)) best = point;
+  }
+  // ex.previous comes from a separate lookup; never let it outrank the PR.
+  const last = findExerciseLast(ex);
+  if (last && (!best || compareWeightProfiles(last.profile, best.profile) >= 0)) best = last;
   return best;
 }
 
-// The most recent workout's heaviest set — ex.previous is already that
-// workout's full breakdown (see getLastPerformance), this just picks out
-// its headline set the same way findExercisePR does per workout.
+// The most recent workout — ex.previous is already its full breakdown
+// (see getLastPerformance).
 function findExerciseLast(ex) {
   if (!ex.previous) return null;
-  const topSet = (ex.previous.sets || [])
-    .reduce((top, s) => (!top || s.weight > top.weight ? s : top), null);
-  if (!topSet) return null;
-  return { date: ex.previous.workoutDate, sets: ex.previous.sets, set: topSet };
+  return toPoint(ex.previous.workoutDate, ex.previous.sets);
 }
 
 function startWorkout(customDate) {
