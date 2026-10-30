@@ -255,8 +255,8 @@ function render() {
 
     <div id="exercise-list"></div>
 
-    <button class="btn btn-outline btn-block" id="add-exercise-btn">+ הוספת תרגיל</button>
-    <button class="btn btn-secondary btn-block" id="finish-workout-btn" style="margin-top:8px;">סיום אימון</button>
+    <button class="btn btn-outline btn-block btn--compact" id="add-exercise-btn">+ הוספת תרגיל</button>
+    <button class="btn btn-secondary btn-block btn--compact" id="finish-workout-btn" style="margin-top:8px;">סיום אימון</button>
 
     ${picker.open ? renderPicker() : ''}
     ${lastTimeModal ? renderLastTimeModal() : ''}

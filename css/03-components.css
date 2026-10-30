@@ -854,6 +854,15 @@ th {
   color: var(--gold-text);
 }
 
+/* The exercise card's weight mode / unit switches: lower and lighter than
+   the full 48px segmented control, which other screens still use as-is. */
+[data-weight-mode-group] button,
+[data-weight-unit-group] button {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: var(--text-sm);
+}
+
 /* The set-type control lives in the meta row alongside the drop-set tag,
    previous-performance text and the options button — a full-width iOS-style
    segmented bar reads as too heavy there, so it drops the connected-track
