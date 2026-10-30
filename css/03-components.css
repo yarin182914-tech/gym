@@ -560,6 +560,16 @@ th {
   border-radius: var(--radius-sm);
 }
 
+/* The exercise body must clip (overflow: hidden drives its collapse
+   animation), which cut the 2px ring above off at both sides — set rows
+   span its full width. Inline padding gives the ring room; the matching
+   negative margin keeps every row exactly where it was. Inline-only, so
+   the collapsed height stays 0. */
+.exercise-detail-inner {
+  padding-inline: 3px;
+  margin-inline: -3px;
+}
+
 /* Upcoming: normal appearance, no border — only a hint of lower priority,
    not a muted/disabled look, since these rows are fully interactive. */
 .set-row--upcoming {

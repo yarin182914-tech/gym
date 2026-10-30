@@ -647,7 +647,7 @@ function buildExerciseCard(ex) {
       </button>
     </div>
     <div class="history-detail${isOpen ? ' history-detail--open' : ''}" data-exercise-detail>
-      <div class="history-detail-inner">
+      <div class="history-detail-inner exercise-detail-inner">
         <div class="row" style="margin-bottom:12px; justify-content:flex-start; gap:10px; flex-wrap:wrap;">
           ${toggleGroup({
             name: 'mode',
