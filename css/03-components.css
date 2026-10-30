@@ -656,13 +656,18 @@ th {
   border-color: var(--accent);
 }
 
-/* 36px: the same visual height as the weight/reps fields beside it (40px
-   boxes whose text sits low), rather than towering over the row. */
+/* 28px, bottom-aligned: matches the digits + underline of the weight/reps
+   fields beside it (their 40px boxes keep the text low), so the square
+   sits on the same line as the numbers instead of standing above them.
+   ::after widens the tap area back out without changing the look. */
 .set-done-btn {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  min-height: 36px;
+  position: relative;
+  align-self: end;
+  justify-self: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -670,8 +675,14 @@ th {
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--rust);
-  font-size: 1rem;
+  font-size: 0.9rem;
   transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.set-done-btn::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
 }
 
 .set-done-btn--done {
