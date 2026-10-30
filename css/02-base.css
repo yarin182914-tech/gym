@@ -45,7 +45,10 @@ a { color: var(--accent); }
   font-feature-settings: "tnum" 1;
 }
 
-button, input, select {
+/* textarea included: browsers don't inherit color into form controls, so
+   without it a textarea's text falls back to black — invisible on this
+   dark theme (the feedback form's text field hit exactly this). */
+button, input, select, textarea {
   font-family: inherit;
   color: inherit;
 }
