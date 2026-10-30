@@ -22,6 +22,7 @@ import {
 
 let container = null;
 let library = [];
+let libraryReady = false; // the library has loaded at least once this app session
 let session = null; // { startedAt, realStartedAt, exercises: [...] }
 let finishingWorkout = false; // guards finishWorkout() against double-submission while a save is in flight
 
@@ -77,14 +78,10 @@ export async function mountActiveSession(rootEl) {
     }
   }
 
-  let loaded = await listExerciseLibrary();
-  if (loaded.length === 0) {
-    await seedExerciseLibraryIfEmpty();
-    loaded = await listExerciseLibrary();
-  }
-  if (isStale(token)) return;
-  library = loaded;
-
+  // Drawn right away: the workout itself is already in memory or
+  // localStorage, so nothing here needs to wait on the network. This used
+  // to await the exercise library first — on a weak signal that left the
+  // previous screen showing for seconds after tapping "אימון".
   render();
 
   // Restored exercises were persisted without their "previous performance"
@@ -92,6 +89,27 @@ export async function mountActiveSession(rootEl) {
   // exercise does, then patch each card in place once it arrives.
   if (restoredExercises) {
     for (const entry of restoredExercises) rehydrateExercise(entry);
+  }
+
+  loadLibrary(token);
+}
+
+// Only the exercise picker needs the library, so it loads in the
+// background. It stays in memory across visits, so after the first load
+// the picker opens instantly while a fresh copy is fetched behind it.
+async function loadLibrary(token) {
+  try {
+    let loaded = await listExerciseLibrary();
+    if (loaded.length === 0) {
+      await seedExerciseLibraryIfEmpty();
+      loaded = await listExerciseLibrary();
+    }
+    library = loaded;
+    libraryReady = true;
+    if (!isStale(token) && picker.open) render();
+  } catch (err) {
+    // Keeps whatever copy is already in memory; the next visit retries.
+    console.error('exercise library load failed', err);
   }
 }
 
@@ -512,8 +530,10 @@ function renderPicker() {
             <button class="btn btn-secondary" style="flex:1; justify-content:flex-start;" data-pick="${esc(e.id)}">${esc(e.name)}</button>
             <button type="button" class="set-more-btn" style="min-width:var(--control-h); min-height:var(--control-h);" data-edit-lib="${esc(e.id)}" aria-label="עריכת התרגיל">${icon('pencil', { className: 'icon--sm' })}</button>
           </div>`).join('')}
-        ${matches.length === 0 ? emptyState('אין תרגילים בקטגוריה הזו.', { centered: true }) : ''}
-        ${q && !exactMatch ? `<button class="btn btn-primary btn-block" id="picker-add-new">+ הוספת "${esc(q)}" כתרגיל חדש</button>` : ''}
+        ${!libraryReady && library.length === 0
+          ? `<p class="text-muted" style="text-align:center;">טוען תרגילים...</p>`
+          : `${matches.length === 0 ? emptyState('אין תרגילים בקטגוריה הזו.', { centered: true }) : ''}
+        ${q && !exactMatch ? `<button class="btn btn-primary btn-block" id="picker-add-new">+ הוספת "${esc(q)}" כתרגיל חדש</button>` : ''}`}
       </div>
     </div>`;
 }
