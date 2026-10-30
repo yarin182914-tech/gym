@@ -898,27 +898,11 @@ function addDropStage(ex, parent, after = null) {
   patchExerciseCard(ex);
 }
 
-// What a row's type picker shows: a drop set's leader and stages always
-// read as "דרופ סט", even if a stored type predates that (older saved
-// workouts reopened for editing).
+// What a row's type picker shows: a drop set's leader always reads as
+// "דרופ סט", even if its stored type predates that (older saved workouts
+// reopened for editing).
 function shownSetType(set, role) {
-  return role === 'parent' || role === 'child' ? 'dropset' : set.type;
-}
-
-// "רגיל"/"חימום" tapped on one stage: that stage leaves the group as a
-// plain set, placed right after the group so the remaining stages stay
-// together. Nothing is lost, so no confirmation. If it was the only stage,
-// the leader is a plain set again too.
-function detachStage(ex, stage, type) {
-  const leader = ex.sets.find((s) => s._uid === stage.parentUid);
-  ex.sets.splice(ex.sets.indexOf(stage), 1);
-  delete stage.parentUid;
-  stage.type = type;
-  const anchor = leader ? (childrenOf(ex, leader).at(-1) || leader) : null;
-  ex.sets.splice(anchor ? ex.sets.indexOf(anchor) + 1 : ex.sets.length, 0, stage);
-  if (leader && !hasChildren(ex, leader)) leader.type = 'working';
-  patchExerciseCard(ex);
-  persistSession();
+  return role === 'parent' ? 'dropset' : set.type;
 }
 
 // "רגיל"/"חימום" tapped on a drop set's leader: back to a plain set. The
@@ -998,22 +982,23 @@ function syncSetRows(ex, refs) {
   });
 }
 
-// Every row gets the exact same type picker — regular set, drop set leader
-// and stage alike — so switching is one tap either way: "דרופ סט" turns a
-// set into a group (adding its first stage); "רגיל"/"חימום" on a leader
-// turns the group back into a plain set (revertDropSet), and on a stage
-// takes just that stage out as a plain set (detachStage). Stages also get
-// their own "+ ירידה", which adds the next stage right after them.
+// A regular set and a drop set's leader get the exact same type picker, so
+// switching is one tap either way: "דרופ סט" turns a set into a group
+// (adding its first stage), and "רגיל"/"חימום" on a leader turns the group
+// back into a plain set (revertDropSet). A stage has no picker — it's
+// always part of its group — just its own "+ ירידה", which adds the next
+// stage right after it.
 function buildSetRowMeta(set, role) {
-  const picker = toggleGroup({
+  if (role === 'child') {
+    return `<button type="button" class="btn-mini-dashed" data-role="add-stage-btn">+ ירידה</button>`;
+  }
+  return toggleGroup({
     name: 'type',
     active: shownSetType(set, role),
     label: 'סוג סט',
     groupAttrs: 'data-set-type-group',
     options: SET_TYPES.map((t) => ({ value: t.id, label: t.label })),
   });
-  if (role !== 'child') return picker;
-  return `${picker}<button type="button" class="btn-mini-dashed" data-role="add-stage-btn">+ ירידה</button>`;
 }
 
 function buildSetRow(ex, set, role) {
@@ -1048,10 +1033,8 @@ function buildSetRow(ex, set, role) {
     patchToggleGroup(typeGroupEl, shownSetType(set, role));
     typeGroupEl.querySelectorAll('button').forEach((btn) => {
       btn.addEventListener('click', () => {
-        if (role === 'parent' || role === 'child') {
-          if (btn.dataset.type === 'dropset') return;
-          if (role === 'parent') revertDropSet(ex, set, btn.dataset.type, typeGroupEl);
-          else detachStage(ex, set, btn.dataset.type);
+        if (role === 'parent') {
+          if (btn.dataset.type !== 'dropset') revertDropSet(ex, set, btn.dataset.type, typeGroupEl);
           return;
         }
         set.type = btn.dataset.type;
