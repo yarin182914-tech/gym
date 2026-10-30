@@ -208,7 +208,16 @@
   grid-template-columns: 28px 1fr 1fr 36px;
   gap: var(--space-2);
   align-items: center;
-  padding: 6px var(--space-1);
+  padding: 3px var(--space-1) 6px;
+}
+
+/* The weight/reps fields keep their text at the bottom of the box, so the
+   default 40px left a band of empty space above the numbers — the active
+   set's ring then sat much further above the content than below it.
+   Scoped here: .numeric-field is shared with Nutrition and the set sheet. */
+.set-row-main .set-field,
+.set-row-main .numeric-field {
+  height: 32px;
 }
 
 .set-index {
