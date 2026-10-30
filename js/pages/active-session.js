@@ -664,7 +664,6 @@ function buildExerciseCard(ex) {
             options: [{ value: 'kg', label: 'ק"ג' }, { value: 'lb', label: 'lb' }],
           })}
         </div>
-        <div class="set-table-header"><span>סט</span><span>${esc(unitLabel(ex.weightUnit).trim() || 'ק"ג')}</span><span>חזרות</span><span></span></div>
         <div class="sets-list"></div>
         <div class="row" style="gap:8px; margin-top:10px;">
           <button class="btn btn-dashed btn--compact" data-add-set>+ סט</button>
@@ -994,6 +993,7 @@ function buildSetRow(ex, set, role) {
       <div class="set-field set-field--weight" data-role="weight-slot"></div>
       <button type="button" class="set-field set-field--reps" data-role="reps-trigger" aria-expanded="false">
         <span class="reps-value num">${esc(set.reps)}</span>
+        <span class="numeric-field-unit">חזרות</span>
       </button>
       <button type="button" class="set-done-btn${set.done ? ' set-done-btn--done' : ''}" data-role="done-btn" aria-label="סימון סט כבוצע">
         <span class="done-glyph">✓</span>

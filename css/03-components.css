@@ -42,23 +42,6 @@
   color: var(--success-text);
 }
 
-/* Column labels above a set list — shown once per exercise instead of
-   repeating "משקל"/"חזרות" captions on every single row. */
-.set-table-header {
-  display: grid;
-  grid-template-columns: 28px 1fr 1fr 36px;
-  gap: var(--space-2);
-  padding: 5px var(--space-1);
-  margin-bottom: 4px;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.03);
-  font-size: 0.62rem;
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
 /* ===== Buttons =====
    Primary carries a subtle shadow, secondary/danger stay flat — that
    difference in elevation is itself the visual hierarchy between "the
