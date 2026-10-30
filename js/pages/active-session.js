@@ -895,8 +895,57 @@ function addDropStage(ex, parent, after = null) {
     weightMode: parent.weightMode,
     weightUnit: parent.weightUnit,
   });
-  parent.collapsed = false; // adding a stage should always reveal it
   patchExerciseCard(ex);
+}
+
+// What a row's type picker shows: a drop set's leader and stages always
+// read as "דרופ סט", even if a stored type predates that (older saved
+// workouts reopened for editing).
+function shownSetType(set, role) {
+  return role === 'parent' || role === 'child' ? 'dropset' : set.type;
+}
+
+// "רגיל"/"חימום" tapped on one stage: that stage leaves the group as a
+// plain set, placed right after the group so the remaining stages stay
+// together. Nothing is lost, so no confirmation. If it was the only stage,
+// the leader is a plain set again too.
+function detachStage(ex, stage, type) {
+  const leader = ex.sets.find((s) => s._uid === stage.parentUid);
+  ex.sets.splice(ex.sets.indexOf(stage), 1);
+  delete stage.parentUid;
+  stage.type = type;
+  const anchor = leader ? (childrenOf(ex, leader).at(-1) || leader) : null;
+  ex.sets.splice(anchor ? ex.sets.indexOf(anchor) + 1 : ex.sets.length, 0, stage);
+  if (leader && !hasChildren(ex, leader)) leader.type = 'working';
+  patchExerciseCard(ex);
+  persistSession();
+}
+
+// "רגיל"/"חימום" tapped on a drop set's leader: back to a plain set. The
+// leader keeps its own weight/reps; its stages go. Stages not logged yet
+// just vanish — but if any was already marked done, that's real data, so
+// it asks first (and leaves everything as it was on "no").
+async function revertDropSet(ex, leader, type, typeGroupEl) {
+  const stages = childrenOf(ex, leader);
+  const doneCount = stages.filter((s) => s.done).length;
+  if (doneCount > 0) {
+    const confirmed = await confirmDialog({
+      title: 'חזרה לסט רגיל',
+      message: doneCount === 1
+        ? 'ירידה אחת כבר סומנה כבוצעה. להסיר אותה? הסט עצמו יישאר.'
+        : `${doneCount} ירידות כבר סומנו כבוצעו. להסיר אותן? הסט עצמו יישאר.`,
+      confirmLabel: 'הסרה',
+      danger: true,
+    });
+    if (!confirmed) {
+      patchToggleGroup(typeGroupEl, 'dropset');
+      return;
+    }
+  }
+  for (const s of stages) ex.sets.splice(ex.sets.indexOf(s), 1);
+  leader.type = type;
+  patchExerciseCard(ex);
+  persistSession();
 }
 
 // Diffs ex.sets (keyed by uid, not index — index breaks the moment a set is
@@ -918,9 +967,9 @@ function syncSetRows(ex, refs) {
     let ctrl = refs.setsEls.get(set._uid);
     const role = computeSetRole(ex, set);
     // Every role shares the same row shape now (own editable weight/reps) —
-    // only the meta row's content differs (type picker vs. group controls
-    // vs. a stage's own "+ ירידה") — but that content is built once up front,
-    // not patched, so a role change still needs a rebuild.
+    // only the meta row's content differs (type picker vs. a stage's own
+    // "+ ירידה"), and a leader's picker answers clicks differently — but
+    // that is all built once up front, so a role change still rebuilds.
     const needsRebuild = ctrl && ctrl.role !== role;
     if (needsRebuild) {
       ctrl.closeWheel?.();
@@ -946,45 +995,25 @@ function syncSetRows(ex, refs) {
       refs.setsListEl.insertBefore(ctrl.row, nodeAtIdx);
     }
     patchSetRow(ex, set, ctrl);
-    if (role === 'child') {
-      // Not the `hidden` attribute — .set-row's own `display: flex` rule
-      // and the UA's `[hidden] { display: none }` rule are equal
-      // specificity, and the author rule wins the tie, so `hidden` was
-      // silently having no visual effect at all.
-      const parent = ex.sets.find((s) => s._uid === set.parentUid);
-      ctrl.row.classList.toggle('set-row--group-collapsed', !!parent?.collapsed);
-    }
   });
 }
 
-// A child stage is implicitly a drop set already — no type selector, and
-// no point re-labeling it warmup/working; it only gets its own "+ ירידה",
-// which adds the next stage right after it. A drop-set group's leader (role
-// 'parent') shows the group's own controls instead of the type picker, for
-// the same reason: once it has a stage, its "type" isn't really editable
-// warmup/working/failure anymore, it's the group. Only a genuinely regular
-// set gets the 3-way type picker — see buildSetRow's click handler for what
-// picking "דרופ סט" there does.
+// Every row gets the exact same type picker — regular set, drop set leader
+// and stage alike — so switching is one tap either way: "דרופ סט" turns a
+// set into a group (adding its first stage); "רגיל"/"חימום" on a leader
+// turns the group back into a plain set (revertDropSet), and on a stage
+// takes just that stage out as a plain set (detachStage). Stages also get
+// their own "+ ירידה", which adds the next stage right after them.
 function buildSetRowMeta(set, role) {
-  if (role === 'child') {
-    return `<button type="button" class="btn-mini-dashed" data-role="add-stage-btn">+ ירידה</button>`;
-  }
-  if (role === 'parent') {
-    return `
-      <button type="button" class="set-more-btn" data-role="dropset-toggle" aria-label="כיווץ/הרחבת דרופ סט">
-        <span class="history-chevron${set.collapsed ? '' : ' history-chevron--open'}" data-role="dropset-chevron" aria-hidden="true">⌄</span>
-      </button>
-      <span class="drop-set-pill">דרופ סט</span>
-      <button type="button" class="btn-mini-dashed" data-role="add-stage-btn">+ ירידה</button>
-    `;
-  }
-  return toggleGroup({
+  const picker = toggleGroup({
     name: 'type',
-    active: set.type,
+    active: shownSetType(set, role),
     label: 'סוג סט',
     groupAttrs: 'data-set-type-group',
     options: SET_TYPES.map((t) => ({ value: t.id, label: t.label })),
   });
+  if (role !== 'child') return picker;
+  return `${picker}<button type="button" class="btn-mini-dashed" data-role="add-stage-btn">+ ירידה</button>`;
 }
 
 function buildSetRow(ex, set, role) {
@@ -1016,9 +1045,15 @@ function buildSetRow(ex, set, role) {
   const typeGroupEl = row.querySelector('[data-set-type-group]');
   if (typeGroupEl) {
     typeGroupEl.classList.add('toggle-group--live', 'toggle-group--compact');
-    patchToggleGroup(typeGroupEl, set.type);
+    patchToggleGroup(typeGroupEl, shownSetType(set, role));
     typeGroupEl.querySelectorAll('button').forEach((btn) => {
       btn.addEventListener('click', () => {
+        if (role === 'parent' || role === 'child') {
+          if (btn.dataset.type === 'dropset') return;
+          if (role === 'parent') revertDropSet(ex, set, btn.dataset.type, typeGroupEl);
+          else detachStage(ex, set, btn.dataset.type);
+          return;
+        }
         set.type = btn.dataset.type;
         if (set.type === 'dropset') {
           // Picking "דרופ סט" immediately adds the group's first stage —
@@ -1042,11 +1077,6 @@ function buildSetRow(ex, set, role) {
     } else {
       addDropStage(ex, set);
     }
-  });
-
-  row.querySelector('[data-role="dropset-toggle"]')?.addEventListener('click', () => {
-    set.collapsed = !set.collapsed;
-    patchExerciseCard(ex);
   });
 
   const weightSlot = row.querySelector('[data-role="weight-slot"]');
@@ -1103,7 +1133,6 @@ function buildSetRow(ex, set, role) {
     repsTrigger,
     doneBtn,
     indexEl: row.querySelector('[data-role="set-index"]'),
-    chevronEl: row.querySelector('[data-role="dropset-chevron"]'), // role 'parent' only
     prBadgeEl: row.querySelector('[data-role="pr-badge"]'),
     notesEl: row.querySelector('[data-role="notes"]'),
     closeWheel,
@@ -1120,12 +1149,11 @@ function buildSetRow(ex, set, role) {
 function patchSetRow(ex, set, ctrl) {
   const wasDone = ctrl.row.classList.contains('set-row--done');
 
-  patchToggleGroup(ctrl.typeGroupEl, set.type);
+  patchToggleGroup(ctrl.typeGroupEl, shownSetType(set, ctrl.role));
   ctrl.numeric.setUnitLabel(unitLabel(set.weightUnit).trim());
   ctrl.numeric.setValue(set.weight);
   ctrl.repsTrigger.querySelector('.reps-value').textContent = set.reps;
   ctrl.indexEl.textContent = setIndexLabel(ex, set, ctrl.role);
-  if (ctrl.chevronEl) ctrl.chevronEl.classList.toggle('history-chevron--open', !set.collapsed);
 
   ctrl.doneBtn.classList.toggle('set-done-btn--done', set.done);
   ctrl.row.classList.toggle('set-row--done', set.done);

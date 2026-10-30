@@ -251,29 +251,6 @@
   border-inline-start-color: var(--success);
 }
 
-/* A dedicated class, not the `hidden` attribute — [hidden] and .set-row's
-   own `display: flex` are equal specificity, and the author rule (this
-   file) wins that tie, so `hidden` alone would have no visual effect. */
-.set-row--group-collapsed {
-  display: none;
-}
-
-/* The group leader is a normal .set-row (own editable weight/reps, own
-   done-state spine) — this pill just tags its meta row as a drop set's
-   parent, reused as-is for the group's stages' meta row being empty. */
-.drop-set-pill {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.65rem;
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
-  padding: 3px 10px;
-  border: 1px solid var(--info);
-  border-radius: var(--radius-full);
-  background: rgba(91, 143, 176, 0.14);
-  color: var(--info-text);
-}
-
 /* ===== Toggle group (segmented control: ק"ג/lb, טוטאל/כל צד) ===== */
 .toggle-group {
   display: inline-flex;
@@ -907,16 +884,6 @@ th {
   height: 26px;
   margin-inline-start: auto;
   font-size: 1.1rem;
-}
-
-/* Same compact size for the drop-set leader's collapse chevron, which sits
-   in that same meta line — a full tap-target square made the leader's
-   line almost twice as tall as every other set's. */
-.set-row-meta [data-role="dropset-toggle"] {
-  min-width: 30px;
-  min-height: 26px;
-  width: 30px;
-  height: 26px;
 }
 
 /* The exercise-card header's delete button shares .set-more-btn with the
