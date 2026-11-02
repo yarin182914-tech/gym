@@ -3,3 +3,9 @@ firebase-debug.log
 firestore-debug.log
 node_modules/
 .DS_Store
+
+# Google Cloud service-account keys — never commit, never deploy. This repo
+# is public and Vercel serves its root as the site, so a committed key would
+# be downloadable by anyone.
+gym-site-ea1b7-*.json
+*service-account*.json
