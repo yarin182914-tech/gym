@@ -229,6 +229,43 @@
   display: none;
 }
 
+/* ===== Cardio segments (js/lib/cardio.js) =====
+   Same row as a set; up to three fields share the space weight/reps use,
+   so the gap tightens a little. Columns are set inline per activity. */
+.set-row-main--cardio {
+  gap: 6px;
+}
+
+.cardio-controls {
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  min-height: var(--switch-h);
+}
+
+.cardio-controls[hidden] {
+  display: none;
+}
+
+.cardio-summary,
+.cardio-derived {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.cardio-summary {
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.cardio-total {
+  margin-top: 6px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
 /* Drop-set stages share every bit of a regular set's design — type sizes,
    colours, active ring — only nudged in a little so 2.1, 2.2 read as
    sub-sets of 2. No connector line or extra colour; the number and the

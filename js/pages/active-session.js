@@ -3,6 +3,7 @@ import { beginMount, isStale } from '../core/page.js';
 import { setsTable } from '../ui/sets-table.js';
 import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 import { mountNumericField } from '../ui/numeric-input.js';
+import { mountClockField } from '../ui/clock-input.js';
 import { mountWheelPicker } from '../ui/wheel-picker.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
 import { showToast } from '../ui/toast.js';
@@ -19,6 +20,11 @@ import {
   listExerciseLibrary, seedExerciseLibraryIfEmpty, addExerciseToLibrary,
   getLastPerformance, createWorkout, updateWorkout, getExerciseHistory, listWorkouts, CATEGORY_GROUPS,
 } from '../lib/firestore.js';
+import {
+  CARDIO_CATEGORY, CARDIO_LIBRARY, cardioActivity, supportsPace, hasSpeed,
+  segmentDistanceKm, speedToPaceSec, paceSecToSpeed, formatClock, formatKm,
+  summarizeSegments, formatSummary,
+} from '../lib/cardio.js';
 
 let container = null;
 let library = [];
@@ -155,6 +161,9 @@ function persistSession(s = session) {
         category: ex.category,
         weightMode: ex.weightMode,
         weightUnit: ex.weightUnit,
+        kind: ex.kind,
+        activity: ex.activity,
+        paceMode: ex.paceMode,
         sets: ex.sets,
       })),
     }));
@@ -314,7 +323,7 @@ function patchProgressSlot({ current, totalSets, completedSets }) {
 
   const pct = Math.round((completedSets / totalSets) * 100);
   const label = current
-    ? `תרגיל ${current.exIdx + 1} מתוך ${session.exercises.length} · סט ${current.setIdx + 1} מתוך ${current.setCount}`
+    ? `תרגיל ${current.exIdx + 1} מתוך ${session.exercises.length} · ${session.exercises[current.exIdx].kind === 'cardio' ? 'קטע' : 'סט'} ${current.setIdx + 1} מתוך ${current.setCount}`
     : 'כל הסטים הושלמו';
   const labelIcon = current ? '' : icon('party-popper', { className: 'icon--sm' });
 
@@ -491,18 +500,24 @@ async function loadRecentExercises() {
   if (picker.open) render();
 }
 
+// The library plus the built-in cardio activities, which aren't stored in it.
+function pickableExercises() {
+  return [...library, ...CARDIO_LIBRARY];
+}
+
 function renderPicker() {
   const q = picker.query.trim();
-  const byCategory = picker.category ? library.filter((e) => e.category === picker.category) : library;
+  const pickable = pickableExercises();
+  const byCategory = picker.category ? pickable.filter((e) => e.category === picker.category) : pickable;
   const matches = byCategory.filter((e) => e.name.includes(q));
-  const exactMatch = library.some((e) => e.name === q);
+  const exactMatch = pickable.some((e) => e.name === q);
 
   // Skips exercises already in this session — the point is speeding up
   // what to add *next*, not re-suggesting what's already on screen.
   const alreadyAdded = new Set(session.exercises.map((e) => e.name));
   const recentEntries = recentExerciseNames
     .filter((name) => !alreadyAdded.has(name))
-    .map((name) => library.find((e) => e.name === name))
+    .map((name) => pickable.find((e) => e.name === name))
     .filter(Boolean)
     .slice(0, 5);
 
@@ -522,13 +537,17 @@ function renderPicker() {
       ` : ''}
       <button class="pill ${!picker.category ? 'active' : ''}" data-category="" style="margin-bottom:10px;">הכל</button>
       ${CATEGORY_GROUPS.map((g) => pillRow(g.label, g.categories)).join('')}
+      <div class="pill-row-label">${CARDIO_CATEGORY}</div>
+      <div class="pill-row">
+        ${CARDIO_LIBRARY.map((e) => `<button class="pill" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
+      </div>
       <input type="text" id="picker-input" class="search-bar" placeholder="חיפוש תרגיל..." value="${esc(picker.query)}"
         style="margin:10px 0;">
       <div id="picker-results">
         ${matches.map((e) => `
           <div class="row" style="gap:6px; margin-bottom:4px;">
             <button class="btn btn-secondary" style="flex:1; justify-content:flex-start;" data-pick="${esc(e.id)}">${esc(e.name)}</button>
-            <button type="button" class="set-more-btn" style="min-width:var(--control-h); min-height:var(--control-h);" data-edit-lib="${esc(e.id)}" aria-label="עריכת התרגיל">${icon('pencil', { className: 'icon--sm' })}</button>
+            ${e.kind === 'cardio' ? '' : `<button type="button" class="set-more-btn" style="min-width:var(--control-h); min-height:var(--control-h);" data-edit-lib="${esc(e.id)}" aria-label="עריכת התרגיל">${icon('pencil', { className: 'icon--sm' })}</button>`}
           </div>`).join('')}
         ${!libraryReady && library.length === 0
           ? `<p class="text-muted" style="text-align:center;">טוען תרגילים...</p>`
@@ -554,8 +573,8 @@ function wirePicker() {
   });
   container.querySelectorAll('[data-pick]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const lib = library.find((e) => e.id === btn.dataset.pick);
-      addExerciseToSession(lib);
+      const lib = pickableExercises().find((e) => e.id === btn.dataset.pick);
+      if (lib) addExerciseToSession(lib);
     });
   });
   container.querySelectorAll('[data-edit-lib]').forEach((btn) => {
@@ -596,6 +615,9 @@ async function addExerciseToSession(lib) {
     history: null,
     sets: [],
   };
+  if (lib.kind === 'cardio') {
+    Object.assign(entry, { kind: 'cardio', activity: lib.activity, paceMode: 'speed' });
+  }
   session.exercises.push(entry);
   picker = { open: false, query: '', category: null };
   render();
@@ -651,23 +673,21 @@ function buildExerciseCard(ex) {
   const exNum = String(session.exercises.indexOf(ex) + 1).padStart(2, '0');
   const { done, total } = exerciseSetsSummary(ex);
   const allDone = total > 0 && done === total;
+  const isCardio = ex.kind === 'cardio';
 
-  el.innerHTML = `
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-      <button type="button" class="set-more-btn exercise-drag-handle" data-role="drag-handle" aria-label="גרירה לשינוי סדר התרגילים" style="flex:none;">${icon('grip-vertical', { className: 'icon--sm' })}</button>
-      <span class="exercise-num" data-role="exercise-num">${esc(exNum)}</span>
-      <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
-        <span class="exercise-name">${esc(ex.name)}</span>
-        <span class="exercise-meta${allDone ? ' exercise-meta--done' : ''}" data-role="exercise-meta">${esc(ex.category)} · ${done}/${total} סטים</span>
-      </div>
-      <button type="button" class="set-more-btn" data-last-time aria-label="פעם קודמת">${icon('clock', { className: 'icon--sm' })}</button>
-      <button type="button" class="set-more-btn set-more-btn--danger" data-delete-exercise aria-label="מחיקת התרגיל">${icon('trash-2', { className: 'icon--sm' })}</button>
-      <button type="button" class="set-more-btn" data-collapse-toggle aria-label="כיווץ/הרחבת התרגיל">
-        <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-collapse-chevron aria-hidden="true">⌄</span>
-      </button>
-    </div>
-    <div class="history-detail${isOpen ? ' history-detail--open' : ''}" data-exercise-detail>
-      <div class="history-detail-inner exercise-detail-inner">
+  // Cardio swaps the weighting/unit switches for a speed/pace switch (walk
+  // and run only) and a running total of what's been done so far.
+  const controlsHtml = isCardio ? `
+        <div class="row cardio-controls">
+          ${supportsPace(ex.activity) ? toggleGroup({
+            name: 'pace',
+            active: ex.paceMode,
+            label: 'מהירות או קצב',
+            groupAttrs: 'data-pace-mode-group',
+            options: [{ value: 'speed', label: 'קמ"ש' }, { value: 'pace', label: 'קצב' }],
+          }) : ''}
+          <span class="cardio-summary num" data-role="cardio-summary"></span>
+        </div>` : `
         <div class="row" style="margin-bottom:12px; justify-content:flex-start; gap:10px; flex-wrap:wrap;">
           ${toggleGroup({
             name: 'mode',
@@ -683,17 +703,35 @@ function buildExerciseCard(ex) {
             groupAttrs: 'data-weight-unit-group',
             options: [{ value: 'kg', label: 'ק"ג' }, { value: 'lb', label: 'lb' }],
           })}
-        </div>
+        </div>`;
+
+  el.innerHTML = `
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+      <button type="button" class="set-more-btn exercise-drag-handle" data-role="drag-handle" aria-label="גרירה לשינוי סדר התרגילים" style="flex:none;">${icon('grip-vertical', { className: 'icon--sm' })}</button>
+      <span class="exercise-num" data-role="exercise-num">${esc(exNum)}</span>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
+        <span class="exercise-name">${esc(ex.name)}</span>
+        <span class="exercise-meta${allDone ? ' exercise-meta--done' : ''}" data-role="exercise-meta">${esc(exerciseMetaText(ex))}</span>
+      </div>
+      ${isCardio ? '' : `<button type="button" class="set-more-btn" data-last-time aria-label="פעם קודמת">${icon('clock', { className: 'icon--sm' })}</button>`}
+      <button type="button" class="set-more-btn set-more-btn--danger" data-delete-exercise aria-label="מחיקת התרגיל">${icon('trash-2', { className: 'icon--sm' })}</button>
+      <button type="button" class="set-more-btn" data-collapse-toggle aria-label="כיווץ/הרחבת התרגיל">
+        <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-collapse-chevron aria-hidden="true">⌄</span>
+      </button>
+    </div>
+    <div class="history-detail${isOpen ? ' history-detail--open' : ''}" data-exercise-detail>
+      <div class="history-detail-inner exercise-detail-inner">
+        ${controlsHtml}
         <div class="sets-list"></div>
         <div class="row" style="gap:8px; margin-top:10px;">
-          <button class="btn btn-dashed" data-add-set>+ סט</button>
+          <button class="btn btn-dashed" data-add-set>${isCardio ? '+ קטע' : '+ סט'}</button>
           <button type="button" class="btn btn-outline" data-finish-exercise style="flex:1;">סיום תרגיל</button>
         </div>
       </div>
     </div>
   `;
 
-  el.querySelector('[data-last-time]').addEventListener('click', () => {
+  el.querySelector('[data-last-time]')?.addEventListener('click', () => {
     lastTimeModal = { name: ex.name, pr: findExercisePR(ex), last: findExerciseLast(ex) };
     render();
   });
@@ -717,23 +755,35 @@ function buildExerciseCard(ex) {
 
   const modeGroupEl = el.querySelector('[data-weight-mode-group]');
   const unitGroupEl = el.querySelector('[data-weight-unit-group]');
-  modeGroupEl.classList.add('toggle-group--live');
-  unitGroupEl.classList.add('toggle-group--live');
+  const paceGroupEl = el.querySelector('[data-pace-mode-group]');
+  [modeGroupEl, unitGroupEl, paceGroupEl].forEach((g) => g?.classList.add('toggle-group--live'));
 
-  modeGroupEl.querySelectorAll('button').forEach((btn) => {
+  modeGroupEl?.querySelectorAll('button').forEach((btn) => {
     btn.addEventListener('click', () => {
       setExerciseWeighting(ex, { weightMode: btn.dataset.mode });
       patchExerciseCard(ex);
     });
   });
-  unitGroupEl.querySelectorAll('button').forEach((btn) => {
+  unitGroupEl?.querySelectorAll('button').forEach((btn) => {
     btn.addEventListener('click', () => {
       convertExerciseWeightUnit(ex, btn.dataset.unit);
       patchExerciseCard(ex);
     });
   });
+  paceGroupEl?.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      ex.paceMode = btn.dataset.pace;
+      patchExerciseCard(ex);
+      persistSession();
+    });
+  });
 
   el.querySelector('[data-add-set]').addEventListener('click', () => {
+    if (isCardio) {
+      ex.sets.push(newCardioSegment(ex));
+      patchExerciseCard(ex);
+      return;
+    }
     const filled = prefillForNewSet(ex);
     ex.sets.push({
       _uid: nextUid(),
@@ -755,6 +805,8 @@ function buildExerciseCard(ex) {
     setsEls: new Map(),
     modeGroupEl,
     unitGroupEl,
+    paceGroupEl,
+    summaryEl: el.querySelector('[data-role="cardio-summary"]'),
     detailEl: el.querySelector('[data-exercise-detail]'),
     chevronEl: el.querySelector('[data-collapse-chevron]'),
     metaEl: el.querySelector('[data-role="exercise-meta"]'),
@@ -763,9 +815,40 @@ function buildExerciseCard(ex) {
 
   patchToggleGroup(modeGroupEl, ex.weightMode);
   patchToggleGroup(unitGroupEl, ex.weightUnit);
+  patchToggleGroup(paceGroupEl, ex.paceMode);
   syncSetRows(ex, refs);
+  patchCardioSummary(ex, refs);
 
   return el;
+}
+
+// A new segment repeats this exercise's last one (the usual "same again"
+// for intervals); else the same position from last time; else the
+// activity's defaults.
+function newCardioSegment(ex) {
+  const source = ex.sets.at(-1)
+    || (ex.prevLoaded ? ex.previous?.sets?.[ex.sets.length] : null)
+    || cardioActivity(ex.activity).defaults;
+  return {
+    _uid: nextUid(),
+    durationSec: source.durationSec ?? 600,
+    speedKmh: source.speedKmh ?? null,
+    inclinePct: source.inclinePct ?? null,
+    level: source.level ?? null,
+    notes: '',
+    done: false,
+  };
+}
+
+// Totals of the segments marked done — the same ones finishing saves.
+function patchCardioSummary(ex, refs) {
+  if (!refs.summaryEl) return;
+  const doneSegments = ex.sets.filter((s) => s.done);
+  refs.summaryEl.textContent = doneSegments.length
+    ? `סה"כ ${formatSummary(summarizeSegments(doneSegments), { withPace: supportsPace(ex.activity) })}`
+    : '';
+  // Stairs/bike have no switch, so until something's done the row is empty.
+  refs.summaryEl.parentElement.hidden = !refs.paceGroupEl && !doneSegments.length;
 }
 
 // Precedence: repeat this session's last set for the exercise; else the same
@@ -801,6 +884,8 @@ function patchExerciseCard(ex) {
   syncSetRows(ex, refs);
   patchToggleGroup(refs.modeGroupEl, ex.weightMode);
   patchToggleGroup(refs.unitGroupEl, ex.weightUnit);
+  patchToggleGroup(refs.paceGroupEl, ex.paceMode);
+  patchCardioSummary(ex, refs);
   patchExerciseMeta(ex, refs);
   applyFocusMode();
   patchExerciseCollapse(ex);
@@ -810,11 +895,16 @@ function exerciseSetsSummary(ex) {
   return { done: ex.sets.filter((s) => s.done).length, total: ex.sets.length };
 }
 
+function exerciseMetaText(ex) {
+  const { done, total } = exerciseSetsSummary(ex);
+  return `${ex.category} · ${done}/${total} ${ex.kind === 'cardio' ? 'קטעים' : 'סטים'}`;
+}
+
 function patchExerciseMeta(ex, refs) {
   if (!refs.metaEl) return;
   const { done, total } = exerciseSetsSummary(ex);
   const allDone = total > 0 && done === total;
-  refs.metaEl.textContent = `${ex.category} · ${done}/${total} סטים`;
+  refs.metaEl.textContent = exerciseMetaText(ex);
   refs.metaEl.classList.toggle('exercise-meta--done', allDone);
 }
 
@@ -969,7 +1059,7 @@ function syncSetRows(ex, refs) {
 
   ex.sets.forEach((set, idx) => {
     let ctrl = refs.setsEls.get(set._uid);
-    const role = computeSetRole(ex, set);
+    const role = ex.kind === 'cardio' ? 'cardio' : computeSetRole(ex, set);
     // Every role shares the same row shape now (own editable weight/reps) —
     // only the meta row's content differs (type picker vs. a stage's own
     // "+ ירידה"), and a leader's picker answers clicks differently — but
@@ -983,7 +1073,7 @@ function syncSetRows(ex, refs) {
     }
     const nodeAtIdx = refs.setsListEl.children[idx] || null;
     if (!ctrl) {
-      ctrl = buildSetRow(ex, set, role);
+      ctrl = role === 'cardio' ? buildCardioRow(ex, set) : buildSetRow(ex, set, role);
       ctrl.role = role;
       refs.setsEls.set(set._uid, ctrl);
       refs.setsListEl.insertBefore(ctrl.row, nodeAtIdx);
@@ -998,7 +1088,8 @@ function syncSetRows(ex, refs) {
       // move its existing row rather than rebuilding it.
       refs.setsListEl.insertBefore(ctrl.row, nodeAtIdx);
     }
-    patchSetRow(ex, set, ctrl);
+    if (role === 'cardio') patchCardioRow(ex, set, ctrl);
+    else patchSetRow(ex, set, ctrl);
   });
 }
 
@@ -1185,6 +1276,214 @@ function patchSetRow(ex, set, ctrl) {
   } else {
     ctrl.notesEl.hidden = true;
   }
+}
+
+// ---------- cardio segments: same row shape as a set (index, fields, ✓),
+// with a duration plus the activity's own fields in place of weight/reps.
+
+const CARDIO_FIELD_LABELS = {
+  incline: { unit: '%', aria: 'שיפוע', key: 'inclinePct' },
+  level: { unit: 'רמה', aria: 'רמה', key: 'level' },
+};
+
+function isPaceInput(ex) {
+  return supportsPace(ex.activity) && ex.paceMode === 'pace';
+}
+
+// The speed slot is a km/h number or an m:ss pace depending on the
+// exercise's switch — remounted (not patched) when that switch flips.
+function mountSpeedField(slot, ex, set) {
+  if (isPaceInput(ex)) {
+    return mountClockField(slot, {
+      seconds: speedToPaceSec(set.speedKmh) ?? 0,
+      unitLabel: '/ק"מ',
+      ariaLabel: 'קצב',
+      onCommit: (sec) => { set.speedKmh = paceSecToSpeed(sec); onCardioEdit(ex); },
+    });
+  }
+  return mountNumericField(slot, {
+    value: set.speedKmh ?? 0,
+    unitLabel: 'קמ"ש',
+    ariaLabel: 'מהירות',
+    onCommit: (v) => { set.speedKmh = v; onCardioEdit(ex); },
+  });
+}
+
+function onCardioEdit(ex) {
+  persistSession();
+  patchExerciseCard(ex);
+}
+
+// Distance, plus whichever of speed/pace isn't the one being typed.
+function cardioDerivedText(ex, set) {
+  if (!hasSpeed(ex.activity)) return '';
+  const parts = [];
+  const km = segmentDistanceKm(set);
+  if (km > 0) parts.push(`${formatKm(km)} ק"מ`);
+  if (supportsPace(ex.activity)) {
+    const pace = speedToPaceSec(set.speedKmh);
+    if (isPaceInput(ex)) parts.push(`${set.speedKmh || 0} קמ"ש`);
+    else if (pace) parts.push(`${formatClock(pace)} /ק"מ`);
+  }
+  return parts.join(' · ');
+}
+
+function buildCardioRow(ex, set) {
+  const fields = cardioActivity(ex.activity).fields;
+  const row = document.createElement('div');
+  row.className = 'set-row set-row--entering';
+
+  row.innerHTML = `
+    <div class="set-row-main set-row-main--cardio" style="grid-template-columns:28px repeat(${fields.length + 1}, minmax(0, 1fr)) 36px;">
+      <span class="set-index" data-role="set-index"></span>
+      <div class="set-field" data-role="duration-slot"></div>
+      ${fields.map((f) => `<div class="set-field" data-role="field-${f}"></div>`).join('')}
+      <button type="button" class="set-done-btn${set.done ? ' set-done-btn--done' : ''}" data-role="done-btn" aria-label="סימון קטע כבוצע">
+        <span class="done-glyph">✓</span>
+      </button>
+    </div>
+    <div class="set-row-meta">
+      <span class="cardio-derived num" data-role="derived"></span>
+      <button type="button" class="set-more-btn set-more-btn--meta" data-role="more-btn" aria-label="עוד אפשרויות לקטע">⋯</button>
+    </div>
+    <span class="set-row-notes" data-role="notes" hidden></span>
+  `;
+
+  const duration = mountClockField(row.querySelector('[data-role="duration-slot"]'), {
+    seconds: set.durationSec,
+    unitLabel: 'זמן',
+    ariaLabel: 'משך הקטע',
+    onCommit: (sec) => { set.durationSec = sec; onCardioEdit(ex); },
+  });
+
+  const others = {};
+  for (const f of fields) {
+    const slot = row.querySelector(`[data-role="field-${f}"]`);
+    if (f === 'speed') continue; // mounted below, since it can switch form
+    const { unit, aria, key } = CARDIO_FIELD_LABELS[f];
+    others[f] = mountNumericField(slot, {
+      value: set[key] ?? 0,
+      unitLabel: unit,
+      ariaLabel: aria,
+      onCommit: (v) => { set[key] = v; onCardioEdit(ex); },
+    });
+  }
+
+  const speedSlot = row.querySelector('[data-role="field-speed"]');
+  const doneBtn = row.querySelector('[data-role="done-btn"]');
+  doneBtn.addEventListener('click', () => onToggleDone(ex, set));
+
+  const ctrl = {
+    row,
+    duration,
+    others,
+    speedSlot,
+    speedField: speedSlot ? mountSpeedField(speedSlot, ex, set) : null,
+    speedIsPace: isPaceInput(ex),
+    doneBtn,
+    indexEl: row.querySelector('[data-role="set-index"]'),
+    derivedEl: row.querySelector('[data-role="derived"]'),
+    notesEl: row.querySelector('[data-role="notes"]'),
+    closeWheel() {},
+  };
+
+  row.querySelector('[data-role="more-btn"]').addEventListener('click', () => {
+    openCardioSegmentSheet(ex, set);
+  });
+
+  return ctrl;
+}
+
+function patchCardioRow(ex, set, ctrl) {
+  const wasDone = ctrl.row.classList.contains('set-row--done');
+
+  ctrl.indexEl.textContent = String(ex.sets.indexOf(set) + 1);
+  ctrl.duration.setValue(set.durationSec);
+  for (const [f, field] of Object.entries(ctrl.others)) {
+    field.setValue(set[CARDIO_FIELD_LABELS[f].key] ?? 0);
+  }
+  if (ctrl.speedSlot) {
+    if (ctrl.speedIsPace !== isPaceInput(ex)) {
+      ctrl.speedField = mountSpeedField(ctrl.speedSlot, ex, set);
+      ctrl.speedIsPace = isPaceInput(ex);
+    } else {
+      ctrl.speedField.setValue(ctrl.speedIsPace ? (speedToPaceSec(set.speedKmh) ?? 0) : (set.speedKmh ?? 0));
+    }
+  }
+  ctrl.derivedEl.textContent = cardioDerivedText(ex, set);
+
+  ctrl.doneBtn.classList.toggle('set-done-btn--done', set.done);
+  ctrl.row.classList.toggle('set-row--done', set.done);
+  if (set.done && !wasDone) {
+    ctrl.row.classList.remove('set-row--celebrate');
+    void ctrl.row.offsetWidth;
+    ctrl.row.classList.add('set-row--celebrate');
+  }
+
+  if (set.notes) {
+    ctrl.notesEl.hidden = false;
+    ctrl.notesEl.innerHTML = `${icon('sticky-note', { className: 'icon--sm' })} ${esc(set.notes)}`;
+  } else {
+    ctrl.notesEl.hidden = true;
+  }
+}
+
+// The "⋯" sheet for a segment: notes, duplicate (the quick way to build
+// intervals), delete. Values themselves are edited inline on the row.
+function openCardioSegmentSheet(ex, set) {
+  const idx = ex.sets.indexOf(set);
+  openBottomSheet({
+    ariaLabel: `${ex.name}, קטע ${idx + 1}`,
+    render(body, sheetApi) {
+      body.innerHTML = `
+        <h3 style="margin:0 0 2px; color:var(--text);">${esc(ex.name)}</h3>
+        <p class="text-muted" style="margin:0 0 10px;">קטע ${idx + 1}</p>
+
+        <div class="sheet-field-label">הערות (אופציונלי)</div>
+        <textarea data-role="sheet-notes" rows="2" class="search-bar" style="width:100%; resize:vertical;"
+          placeholder="לדוגמה: אינטרוול, עלייה">${esc(set.notes || '')}</textarea>
+
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-secondary" data-role="sheet-duplicate">שכפול קטע</button>
+          <button type="button" class="btn btn-danger" data-role="sheet-delete">מחיקת קטע</button>
+        </div>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-primary" data-role="sheet-close" style="flex:1;">סגירה</button>
+        </div>
+      `;
+
+      body.querySelector('[data-role="sheet-notes"]').addEventListener('input', (e) => {
+        set.notes = e.target.value;
+      });
+      body.querySelector('[data-role="sheet-close"]').addEventListener('click', () => sheetApi.close());
+      body.querySelector('[data-role="sheet-duplicate"]').addEventListener('click', () => {
+        const i = ex.sets.indexOf(set);
+        if (i !== -1) ex.sets.splice(i + 1, 0, { ...set, _uid: nextUid(), done: false, notes: set.notes || '' });
+        sheetApi.close();
+      });
+      body.querySelector('[data-role="sheet-delete"]').addEventListener('click', async () => {
+        // Closed first either way: confirmDialog sits below an open sheet.
+        sheetApi.close();
+        if (set.done) {
+          const confirmed = await confirmDialog({
+            title: 'מחיקת קטע',
+            message: 'הקטע הזה כבר סומן כבוצע. למחוק בכל זאת?',
+            confirmLabel: 'מחיקה',
+            danger: true,
+          });
+          if (!confirmed) return;
+        }
+        const i = ex.sets.indexOf(set);
+        if (i !== -1) ex.sets.splice(i, 1);
+        patchExerciseCard(ex);
+        persistSession();
+      });
+    },
+    onClose() {
+      if (exerciseRefs.has(ex._uid)) patchExerciseCard(ex);
+      persistSession();
+    },
+  });
 }
 
 // Always confirms, unlike requestDeleteSet — removing a whole exercise loses
@@ -1498,7 +1797,9 @@ function applyFocusMode() {
 
 function onToggleDone(ex, set) {
   set.done = !set.done;
-  if (set.done) {
+  if (set.done && ex.kind === 'cardio') {
+    if (navigator.vibrate) navigator.vibrate(15);
+  } else if (set.done) {
     const isNewPR = computePR(ex, set);
     set.isPR = isNewPR;
     if (navigator.vibrate) navigator.vibrate(isNewPR ? [20, 40, 20] : 15);
@@ -1611,6 +1912,25 @@ export function openWorkoutForEditing(workout) {
   if (session || loadPersistedSession()) return false;
 
   const exercises = (workout.exercises || []).map((savedEx) => {
+    if (savedEx.kind === 'cardio') {
+      return {
+        _uid: nextUid(),
+        name: savedEx.name,
+        category: savedEx.category || CARDIO_CATEGORY,
+        kind: 'cardio',
+        activity: savedEx.activity,
+        paceMode: 'speed',
+        sets: (savedEx.sets || []).map((s) => ({
+          _uid: nextUid(),
+          durationSec: s.durationSec ?? 0,
+          speedKmh: s.speedKmh ?? null,
+          inclinePct: s.inclinePct ?? null,
+          level: s.level ?? null,
+          notes: s.notes || '',
+          done: true,
+        })),
+      };
+    }
     const leaderUidByGroup = new Map();
     const sets = (savedEx.sets || []).map((s) => {
       const set = {
@@ -1703,6 +2023,7 @@ function openPastWorkoutSheet() {
 // since session-local uids aren't stable across saves, in the order each
 // drop set first appears in the exercise.
 function buildSavedSets(ex) {
+  if (ex.kind === 'cardio') return buildSavedSegments(ex);
   let nextDropGroup = 1;
   const dropGroupByParentUid = new Map();
   return ex.sets
@@ -1724,6 +2045,24 @@ function buildSavedSets(ex) {
         if (!dropGroupByParentUid.has(groupUid)) dropGroupByParentUid.set(groupUid, nextDropGroup++);
         entry.dropGroup = dropGroupByParentUid.get(groupUid);
       }
+      return entry;
+    });
+}
+
+// Only the fields the activity actually uses are written, plus the derived
+// distance so anything reading the raw data doesn't have to recompute it.
+function buildSavedSegments(ex) {
+  const fields = cardioActivity(ex.activity).fields;
+  return ex.sets
+    .filter((s) => s.done)
+    .map((s, i) => {
+      const entry = { setNumber: i + 1, durationSec: s.durationSec || 0, notes: s.notes || '' };
+      if (fields.includes('speed')) {
+        entry.speedKmh = Number(s.speedKmh) || 0;
+        entry.distanceKm = Math.round(segmentDistanceKm(s) * 1000) / 1000;
+      }
+      if (fields.includes('incline')) entry.inclinePct = Number(s.inclinePct) || 0;
+      if (fields.includes('level')) entry.level = Number(s.level) || 0;
       return entry;
     });
 }
@@ -1762,7 +2101,12 @@ async function finishWorkout() {
 
   try {
     const exercises = session.exercises
-      .map((ex) => ({ name: ex.name, category: ex.category, sets: buildSavedSets(ex) }))
+      .map((ex) => ({
+        name: ex.name,
+        category: ex.category,
+        ...(ex.kind === 'cardio' ? { kind: 'cardio', activity: ex.activity } : {}),
+        sets: buildSavedSets(ex),
+      }))
       .filter((ex) => ex.sets.length > 0);
 
     const elapsedMs = Date.now() - session.realStartedAt.getTime();

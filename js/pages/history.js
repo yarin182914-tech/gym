@@ -2,7 +2,7 @@ import { listWorkouts, deleteWorkout } from '../lib/firestore.js';
 import { formatDateHe, formatMonthHe, toDate } from '../lib/format.js';
 import { esc } from '../core/dom.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
-import { setsTable } from '../ui/sets-table.js';
+import { setsTable, cardioTable } from '../ui/sets-table.js';
 import { emptyState } from '../ui/empty-state.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
@@ -318,7 +318,7 @@ function buildWorkoutRow(w) {
         ${(w.exercises || []).map((ex) => `
           <div style="margin-bottom:14px;">
             <strong>${esc(ex.name)}</strong>
-            ${setsTable(ex.sets)}
+            ${ex.kind === 'cardio' ? cardioTable(ex) : setsTable(ex.sets)}
           </div>`).join('')}
         <div class="sheet-actions" style="margin-top:6px;">
           <button class="btn btn-secondary" data-edit>${icon('pencil', { className: 'icon--sm' })} עריכת אימון</button>

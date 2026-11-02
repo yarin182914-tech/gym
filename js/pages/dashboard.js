@@ -52,6 +52,8 @@ export async function mountDashboard(rootEl) {
   categoryByName = new Map();
   for (const w of workouts) {
     for (const ex of w.exercises || []) {
+      // Cardio has no weight to chart or rank — it gets its own stats later.
+      if (ex.kind === 'cardio') continue;
       if (!seen.has(ex.name)) { seen.add(ex.name); namesInRecencyOrder.push(ex.name); }
       if (ex.category) categoryByName.set(ex.name, ex.category);
     }

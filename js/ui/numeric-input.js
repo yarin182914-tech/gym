@@ -15,7 +15,7 @@ function clamp(n, fallback) {
   return Math.min(Math.max(n, MIN), MAX);
 }
 
-export function mountNumericField(hostEl, { value, unitLabel = '', onCommit }) {
+export function mountNumericField(hostEl, { value, unitLabel = '', ariaLabel = 'משקל', onCommit }) {
   let lastGood = clamp(value, 0);
 
   hostEl.innerHTML = '';
@@ -29,7 +29,7 @@ export function mountNumericField(hostEl, { value, unitLabel = '', onCommit }) {
   input.dir = 'ltr'; // digits read naturally even inside the page's RTL flow
   input.className = 'numeric-field-input num';
   input.value = lastGood;
-  input.setAttribute('aria-label', 'משקל');
+  input.setAttribute('aria-label', ariaLabel);
 
   const unitEl = document.createElement('span');
   unitEl.className = 'numeric-field-unit';
