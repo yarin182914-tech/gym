@@ -1,6 +1,8 @@
 import { esc } from '../core/dom.js';
 import { formatWeight, setTypeLabel } from '../lib/format.js';
-import { supportsPace, speedToPaceSec, formatClock, summarizeSegments, formatSummary } from '../lib/cardio.js';
+import {
+  hasInputModes, segmentMetrics, effortLabel, formatClock, formatKm, formatSpeed, summarizeSegments, formatSummary,
+} from '../lib/cardio.js';
 
 // The set-by-set breakdown of one exercise. Used by History's expanded rows and
 // by the "last time" popup in an active session — those were separate copies
@@ -55,29 +57,35 @@ export function setsTable(sets = []) {
 }
 
 // A cardio exercise's segments (see js/lib/cardio.js): one row each —
-// time, then whatever the activity measures — under a totals line.
+// time, then whatever else was entered or follows from it — under a totals
+// line. Anything unknown is simply left out.
 export function cardioTable(ex) {
   const sets = ex.sets || [];
-  const withPace = supportsPace(ex.activity);
+  const paced = hasInputModes(ex.activity);
   const segmentText = (s) => {
+    const m = segmentMetrics(s);
     const parts = [];
-    if (s.speedKmh) {
-      parts.push(`${s.speedKmh} קמ"ש`);
-      const pace = withPace ? speedToPaceSec(s.speedKmh) : null;
-      if (pace) parts.push(`${formatClock(pace)} /ק"מ`);
-    }
+    if (m.distanceKm) parts.push(`${formatKm(m.distanceKm)} ק"מ`);
+    if (paced && m.paceSec) parts.push(`${formatClock(m.paceSec)} /ק"מ`);
+    if (!paced && m.speedKmh) parts.push(`${formatSpeed(m.speedKmh)} קמ"ש`);
     if (s.inclinePct) parts.push(`שיפוע ${s.inclinePct}%`);
     if (s.level) parts.push(`רמה ${s.level}`);
+    const effort = effortLabel(ex.activity, s.effort);
+    if (effort) parts.push(effort);
     return parts.join(' · ');
   };
+  const total = formatSummary(summarizeSegments(sets), { withPace: paced });
   return `
-    <div class="cardio-total num">${esc(formatSummary(summarizeSegments(sets), { withPace }))}</div>
+    ${total ? `<div class="cardio-total num">${esc(total)}</div>` : ''}
     <div class="sets-list-view">
-      ${sets.map((s, i) => `
+      ${sets.map((s, i) => {
+        const sec = segmentMetrics(s).durationSec;
+        return `
         <div class="sets-list-row">
           <span class="sets-list-index num">${i + 1}</span>
-          <span class="sets-list-weight num">${esc(formatClock(s.durationSec))}</span>
+          <span class="sets-list-weight num">${sec ? esc(formatClock(sec)) : '—'}</span>
           <span class="sets-list-type num">${esc(segmentText(s))}</span>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>`;
 }

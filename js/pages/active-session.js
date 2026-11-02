@@ -21,8 +21,8 @@ import {
   getLastPerformance, createWorkout, updateWorkout, getExerciseHistory, listWorkouts, CATEGORY_GROUPS,
 } from '../lib/firestore.js';
 import {
-  CARDIO_CATEGORY, CARDIO_LIBRARY, cardioActivity, supportsPace, hasSpeed,
-  segmentDistanceKm, speedToPaceSec, paceSecToSpeed, formatClock, formatKm,
+  CARDIO_CATEGORY, CARDIO_LIBRARY, CARDIO_FIELDS, SEGMENT_KEYS, cardioActivity, hasInputModes,
+  segmentFields, segmentMetrics, isEmptySegment, formatClock, formatKm, formatSpeed,
   summarizeSegments, formatSummary,
 } from '../lib/cardio.js';
 
@@ -163,7 +163,7 @@ function persistSession(s = session) {
         weightUnit: ex.weightUnit,
         kind: ex.kind,
         activity: ex.activity,
-        paceMode: ex.paceMode,
+        inputMode: ex.inputMode,
         sets: ex.sets,
       })),
     }));
@@ -616,7 +616,9 @@ async function addExerciseToSession(lib) {
     sets: [],
   };
   if (lib.kind === 'cardio') {
-    Object.assign(entry, { kind: 'cardio', activity: lib.activity, paceMode: 'speed' });
+    Object.assign(entry, { kind: 'cardio', activity: lib.activity, inputMode: 'free' });
+    // Starts with one segment ready, so "30 min walk" is just type and ✓.
+    entry.sets.push(newCardioSegment(entry));
   }
   session.exercises.push(entry);
   picker = { open: false, query: '', category: null };
@@ -675,16 +677,16 @@ function buildExerciseCard(ex) {
   const allDone = total > 0 && done === total;
   const isCardio = ex.kind === 'cardio';
 
-  // Cardio swaps the weighting/unit switches for a speed/pace switch (walk
-  // and run only) and a running total of what's been done so far.
+  // Cardio swaps the weighting/unit switches for a free/treadmill switch
+  // (walk and run only) and a running total of what's been done so far.
   const controlsHtml = isCardio ? `
         <div class="row cardio-controls">
-          ${supportsPace(ex.activity) ? toggleGroup({
-            name: 'pace',
-            active: ex.paceMode,
-            label: 'מהירות או קצב',
-            groupAttrs: 'data-pace-mode-group',
-            options: [{ value: 'speed', label: 'קמ"ש' }, { value: 'pace', label: 'קצב' }],
+          ${hasInputModes(ex.activity) ? toggleGroup({
+            name: 'input',
+            active: ex.inputMode,
+            label: 'אופן הזנה',
+            groupAttrs: 'data-input-mode-group',
+            options: [{ value: 'free', label: 'חופשי' }, { value: 'treadmill', label: 'הליכון' }],
           }) : ''}
           <span class="cardio-summary num" data-role="cardio-summary"></span>
         </div>` : `
@@ -755,8 +757,8 @@ function buildExerciseCard(ex) {
 
   const modeGroupEl = el.querySelector('[data-weight-mode-group]');
   const unitGroupEl = el.querySelector('[data-weight-unit-group]');
-  const paceGroupEl = el.querySelector('[data-pace-mode-group]');
-  [modeGroupEl, unitGroupEl, paceGroupEl].forEach((g) => g?.classList.add('toggle-group--live'));
+  const inputModeGroupEl = el.querySelector('[data-input-mode-group]');
+  [modeGroupEl, unitGroupEl, inputModeGroupEl].forEach((g) => g?.classList.add('toggle-group--live'));
 
   modeGroupEl?.querySelectorAll('button').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -770,9 +772,11 @@ function buildExerciseCard(ex) {
       patchExerciseCard(ex);
     });
   });
-  paceGroupEl?.querySelectorAll('button').forEach((btn) => {
+  // The rows' fields change with the mode, so syncSetRows rebuilds them
+  // (cardioRole differs); entered values stay on the segments either way.
+  inputModeGroupEl?.querySelectorAll('button').forEach((btn) => {
     btn.addEventListener('click', () => {
-      ex.paceMode = btn.dataset.pace;
+      ex.inputMode = btn.dataset.input;
       patchExerciseCard(ex);
       persistSession();
     });
@@ -805,7 +809,7 @@ function buildExerciseCard(ex) {
     setsEls: new Map(),
     modeGroupEl,
     unitGroupEl,
-    paceGroupEl,
+    inputModeGroupEl,
     summaryEl: el.querySelector('[data-role="cardio-summary"]'),
     detailEl: el.querySelector('[data-exercise-detail]'),
     chevronEl: el.querySelector('[data-collapse-chevron]'),
@@ -815,7 +819,7 @@ function buildExerciseCard(ex) {
 
   patchToggleGroup(modeGroupEl, ex.weightMode);
   patchToggleGroup(unitGroupEl, ex.weightUnit);
-  patchToggleGroup(paceGroupEl, ex.paceMode);
+  patchToggleGroup(inputModeGroupEl, ex.inputMode);
   syncSetRows(ex, refs);
   patchCardioSummary(ex, refs);
 
@@ -824,31 +828,25 @@ function buildExerciseCard(ex) {
 
 // A new segment repeats this exercise's last one (the usual "same again"
 // for intervals); else the same position from last time; else the
-// activity's defaults.
+// activity's defaults — empty when logging a walk/run freely.
 function newCardioSegment(ex) {
+  const { defaults } = cardioActivity(ex.activity);
   const source = ex.sets.at(-1)
     || (ex.prevLoaded ? ex.previous?.sets?.[ex.sets.length] : null)
-    || cardioActivity(ex.activity).defaults;
-  return {
-    _uid: nextUid(),
-    durationSec: source.durationSec ?? 600,
-    speedKmh: source.speedKmh ?? null,
-    inclinePct: source.inclinePct ?? null,
-    level: source.level ?? null,
-    notes: '',
-    done: false,
-  };
+    || defaults[ex.inputMode] || defaults.free;
+  const seg = { _uid: nextUid(), notes: '', done: false };
+  for (const k of SEGMENT_KEYS) seg[k] = source[k] ?? null;
+  return seg;
 }
 
 // Totals of the segments marked done — the same ones finishing saves.
 function patchCardioSummary(ex, refs) {
   if (!refs.summaryEl) return;
   const doneSegments = ex.sets.filter((s) => s.done);
-  refs.summaryEl.textContent = doneSegments.length
-    ? `סה"כ ${formatSummary(summarizeSegments(doneSegments), { withPace: supportsPace(ex.activity) })}`
-    : '';
-  // Stairs/bike have no switch, so until something's done the row is empty.
-  refs.summaryEl.parentElement.hidden = !refs.paceGroupEl && !doneSegments.length;
+  const total = formatSummary(summarizeSegments(doneSegments), { withPace: hasInputModes(ex.activity) });
+  refs.summaryEl.textContent = total ? `סה"כ ${total}` : '';
+  // Stairs/bike have no switch, so until there's a total the row is empty.
+  refs.summaryEl.parentElement.hidden = !refs.inputModeGroupEl && !total;
 }
 
 // Precedence: repeat this session's last set for the exercise; else the same
@@ -884,7 +882,7 @@ function patchExerciseCard(ex) {
   syncSetRows(ex, refs);
   patchToggleGroup(refs.modeGroupEl, ex.weightMode);
   patchToggleGroup(refs.unitGroupEl, ex.weightUnit);
-  patchToggleGroup(refs.paceGroupEl, ex.paceMode);
+  patchToggleGroup(refs.inputModeGroupEl, ex.inputMode);
   patchCardioSummary(ex, refs);
   patchExerciseMeta(ex, refs);
   applyFocusMode();
@@ -1059,7 +1057,7 @@ function syncSetRows(ex, refs) {
 
   ex.sets.forEach((set, idx) => {
     let ctrl = refs.setsEls.get(set._uid);
-    const role = ex.kind === 'cardio' ? 'cardio' : computeSetRole(ex, set);
+    const role = ex.kind === 'cardio' ? cardioRole(ex) : computeSetRole(ex, set);
     // Every role shares the same row shape now (own editable weight/reps) —
     // only the meta row's content differs (type picker vs. a stage's own
     // "+ ירידה"), and a leader's picker answers clicks differently — but
@@ -1073,7 +1071,7 @@ function syncSetRows(ex, refs) {
     }
     const nodeAtIdx = refs.setsListEl.children[idx] || null;
     if (!ctrl) {
-      ctrl = role === 'cardio' ? buildCardioRow(ex, set) : buildSetRow(ex, set, role);
+      ctrl = ex.kind === 'cardio' ? buildCardioRow(ex, set) : buildSetRow(ex, set, role);
       ctrl.role = role;
       refs.setsEls.set(set._uid, ctrl);
       refs.setsListEl.insertBefore(ctrl.row, nodeAtIdx);
@@ -1088,7 +1086,7 @@ function syncSetRows(ex, refs) {
       // move its existing row rather than rebuilding it.
       refs.setsListEl.insertBefore(ctrl.row, nodeAtIdx);
     }
-    if (role === 'cardio') patchCardioRow(ex, set, ctrl);
+    if (ex.kind === 'cardio') patchCardioRow(ex, set, ctrl);
     else patchSetRow(ex, set, ctrl);
   });
 }
@@ -1279,34 +1277,11 @@ function patchSetRow(ex, set, ctrl) {
 }
 
 // ---------- cardio segments: same row shape as a set (index, fields, ✓),
-// with a duration plus the activity's own fields in place of weight/reps.
+// with the activity's own fields in place of weight/reps. Every field is
+// optional; an empty one shows, greyed, whatever the others imply.
 
-const CARDIO_FIELD_LABELS = {
-  incline: { unit: '%', aria: 'שיפוע', key: 'inclinePct' },
-  level: { unit: 'רמה', aria: 'רמה', key: 'level' },
-};
-
-function isPaceInput(ex) {
-  return supportsPace(ex.activity) && ex.paceMode === 'pace';
-}
-
-// The speed slot is a km/h number or an m:ss pace depending on the
-// exercise's switch — remounted (not patched) when that switch flips.
-function mountSpeedField(slot, ex, set) {
-  if (isPaceInput(ex)) {
-    return mountClockField(slot, {
-      seconds: speedToPaceSec(set.speedKmh) ?? 0,
-      unitLabel: '/ק"מ',
-      ariaLabel: 'קצב',
-      onCommit: (sec) => { set.speedKmh = paceSecToSpeed(sec); onCardioEdit(ex); },
-    });
-  }
-  return mountNumericField(slot, {
-    value: set.speedKmh ?? 0,
-    unitLabel: 'קמ"ש',
-    ariaLabel: 'מהירות',
-    onCommit: (v) => { set.speedKmh = v; onCardioEdit(ex); },
-  });
+function cardioRole(ex) {
+  return `cardio:${segmentFields(ex.activity, ex.inputMode).join(',')}`;
 }
 
 function onCardioEdit(ex) {
@@ -1314,73 +1289,88 @@ function onCardioEdit(ex) {
   patchExerciseCard(ex);
 }
 
-// Distance, plus whichever of speed/pace isn't the one being typed.
+// The greyed hint in an empty field — e.g. the pace that time + distance
+// work out to. "—" when nothing implies it.
+function cardioPlaceholder(fieldId, metrics) {
+  const v = {
+    duration: metrics.durationSec && formatClock(metrics.durationSec),
+    distance: metrics.distanceKm && formatKm(metrics.distanceKm),
+    pace: metrics.paceSec && formatClock(metrics.paceSec),
+    speed: metrics.speedKmh && formatSpeed(metrics.speedKmh),
+  }[fieldId];
+  return v || '—';
+}
+
+// What the row's fields don't already show: on a treadmill, distance and
+// pace; when logging freely, the pace/distance hints cover it.
 function cardioDerivedText(ex, set) {
-  if (!hasSpeed(ex.activity)) return '';
+  const fields = segmentFields(ex.activity, ex.inputMode);
+  if (!fields.includes('speed')) return '';
+  const m = segmentMetrics(set);
   const parts = [];
-  const km = segmentDistanceKm(set);
-  if (km > 0) parts.push(`${formatKm(km)} ק"מ`);
-  if (supportsPace(ex.activity)) {
-    const pace = speedToPaceSec(set.speedKmh);
-    if (isPaceInput(ex)) parts.push(`${set.speedKmh || 0} קמ"ש`);
-    else if (pace) parts.push(`${formatClock(pace)} /ק"מ`);
-  }
+  if (m.distanceKm) parts.push(`${formatKm(m.distanceKm)} ק"מ`);
+  if (hasInputModes(ex.activity) && m.paceSec) parts.push(`${formatClock(m.paceSec)} /ק"מ`);
   return parts.join(' · ');
 }
 
 function buildCardioRow(ex, set) {
-  const fields = cardioActivity(ex.activity).fields;
+  const fields = segmentFields(ex.activity, ex.inputMode);
+  const efforts = cardioActivity(ex.activity).efforts;
   const row = document.createElement('div');
   row.className = 'set-row set-row--entering';
 
   row.innerHTML = `
-    <div class="set-row-main set-row-main--cardio" style="grid-template-columns:28px repeat(${fields.length + 1}, minmax(0, 1fr)) 36px;">
+    <div class="set-row-main set-row-main--cardio" style="grid-template-columns:28px repeat(${fields.length}, minmax(0, 1fr)) 36px;">
       <span class="set-index" data-role="set-index"></span>
-      <div class="set-field" data-role="duration-slot"></div>
-      ${fields.map((f) => `<div class="set-field" data-role="field-${f}"></div>`).join('')}
+      ${fields.map((f) => `<div class="set-field" data-field="${f}"></div>`).join('')}
       <button type="button" class="set-done-btn${set.done ? ' set-done-btn--done' : ''}" data-role="done-btn" aria-label="סימון קטע כבוצע">
         <span class="done-glyph">✓</span>
       </button>
     </div>
     <div class="set-row-meta">
-      <span class="cardio-derived num" data-role="derived"></span>
+      ${efforts.length ? `
+        <div class="effort-chips" role="group" aria-label="עצימות">
+          ${efforts.map((e) => `<button type="button" class="effort-chip" data-effort="${e.id}" aria-pressed="false">${e.label}</button>`).join('')}
+        </div>` : ''}
       <button type="button" class="set-more-btn set-more-btn--meta" data-role="more-btn" aria-label="עוד אפשרויות לקטע">⋯</button>
+      <span class="cardio-derived num" data-role="derived"></span>
     </div>
     <span class="set-row-notes" data-role="notes" hidden></span>
   `;
 
-  const duration = mountClockField(row.querySelector('[data-role="duration-slot"]'), {
-    seconds: set.durationSec,
-    unitLabel: 'זמן',
-    ariaLabel: 'משך הקטע',
-    onCommit: (sec) => { set.durationSec = sec; onCardioEdit(ex); },
-  });
-
-  const others = {};
+  const inputs = {};
   for (const f of fields) {
-    const slot = row.querySelector(`[data-role="field-${f}"]`);
-    if (f === 'speed') continue; // mounted below, since it can switch form
-    const { unit, aria, key } = CARDIO_FIELD_LABELS[f];
-    others[f] = mountNumericField(slot, {
-      value: set[key] ?? 0,
-      unitLabel: unit,
-      ariaLabel: aria,
-      onCommit: (v) => { set[key] = v; onCardioEdit(ex); },
-    });
+    const { key, clock, unit, aria } = CARDIO_FIELDS[f];
+    const slot = row.querySelector(`[data-field="${f}"]`);
+    // Speed and pace are two forms of one value — entering one drops the
+    // other, so a stale pace can't override a speed typed afterwards.
+    const commit = (v) => {
+      set[key] = v;
+      if (v !== null && key === 'paceSec') set.speedKmh = null;
+      if (v !== null && key === 'speedKmh') set.paceSec = null;
+      onCardioEdit(ex);
+    };
+    inputs[f] = clock
+      ? mountClockField(slot, { seconds: set[key], unitLabel: unit, ariaLabel: aria, onCommit: commit })
+      : mountNumericField(slot, { value: set[key], unitLabel: unit, ariaLabel: aria, nullable: true, onCommit: commit });
   }
 
-  const speedSlot = row.querySelector('[data-role="field-speed"]');
+  // Tapping the selected intensity again clears it — it's optional too.
+  row.querySelectorAll('[data-effort]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      set.effort = set.effort === btn.dataset.effort ? null : btn.dataset.effort;
+      onCardioEdit(ex);
+    });
+  });
+
   const doneBtn = row.querySelector('[data-role="done-btn"]');
   doneBtn.addEventListener('click', () => onToggleDone(ex, set));
 
   const ctrl = {
     row,
-    duration,
-    others,
-    speedSlot,
-    speedField: speedSlot ? mountSpeedField(speedSlot, ex, set) : null,
-    speedIsPace: isPaceInput(ex),
+    inputs,
     doneBtn,
+    effortBtns: [...row.querySelectorAll('[data-effort]')],
     indexEl: row.querySelector('[data-role="set-index"]'),
     derivedEl: row.querySelector('[data-role="derived"]'),
     notesEl: row.querySelector('[data-role="notes"]'),
@@ -1396,19 +1386,17 @@ function buildCardioRow(ex, set) {
 
 function patchCardioRow(ex, set, ctrl) {
   const wasDone = ctrl.row.classList.contains('set-row--done');
+  const metrics = segmentMetrics(set);
 
   ctrl.indexEl.textContent = String(ex.sets.indexOf(set) + 1);
-  ctrl.duration.setValue(set.durationSec);
-  for (const [f, field] of Object.entries(ctrl.others)) {
-    field.setValue(set[CARDIO_FIELD_LABELS[f].key] ?? 0);
+  for (const [f, field] of Object.entries(ctrl.inputs)) {
+    field.setValue(set[CARDIO_FIELDS[f].key]);
+    field.setPlaceholder(cardioPlaceholder(f, metrics));
   }
-  if (ctrl.speedSlot) {
-    if (ctrl.speedIsPace !== isPaceInput(ex)) {
-      ctrl.speedField = mountSpeedField(ctrl.speedSlot, ex, set);
-      ctrl.speedIsPace = isPaceInput(ex);
-    } else {
-      ctrl.speedField.setValue(ctrl.speedIsPace ? (speedToPaceSec(set.speedKmh) ?? 0) : (set.speedKmh ?? 0));
-    }
+  for (const btn of ctrl.effortBtns) {
+    const on = set.effort === btn.dataset.effort;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', String(on));
   }
   ctrl.derivedEl.textContent = cardioDerivedText(ex, set);
 
@@ -1919,16 +1907,12 @@ export function openWorkoutForEditing(workout) {
         category: savedEx.category || CARDIO_CATEGORY,
         kind: 'cardio',
         activity: savedEx.activity,
-        paceMode: 'speed',
-        sets: (savedEx.sets || []).map((s) => ({
-          _uid: nextUid(),
-          durationSec: s.durationSec ?? 0,
-          speedKmh: s.speedKmh ?? null,
-          inclinePct: s.inclinePct ?? null,
-          level: s.level ?? null,
-          notes: s.notes || '',
-          done: true,
-        })),
+        inputMode: savedEx.inputMode || 'free',
+        sets: (savedEx.sets || []).map((s) => {
+          const seg = { _uid: nextUid(), notes: s.notes || '', done: true };
+          for (const k of SEGMENT_KEYS) seg[k] = s[k] ?? null;
+          return seg;
+        }),
       };
     }
     const leaderUidByGroup = new Map();
@@ -2049,20 +2033,25 @@ function buildSavedSets(ex) {
     });
 }
 
-// Only the fields the activity actually uses are written, plus the derived
-// distance so anything reading the raw data doesn't have to recompute it.
+// Only what was entered is written (no nulls), plus `calc`: the
+// derived time/distance/speed/pace, for anything reading the raw data.
+// A segment marked done with nothing entered at all isn't worth saving.
 function buildSavedSegments(ex) {
-  const fields = cardioActivity(ex.activity).fields;
+  const round = (n, places) => (n === null ? null : Math.round(n * 10 ** places) / 10 ** places);
   return ex.sets
-    .filter((s) => s.done)
+    .filter((s) => s.done && !isEmptySegment(s))
     .map((s, i) => {
-      const entry = { setNumber: i + 1, durationSec: s.durationSec || 0, notes: s.notes || '' };
-      if (fields.includes('speed')) {
-        entry.speedKmh = Number(s.speedKmh) || 0;
-        entry.distanceKm = Math.round(segmentDistanceKm(s) * 1000) / 1000;
+      const entry = { setNumber: i + 1, notes: s.notes || '' };
+      for (const k of SEGMENT_KEYS) {
+        if (s[k] !== null && s[k] !== undefined && s[k] !== '') entry[k] = s[k];
       }
-      if (fields.includes('incline')) entry.inclinePct = Number(s.inclinePct) || 0;
-      if (fields.includes('level')) entry.level = Number(s.level) || 0;
+      const m = segmentMetrics(s);
+      entry.calc = {
+        durationSec: round(m.durationSec, 0),
+        distanceKm: round(m.distanceKm, 3),
+        speedKmh: round(m.speedKmh, 2),
+        paceSec: round(m.paceSec, 0),
+      };
       return entry;
     });
 }
@@ -2104,7 +2093,7 @@ async function finishWorkout() {
       .map((ex) => ({
         name: ex.name,
         category: ex.category,
-        ...(ex.kind === 'cardio' ? { kind: 'cardio', activity: ex.activity } : {}),
+        ...(ex.kind === 'cardio' ? { kind: 'cardio', activity: ex.activity, inputMode: ex.inputMode } : {}),
         sets: buildSavedSets(ex),
       }))
       .filter((ex) => ex.sets.length > 0);

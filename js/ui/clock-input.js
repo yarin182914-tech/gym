@@ -1,9 +1,10 @@
 import { formatClock } from '../lib/cardio.js';
 
-// Inline m:ss entry — a cardio segment's duration, or a running pace.
-// Same look and commit-on-blur behaviour as numeric-input.js, but a text
-// field so the colon can be typed. Typing digits alone also works: "25" is
-// 25 minutes, "530" is 5:30, "1500" is 15:00.
+// Inline m:ss entry — a cardio segment's duration, or a pace. Same look
+// and commit-on-blur behaviour as numeric-input.js, but a text field so the
+// colon can be typed. Typing digits alone also works: "25" is 25 minutes,
+// "530" is 5:30, "1500" is 15:00. Optional, like every cardio value:
+// clearing the field commits null.
 
 const MAX_SEC = 10 * 3600;
 
@@ -20,8 +21,10 @@ export function parseClock(text) {
   return Number(raw.slice(0, -2)) * 60 + Math.min(Number(raw.slice(-2)), 59);
 }
 
+const shown = (sec) => (sec ? formatClock(sec) : '');
+
 export function mountClockField(hostEl, { seconds, unitLabel = '', ariaLabel = 'זמן', onCommit }) {
-  let lastGood = Math.max(0, Number(seconds) || 0);
+  let lastGood = Number(seconds) > 0 ? Number(seconds) : null;
 
   hostEl.innerHTML = '';
   const wrap = document.createElement('div');
@@ -32,7 +35,7 @@ export function mountClockField(hostEl, { seconds, unitLabel = '', ariaLabel = '
   input.inputMode = 'numeric';
   input.dir = 'ltr';
   input.className = 'numeric-field-input num';
-  input.value = formatClock(lastGood);
+  input.value = shown(lastGood);
   input.setAttribute('aria-label', ariaLabel);
 
   const unitEl = document.createElement('span');
@@ -49,9 +52,14 @@ export function mountClockField(hostEl, { seconds, unitLabel = '', ariaLabel = '
   input.addEventListener('focus', () => input.select());
 
   function commit() {
-    const parsed = parseClock(input.value);
-    if (parsed !== null) lastGood = Math.min(Math.round(parsed), MAX_SEC);
-    input.value = formatClock(lastGood);
+    if (!input.value.trim()) {
+      lastGood = null;
+    } else {
+      const parsed = parseClock(input.value);
+      // Unparseable text keeps the previous value rather than wiping it.
+      if (parsed !== null) lastGood = parsed > 0 ? Math.min(Math.round(parsed), MAX_SEC) : null;
+    }
+    input.value = shown(lastGood);
     onCommit?.(lastGood);
   }
 
@@ -59,7 +67,7 @@ export function mountClockField(hostEl, { seconds, unitLabel = '', ariaLabel = '
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') input.blur();
     if (e.key === 'Escape') {
-      input.value = formatClock(lastGood);
+      input.value = shown(lastGood);
       input.blur();
     }
   });
@@ -67,8 +75,11 @@ export function mountClockField(hostEl, { seconds, unitLabel = '', ariaLabel = '
   return {
     setValue(sec) {
       if (document.activeElement === input) return;
-      lastGood = Math.max(0, Number(sec) || 0);
-      input.value = formatClock(lastGood);
+      lastGood = Number(sec) > 0 ? Number(sec) : null;
+      input.value = shown(lastGood);
+    },
+    setPlaceholder(text) {
+      input.placeholder = text;
     },
     setUnitLabel(text) {
       unitEl.textContent = text;

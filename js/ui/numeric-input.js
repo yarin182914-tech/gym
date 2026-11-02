@@ -15,8 +15,12 @@ function clamp(n, fallback) {
   return Math.min(Math.max(n, MIN), MAX);
 }
 
-export function mountNumericField(hostEl, { value, unitLabel = '', ariaLabel = 'משקל', onCommit }) {
-  let lastGood = clamp(value, 0);
+// nullable: an emptied field commits null and stays empty (cardio, where
+// every value is optional) instead of snapping back to the last number.
+export function mountNumericField(hostEl, { value, unitLabel = '', ariaLabel = 'משקל', nullable = false, onCommit }) {
+  const isBlank = (v) => nullable && (v === null || v === undefined || v === '');
+  let lastGood = isBlank(value) ? null : clamp(value, 0);
+  const shown = (v) => (v === null ? '' : v);
 
   hostEl.innerHTML = '';
   const wrap = document.createElement('div');
@@ -28,7 +32,7 @@ export function mountNumericField(hostEl, { value, unitLabel = '', ariaLabel = '
   input.step = 'any';
   input.dir = 'ltr'; // digits read naturally even inside the page's RTL flow
   input.className = 'numeric-field-input num';
-  input.value = lastGood;
+  input.value = shown(lastGood);
   input.setAttribute('aria-label', ariaLabel);
 
   const unitEl = document.createElement('span');
@@ -48,17 +52,17 @@ export function mountNumericField(hostEl, { value, unitLabel = '', ariaLabel = '
   input.addEventListener('focus', () => input.select());
 
   function commit() {
-    const clamped = clamp(parseFloat(input.value), lastGood);
-    lastGood = clamped;
-    input.value = clamped;
-    onCommit?.(clamped);
+    const next = isBlank(input.value.trim()) ? null : clamp(parseFloat(input.value), lastGood);
+    lastGood = next;
+    input.value = shown(next);
+    onCommit?.(next);
   }
 
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') input.blur(); // triggers commit via blur
     if (e.key === 'Escape') {
-      input.value = lastGood;
+      input.value = shown(lastGood);
       input.blur();
     }
   });
@@ -68,8 +72,12 @@ export function mountNumericField(hostEl, { value, unitLabel = '', ariaLabel = '
     // the screen can never clobber a value the user is mid-typing.
     setValue(v) {
       if (document.activeElement === input) return;
-      lastGood = clamp(v, lastGood);
-      input.value = lastGood;
+      lastGood = isBlank(v) ? null : clamp(v, lastGood);
+      input.value = shown(lastGood);
+    },
+    // Greyed hint shown while the field is empty, e.g. a derived value.
+    setPlaceholder(text) {
+      input.placeholder = text;
     },
     setUnitLabel(text) {
       unitEl.textContent = text;

@@ -254,6 +254,46 @@
   color: var(--text-muted);
 }
 
+/* The only part of the meta line allowed to give way on a narrow screen. */
+.set-row-meta > .cardio-derived {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* An empty cardio field's hint (a derived value, or "—"): readable but
+   clearly not something that was entered. */
+.set-row-main--cardio .numeric-field-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-weight: var(--weight-regular);
+}
+
+/* Optional intensity — same chip as .pill; tapping the active one clears it. */
+.effort-chips {
+  display: flex;
+  gap: 4px;
+}
+
+.effort-chip {
+  min-height: var(--chip-h);
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.effort-chip.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--gold);
+}
+
 .cardio-summary {
   font-weight: var(--weight-semibold);
   color: var(--text);
