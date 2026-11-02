@@ -119,6 +119,7 @@ export function summarizeSegments(segments) {
   let distanceKm = 0;
   let pacedSec = 0;
   let pacedKm = 0;
+  let maxLevel = 0;
   for (const seg of segments || []) {
     const m = segmentMetrics(seg);
     durationSec += m.durationSec || 0;
@@ -127,8 +128,56 @@ export function summarizeSegments(segments) {
       pacedSec += m.durationSec;
       pacedKm += m.distanceKm;
     }
+    maxLevel = Math.max(maxLevel, Number(seg.level) || 0);
   }
-  return { durationSec, distanceKm, avgPaceSec: pacedKm > 0 ? pacedSec / pacedKm : null };
+  return { durationSec, distanceKm, avgPaceSec: pacedKm > 0 ? pacedSec / pacedKm : null, maxLevel };
+}
+
+// ---------- records ----------
+// Cardio has no single "heaviest" to rank by, so each activity tracks a few
+// separate records, each judged on one workout's totals (summarizeSegments).
+
+const RECORDS = {
+  distance: { label: 'מרחק הכי ארוך', short: 'מרחק', value: (t) => t.distanceKm, better: (a, b) => a > b, format: (v) => `${formatKm(v)} ק"מ` },
+  pace: { label: 'קצב הכי מהיר', short: 'קצב', value: (t) => t.avgPaceSec, better: (a, b) => a < b, format: (v) => `${formatClock(v)} /ק"מ` },
+  duration: { label: 'זמן הכי ארוך', short: 'זמן', value: (t) => t.durationSec, better: (a, b) => a > b, format: (v) => formatClock(v) },
+  level: { label: 'רמה הכי גבוהה', short: 'רמה', value: (t) => t.maxLevel, better: (a, b) => a > b, format: (v) => `רמה ${v}` },
+};
+
+function recordIds(activityId) {
+  if (activityId === 'stairs') return ['duration', 'level'];
+  if (activityId === 'bike') return ['distance', 'duration', 'level'];
+  return ['distance', 'pace', 'duration'];
+}
+
+// points: [{ date, sets }] in any order. Returns only records that have a
+// value: [{ id, label, value, text, date }]. An exact tie goes to the newer
+// workout, same as the strength PR.
+export function findCardioRecords(activityId, points) {
+  return recordIds(activityId).map((id) => {
+    const def = RECORDS[id];
+    let best = null;
+    for (const p of points || []) {
+      const v = def.value(summarizeSegments(p.sets));
+      if (!v) continue;
+      const date = p.date?.toDate ? p.date.toDate() : new Date(p.date);
+      if (!best || def.better(v, best.value) || (v === best.value && date > best.date)) best = { value: v, date };
+    }
+    return best && { id, label: def.label, value: best.value, text: def.format(best.value), date: best.date };
+  }).filter(Boolean);
+}
+
+// The records this workout's segments beat — the short names, e.g. ['מרחק'].
+// Nothing counts as broken with no history to compare against.
+export function brokenCardioRecords(activityId, points, sets) {
+  const totals = summarizeSegments(sets);
+  const records = findCardioRecords(activityId, points);
+  return records
+    .filter((r) => {
+      const v = RECORDS[r.id].value(totals);
+      return v && RECORDS[r.id].better(v, r.value);
+    })
+    .map((r) => RECORDS[r.id].short);
 }
 
 // "25:00 · 3.4 ק"מ · 7:21 /ק"מ" — each part only when known.

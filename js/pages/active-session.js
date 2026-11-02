@@ -1,6 +1,6 @@
 import { esc } from '../core/dom.js';
 import { beginMount, isStale } from '../core/page.js';
-import { setsTable } from '../ui/sets-table.js';
+import { setsTable, cardioTable } from '../ui/sets-table.js';
 import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 import { mountNumericField } from '../ui/numeric-input.js';
 import { mountClockField } from '../ui/clock-input.js';
@@ -23,7 +23,7 @@ import {
 import {
   CARDIO_CATEGORY, CARDIO_LIBRARY, CARDIO_FIELDS, SEGMENT_KEYS, cardioActivity, hasInputModes,
   segmentFields, segmentMetrics, isEmptySegment, formatClock, formatKm, formatSpeed,
-  summarizeSegments, formatSummary,
+  summarizeSegments, formatSummary, findCardioRecords, brokenCardioRecords,
 } from '../lib/cardio.js';
 
 let container = null;
@@ -351,8 +351,46 @@ function renderLastTimePane(point, roleAttr) {
     </div>`;
 }
 
+// Cardio's PR pane: its records, each with the date it was set (they can
+// come from different workouts, so there's no single breakdown to show).
+function renderCardioRecordsPane(records, roleAttr) {
+  return `
+    <div class="last-time-pane" data-role="${roleAttr}">
+      <div class="cardio-records">
+        ${records.map((r) => `
+          <div class="cardio-record">
+            <span class="cardio-record-label">${esc(r.label)}</span>
+            <span class="num last-time-headline-value">${esc(r.text)}</span>
+            <span class="last-time-headline-date">${esc(formatDateHe(r.date))}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function renderCardioLastPane({ workoutDate, sets }, activity, roleAttr) {
+  return `
+    <div class="last-time-pane" data-role="${roleAttr}">
+      <div class="last-time-headline">
+        <span class="last-time-headline-date">${esc(formatDateHe(workoutDate))}</span>
+      </div>
+      ${cardioTable({ activity, sets })}
+    </div>`;
+}
+
 function renderLastTimeModal() {
-  const { name, pr, last } = lastTimeModal;
+  const { name } = lastTimeModal;
+  // Each pane as markup (or null when there's no data for it) — cardio and
+  // strength differ only in what goes inside them.
+  let pr;
+  let last;
+  if (lastTimeModal.cardio) {
+    const { records, activity } = lastTimeModal;
+    pr = records.length ? (role) => renderCardioRecordsPane(records, role) : null;
+    last = lastTimeModal.last ? (role) => renderCardioLastPane(lastTimeModal.last, activity, role) : null;
+  } else {
+    pr = lastTimeModal.pr && ((role) => renderLastTimePane(lastTimeModal.pr, role));
+    last = lastTimeModal.last && ((role) => renderLastTimePane(lastTimeModal.last, role));
+  }
   // Always shown once both sides exist — including when they happen to be
   // identical (a single logged workout, or no progress since) — for a
   // consistent toggle across every exercise instead of some having it and
@@ -374,12 +412,12 @@ function renderLastTimeModal() {
       })}
       <div class="last-time-swipe">
         <div class="last-time-track" data-role="last-time-track">
-          ${renderLastTimePane(pr, 'pane-pr')}
-          ${renderLastTimePane(last, 'pane-last')}
+          ${pr('pane-pr')}
+          ${last('pane-last')}
         </div>
       </div>`;
   } else {
-    body = renderLastTimePane(pr || last, 'pane-solo');
+    body = (pr || last)('pane-solo');
   }
 
   return `
@@ -715,7 +753,7 @@ function buildExerciseCard(ex) {
         <span class="exercise-name">${esc(ex.name)}</span>
         <span class="exercise-meta${allDone ? ' exercise-meta--done' : ''}" data-role="exercise-meta">${esc(exerciseMetaText(ex))}</span>
       </div>
-      ${isCardio ? '' : `<button type="button" class="set-more-btn" data-last-time aria-label="פעם קודמת">${icon('clock', { className: 'icon--sm' })}</button>`}
+      <button type="button" class="set-more-btn" data-last-time aria-label="פעם קודמת">${icon('clock', { className: 'icon--sm' })}</button>
       <button type="button" class="set-more-btn set-more-btn--danger" data-delete-exercise aria-label="מחיקת התרגיל">${icon('trash-2', { className: 'icon--sm' })}</button>
       <button type="button" class="set-more-btn" data-collapse-toggle aria-label="כיווץ/הרחבת התרגיל">
         <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-collapse-chevron aria-hidden="true">⌄</span>
@@ -733,8 +771,10 @@ function buildExerciseCard(ex) {
     </div>
   `;
 
-  el.querySelector('[data-last-time]')?.addEventListener('click', () => {
-    lastTimeModal = { name: ex.name, pr: findExercisePR(ex), last: findExerciseLast(ex) };
+  el.querySelector('[data-last-time]').addEventListener('click', () => {
+    lastTimeModal = isCardio
+      ? { name: ex.name, cardio: true, activity: ex.activity, records: findCardioRecords(ex.activity, cardioPoints(ex)), last: ex.previous }
+      : { name: ex.name, pr: findExercisePR(ex), last: findExerciseLast(ex) };
     render();
   });
 
@@ -1786,7 +1826,15 @@ function applyFocusMode() {
 function onToggleDone(ex, set) {
   set.done = !set.done;
   if (set.done && ex.kind === 'cardio') {
-    if (navigator.vibrate) navigator.vibrate(15);
+    // A record is judged on the whole exercise so far, so it can be broken
+    // by the 3rd segment rather than any one of them — each is announced
+    // once per workout, not again on every segment after it.
+    ex.announcedRecords ||= [];
+    const fresh = brokenCardioRecords(ex.activity, cardioPoints(ex), ex.sets.filter((s) => s.done))
+      .filter((r) => !ex.announcedRecords.includes(r));
+    ex.announcedRecords.push(...fresh);
+    if (navigator.vibrate) navigator.vibrate(fresh.length ? [20, 40, 20] : 15);
+    if (fresh.length) showToast(`${icon('trophy', { className: 'icon--sm' })} שיא חדש — ${fresh.join(', ')}!`);
   } else if (set.done) {
     const isNewPR = computePR(ex, set);
     set.isPR = isNewPR;
@@ -1803,6 +1851,14 @@ function computePR(ex, set) {
     .filter((s) => s.weightMode === set.weightMode && (s.weightUnit || 'kg') === set.weightUnit)
     .reduce((max, s) => Math.max(max, s.weight), 0);
   return set.weight > bestPrev;
+}
+
+// Every past workout of a cardio exercise, as { date, sets } — ex.previous
+// comes from a separate lookup, so it's added in case history lags.
+function cardioPoints(ex) {
+  const points = [...(ex.history || [])];
+  if (ex.previous) points.push({ date: ex.previous.workoutDate, sets: ex.previous.sets });
+  return points;
 }
 
 // ---------- "last time" popup: PR vs last-performance lookup ----------
