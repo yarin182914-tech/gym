@@ -306,6 +306,32 @@
   color: var(--text);
 }
 
+/* Segment timer: ▶ when idle, "⏸ 4:32" while counting. Solid accent while
+   running so the one live row is easy to find at a glance. */
+.timer-chip {
+  min-height: var(--chip-h);
+  min-width: var(--chip-h);
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  /* digits and glyphs in reading order inside the RTL row */
+  direction: ltr;
+}
+
+.timer-chip.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--gold-text);
+}
+
+.set-row--timing {
+  border-inline-start-color: var(--accent);
+}
+
 /* Drop-set stages share every bit of a regular set's design — type sizes,
    colours, active ring — only nudged in a little so 2.1, 2.2 read as
    sub-sets of 2. No connector line or extra colour; the number and the

@@ -98,6 +98,9 @@ export async function mountActiveSession(rootEl) {
   }
 
   loadLibrary(token);
+  // A segment timer that was running when the page went away picks up
+  // where the clock says it should be.
+  if (session?.timer) ensureTimerRunning();
 }
 
 // Only the exercise picker needs the library, so it loads in the
@@ -155,6 +158,7 @@ function persistSession(s = session) {
       realStartedAt: s.realStartedAt.toISOString(),
       editingWorkoutId: s.editingWorkoutId || null,
       originalEndTime: s.originalEndTime ? s.originalEndTime.toISOString() : null,
+      timer: s.timer || null,
       exercises: s.exercises.map((ex) => ({
         _uid: ex._uid,
         name: ex.name,
@@ -185,6 +189,7 @@ function loadPersistedSession() {
       realStartedAt: new Date(parsed.realStartedAt),
       editingWorkoutId: parsed.editingWorkoutId || null,
       originalEndTime: parsed.originalEndTime ? new Date(parsed.originalEndTime) : null,
+      timer: parsed.timer || null,
       exercises: (parsed.exercises || []).map((ex) => ({
         ...ex,
         previous: null,
@@ -765,6 +770,7 @@ function buildExerciseCard(ex) {
         <div class="sets-list"></div>
         <div class="row" style="gap:8px; margin-top:10px;">
           <button class="btn btn-dashed" data-add-set>${isCardio ? '+ קטע' : '+ סט'}</button>
+          ${isCardio ? '<button type="button" class="btn btn-dashed" data-repeat-segments>חזרה ×</button>' : ''}
           <button type="button" class="btn btn-outline" data-finish-exercise style="flex:1;">סיום תרגיל</button>
         </div>
       </div>
@@ -789,6 +795,7 @@ function buildExerciseCard(ex) {
   el.querySelector('[data-collapse-toggle]').addEventListener('click', () => {
     toggleExerciseCollapse(ex);
   });
+  el.querySelector('[data-repeat-segments]')?.addEventListener('click', () => openRepeatSheet(ex));
   el.querySelector('[data-finish-exercise]').addEventListener('click', () => {
     toggleExerciseCollapse(ex);
   });
@@ -1368,6 +1375,8 @@ function buildCardioRow(ex, set) {
       </button>
     </div>
     <div class="set-row-meta">
+      <button type="button" class="timer-chip num" data-role="timer-btn">▶</button>
+      <button type="button" class="timer-chip" data-role="timer-stop" aria-label="עצירת הטיימר" hidden>⏹</button>
       ${efforts.length ? `
         <div class="effort-chips" role="group" aria-label="עצימות">
           ${efforts.map((e) => `<button type="button" class="effort-chip" data-effort="${e.id}" aria-pressed="false">${e.label}</button>`).join('')}
@@ -1411,6 +1420,8 @@ function buildCardioRow(ex, set) {
     inputs,
     doneBtn,
     effortBtns: [...row.querySelectorAll('[data-effort]')],
+    timerBtn: row.querySelector('[data-role="timer-btn"]'),
+    timerStopBtn: row.querySelector('[data-role="timer-stop"]'),
     indexEl: row.querySelector('[data-role="set-index"]'),
     derivedEl: row.querySelector('[data-role="derived"]'),
     notesEl: row.querySelector('[data-role="notes"]'),
@@ -1420,6 +1431,15 @@ function buildCardioRow(ex, set) {
   row.querySelector('[data-role="more-btn"]').addEventListener('click', () => {
     openCardioSegmentSheet(ex, set);
   });
+
+  // ▶ on this segment's own running timer pauses/resumes it; on any other
+  // segment it (re)starts the timer there.
+  ctrl.timerBtn.addEventListener('click', () => {
+    const t = session.timer;
+    if (t && t.exUid === ex._uid && t.segUid === set._uid) toggleTimerPause();
+    else startSegmentTimer(ex, set);
+  });
+  ctrl.timerStopBtn.addEventListener('click', stopTimer);
 
   return ctrl;
 }
@@ -1439,6 +1459,7 @@ function patchCardioRow(ex, set, ctrl) {
     btn.setAttribute('aria-pressed', String(on));
   }
   ctrl.derivedEl.textContent = cardioDerivedText(ex, set);
+  patchTimerChip(ex, set);
 
   ctrl.doneBtn.classList.toggle('set-done-btn--done', set.done);
   ctrl.row.classList.toggle('set-row--done', set.done);
@@ -1454,6 +1475,266 @@ function patchCardioRow(ex, set, ctrl) {
   } else {
     ctrl.notesEl.hidden = true;
   }
+}
+
+// ---------- segment timer ----------
+// ▶ on a segment counts its time down — or, with no time entered, counts
+// up like a stopwatch until ⏹. A countdown that ends marks the segment
+// done and rolls straight into the next one, so a block of intervals runs
+// hands-free.
+//
+// Lives on the session (session.timer), so it's persisted with it, and
+// it's all timestamps rather than a running count: a locked phone, a
+// backgrounded tab or a reload just catches up on the next tick instead of
+// losing time. { exUid, segUid, mode: 'down'|'up', startedAt, endsAt,
+// pausedMs } — pausedMs (ms left, or ms elapsed when counting up) is set
+// only while paused.
+
+let timerInterval = null;
+let wakeLock = null;
+let audioCtx = null;
+
+function timerTarget() {
+  const t = session?.timer;
+  if (!t) return null;
+  const ex = session.exercises.find((e) => e._uid === t.exUid);
+  const set = ex?.sets.find((s) => s._uid === t.segUid);
+  return set ? { t, ex, set } : null;
+}
+
+// ms left counting down, or ms elapsed counting up.
+function timerReading(t, now = Date.now()) {
+  if (t.pausedMs !== null) return t.pausedMs;
+  return t.mode === 'down' ? Math.max(0, t.endsAt - now) : now - t.startedAt;
+}
+
+function startSegmentTimer(ex, set, startAt = Date.now()) {
+  // Created on a tap so the browser lets it play the end-of-segment beep later.
+  if (!audioCtx && window.AudioContext) {
+    try { audioCtx = new AudioContext(); } catch { /* no sound, vibration still works */ }
+  }
+  const prev = timerTarget();
+  session.timer = {
+    exUid: ex._uid,
+    segUid: set._uid,
+    mode: set.durationSec ? 'down' : 'up',
+    startedAt: startAt,
+    endsAt: set.durationSec ? startAt + set.durationSec * 1000 : null,
+    pausedMs: null,
+  };
+  if (prev && prev.ex !== ex) patchExerciseCard(prev.ex);
+  ensureTimerRunning();
+  patchExerciseCard(ex);
+  persistSession();
+}
+
+function toggleTimerPause() {
+  const t = session?.timer;
+  if (!t) return;
+  const now = Date.now();
+  if (t.pausedMs === null) {
+    t.pausedMs = timerReading(t, now);
+    releaseWakeLock();
+  } else {
+    if (t.mode === 'down') t.endsAt = now + t.pausedMs;
+    else t.startedAt = now - t.pausedMs;
+    t.pausedMs = null;
+    requestWakeLock();
+  }
+  const target = timerTarget();
+  if (target) patchExerciseCard(target.ex);
+  persistSession();
+}
+
+// ⏹: a stopwatch's time becomes the segment's and it's marked done; a
+// countdown is just cancelled (✓ is still there if it was done anyway).
+function stopTimer() {
+  const target = timerTarget();
+  session.timer = null;
+  stopTimerLoop();
+  if (!target) return;
+  if (target.t.mode === 'up') {
+    target.set.durationSec = Math.max(1, Math.round(timerReading(target.t) / 1000));
+    if (!target.set.done) onToggleDone(target.ex, target.set);
+  }
+  patchExerciseCard(target.ex);
+  persistSession();
+}
+
+function ensureTimerRunning() {
+  if (!timerInterval) timerInterval = setInterval(tickTimer, 250);
+  if (session?.timer?.pausedMs === null) requestWakeLock();
+}
+
+function stopTimerLoop() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  releaseWakeLock();
+}
+
+function tickTimer() {
+  const target = timerTarget();
+  if (!target) {
+    // The workout was finished/cancelled, or the segment deleted.
+    if (session) session.timer = null;
+    stopTimerLoop();
+    return;
+  }
+  const { t, ex, set } = target;
+  if (t.mode === 'down' && t.pausedMs === null && Date.now() >= t.endsAt) {
+    completeTimedSegment(ex, set, t.endsAt);
+    return;
+  }
+  patchTimerChip(ex, set);
+}
+
+// Next segment in this exercise still to do, with a time to count down —
+// one without a time ends the run (it'd be a stopwatch needing a ⏹).
+function nextTimedSegment(ex, set) {
+  const after = ex.sets.slice(ex.sets.indexOf(set) + 1);
+  const next = after.find((s) => !s.done);
+  return next && next.durationSec ? next : null;
+}
+
+function completeTimedSegment(ex, set, endedAt) {
+  if (!set.done) onToggleDone(ex, set);
+  signalSegmentEnd();
+  const next = nextTimedSegment(ex, set);
+  if (next) {
+    // From when this one actually ended, not from now — after a locked
+    // screen, the next tick keeps rolling through what elapsed meanwhile.
+    startSegmentTimer(ex, next, endedAt);
+    tickTimer();
+  } else {
+    session.timer = null;
+    stopTimerLoop();
+    patchExerciseCard(ex);
+    persistSession();
+    showToast('✓ סיימת את הקטעים');
+  }
+}
+
+function signalSegmentEnd() {
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  if (!audioCtx) return;
+  try {
+    audioCtx.resume?.();
+    [0, 0.25].forEach((offset) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.frequency.value = 880;
+      gain.gain.value = 0.15;
+      osc.connect(gain).connect(audioCtx.destination);
+      const start = audioCtx.currentTime + offset;
+      osc.start(start);
+      osc.stop(start + 0.15);
+    });
+  } catch { /* sound is a nicety */ }
+}
+
+// Keeps the screen on while a timer runs — reading it off a phone propped
+// on a treadmill is the main use. Browsers drop the lock whenever the page
+// is hidden, so it's re-requested on return (see the visibilitychange
+// listener below).
+async function requestWakeLock() {
+  if (wakeLock || !navigator.wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch { /* denied or unsupported — the timer still works */ }
+}
+
+function releaseWakeLock() {
+  wakeLock?.release().catch(() => {});
+  wakeLock = null;
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && session?.timer) {
+    tickTimer();
+    if (session?.timer?.pausedMs === null) requestWakeLock();
+  }
+});
+
+// The row's timer chip — the only part of the screen updated every tick.
+function patchTimerChip(ex, set) {
+  const ctrl = exerciseRefs.get(ex._uid)?.setsEls.get(set._uid);
+  if (!ctrl?.timerBtn) return;
+  const t = session?.timer;
+  const mine = t && t.exUid === ex._uid && t.segUid === set._uid;
+  ctrl.row.classList.toggle('set-row--timing', !!mine);
+  ctrl.timerStopBtn.hidden = !mine;
+  if (!mine) {
+    ctrl.timerBtn.textContent = '▶';
+    ctrl.timerBtn.setAttribute('aria-label', set.durationSec ? 'הפעלת טיימר לקטע' : 'הפעלת סטופר לקטע');
+    ctrl.timerBtn.classList.remove('active');
+    return;
+  }
+  const paused = t.pausedMs !== null;
+  // A countdown shows 0:01 until it really ends; a stopwatch counts whole seconds done.
+  const sec = (t.mode === 'down' ? Math.ceil : Math.floor)(timerReading(t) / 1000);
+  ctrl.timerBtn.textContent = `${paused ? '▶' : '⏸'} ${formatClock(sec)}`;
+  ctrl.timerBtn.setAttribute('aria-label', paused ? 'המשך טיימר' : 'השהיית טיימר');
+  ctrl.timerBtn.classList.toggle('active', !paused);
+}
+
+// "חזרה ×": appends copies of the last few segments, e.g. a 1-min run +
+// 1-min walk pair, 6 more times.
+function openRepeatSheet(ex) {
+  if (ex.sets.length === 0) return;
+  const maxBlock = Math.min(4, ex.sets.length);
+  let block = Math.min(2, maxBlock);
+  let times = 3;
+
+  openBottomSheet({
+    ariaLabel: 'חזרה על קטעים',
+    render(body, sheetApi) {
+      body.innerHTML = `
+        <h3 style="margin:0 0 14px; color:var(--text);">חזרה על קטעים</h3>
+        <div class="sheet-field-label">אילו קטעים</div>
+        <div class="pill-row">
+          ${Array.from({ length: maxBlock }, (_, i) => i + 1).map((n) => `
+            <button type="button" class="pill" data-block="${n}">${n === 1 ? 'הקטע האחרון' : `${n} האחרונים`}</button>`).join('')}
+        </div>
+        <div class="sheet-field-label">כמה פעמים נוספות</div>
+        <div data-role="times-wheel"></div>
+        <p class="text-muted" data-role="repeat-preview" style="margin:10px 0 0;"></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-secondary" data-role="repeat-cancel">ביטול</button>
+          <button type="button" class="btn btn-primary" data-role="repeat-add">הוספה</button>
+        </div>
+      `;
+      const preview = body.querySelector('[data-role="repeat-preview"]');
+      const refresh = () => {
+        body.querySelectorAll('[data-block]').forEach((b) => b.classList.toggle('active', Number(b.dataset.block) === block));
+        preview.textContent = `יתווספו ${block * times} קטעים`;
+      };
+      body.querySelectorAll('[data-block]').forEach((b) => {
+        b.addEventListener('click', () => { block = Number(b.dataset.block); refresh(); });
+      });
+      mountWheelPicker(body.querySelector('[data-role="times-wheel"]'), {
+        min: 1, max: 20, value: times, onCommit: (v) => { times = v; refresh(); },
+      });
+      refresh();
+
+      body.querySelector('[data-role="repeat-cancel"]').addEventListener('click', () => sheetApi.close());
+      body.querySelector('[data-role="repeat-add"]').addEventListener('click', () => {
+        const source = ex.sets.slice(-block);
+        for (let i = 0; i < times; i++) {
+          for (const s of source) {
+            const copy = { _uid: nextUid(), notes: s.notes || '', done: false };
+            for (const k of SEGMENT_KEYS) copy[k] = s[k] ?? null;
+            ex.sets.push(copy);
+          }
+        }
+        sheetApi.close();
+      });
+    },
+    onClose() {
+      if (exerciseRefs.has(ex._uid)) patchExerciseCard(ex);
+      persistSession();
+    },
+  });
 }
 
 // The "⋯" sheet for a segment: notes, duplicate (the quick way to build
