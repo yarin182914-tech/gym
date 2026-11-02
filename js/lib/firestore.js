@@ -9,6 +9,7 @@ import {
   devListExerciseLibrary, devAddExerciseToLibrary,
   devRenameExerciseEverywhere, devDeleteExerciseFromLibrary,
   devAddNutritionEntry, devListNutritionEntries,
+  devSetBodyWeight, devListBodyWeights,
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
 } from './dev-store.js';
 
@@ -259,6 +260,32 @@ export async function listNutritionEntries(max = 200) {
   if (!useCloud) return devListNutritionEntries(max);
   const uid = uidOrThrow();
   const ref = collection(db, 'users', uid, 'nutritionEntries');
+  const q = query(ref, orderBy('date', 'desc'), limit(max));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------- body weight ----------
+// One document per calendar day, keyed by its local yyyy-mm-dd (also kept
+// as the `date` field, for ordering) — weighing in again the same day
+// overwrites that day's entry instead of adding a second one.
+
+export async function setBodyWeight(dateKey, { kg, note = '' }) {
+  if (!useCloud) return devSetBodyWeight(dateKey, { kg, note });
+  const uid = uidOrThrow();
+  await setDoc(doc(db, 'users', uid, 'bodyWeight', dateKey), {
+    date: dateKey,
+    kg,
+    note,
+    loggedAt: serverTimestamp(),
+  });
+}
+
+// Newest day first.
+export async function listBodyWeights(max = 400) {
+  if (!useCloud) return devListBodyWeights(max);
+  const uid = uidOrThrow();
+  const ref = collection(db, 'users', uid, 'bodyWeight');
   const q = query(ref, orderBy('date', 'desc'), limit(max));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));

@@ -1,5 +1,5 @@
 import { renderPlateDial } from '../lib/plate-dial.js';
-import { addNutritionEntry, listNutritionEntries } from '../lib/firestore.js';
+import { addNutritionEntry, listNutritionEntries, listBodyWeights } from '../lib/firestore.js';
 import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
 import { toDate, dateInputValue, parseDateInputValue } from '../lib/format.js';
@@ -8,6 +8,7 @@ import { stepper } from '../ui/stepper.js';
 import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { mountNumericField } from '../ui/numeric-input.js';
+import { createBodyWeightCard } from '../ui/body-weight-card.js';
 
 const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
 // 'snack' is kept only so older entries saved under it still display a
@@ -35,6 +36,7 @@ let form = null;
 let aiStatus = null; // null | 'loading' | 'unavailable' | 'error' | 'reviewing'
 let reviewItems = null; // mutable copy of analyzeFoodPhoto()'s items while aiStatus === 'reviewing'
 let gramsFieldCtrls = []; // mountNumericField controllers, one per reviewItems row
+let bodyWeightCard = null; // created once per visit, re-attached by every render()
 
 function isToday(d) {
   const a = toDate(d);
@@ -46,9 +48,17 @@ export async function mountNutrition(rootEl) {
   const token = beginMount();
   container = rootEl;
   renderLoading(container, 'טוען נתוני תזונה...');
-  const loaded = await listNutritionEntries(200);
+  const [loaded, weights] = await Promise.all([
+    listNutritionEntries(200),
+    // A failed weigh-in load shouldn't take the meals down with it.
+    listBodyWeights(400).catch((err) => {
+      console.error('[body-weight] load failed', err);
+      return [];
+    }),
+  ]);
   if (isStale(token)) return;
   entries = loaded;
+  bodyWeightCard = createBodyWeightCard(weights);
   render();
 }
 
@@ -60,6 +70,7 @@ export function unmountNutrition() {
   aiStatus = null;
   reviewItems = null;
   gramsFieldCtrls = [];
+  bodyWeightCard = null;
 }
 
 function todayEntries() {
@@ -93,6 +104,8 @@ function render() {
   const totals = todayTotals();
 
   container.innerHTML = `
+    <div id="body-weight-slot"></div>
+
     <div class="card" style="text-align:center;">
       <div id="calorie-ring" style="margin-bottom:8px;"></div>
     </div>
@@ -119,6 +132,8 @@ function render() {
           </div>`).join('')}
     </div>
   `;
+
+  container.querySelector('#body-weight-slot').replaceWith(bodyWeightCard);
 
   renderPlateDial(container.querySelector('#calorie-ring'), {
     progress: totals.calories / TARGETS.calories,

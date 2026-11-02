@@ -1685,3 +1685,94 @@ th {
   width: var(--icon-lg);
   height: var(--icon-lg);
 }
+
+/* ===== Morning body-weight card (Nutrition) — see js/ui/body-weight-card.js ===== */
+.bw-label {
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.bw-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.bw-last {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.bw-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bw-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.bw-step {
+  width: var(--control-h);
+  height: var(--control-h);
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--accent);
+  font-size: 1.15rem;
+}
+
+.bw-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.bw-field .numeric-field {
+  width: 100%;
+  justify-content: center;
+}
+
+.bw-field .numeric-field-input {
+  width: 5ch;
+  flex: none;
+  text-align: center;
+  font-size: 1.4rem;
+  height: 1.4rem;
+}
+
+.bw-logged {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.bw-value {
+  font-size: 1.25rem;
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.bw-unit {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-inline-start: 3px;
+}
+
+.bw-change {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.bw-edit {
+  margin-inline-start: auto;
+  font-size: var(--text-sm);
+  color: var(--accent);
+  padding: 4px 0;
+}

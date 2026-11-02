@@ -12,7 +12,7 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw);
   } catch { /* corrupt/blocked storage falls through to defaults */ }
-  return { user: { displayName: 'מצב פיתוח', weddingDate: null }, workouts: [], exerciseLibrary: [], nutritionEntries: [], plans: [], feedback: [] };
+  return { user: { displayName: 'מצב פיתוח', weddingDate: null }, workouts: [], exerciseLibrary: [], nutritionEntries: [], plans: [], feedback: [], bodyWeights: [] };
 }
 
 function save(state) {
@@ -137,6 +137,21 @@ export async function devListNutritionEntries(max = 200) {
   const state = load();
   return [...state.nutritionEntries]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, max);
+}
+
+export async function devSetBodyWeight(dateKey, { kg, note = '' }) {
+  const state = load();
+  if (!state.bodyWeights) state.bodyWeights = []; // localStorage blobs saved before this field existed
+  state.bodyWeights = state.bodyWeights.filter((w) => w.id !== dateKey);
+  state.bodyWeights.push({ id: dateKey, date: dateKey, kg, note, loggedAt: new Date().toISOString() });
+  save(state);
+}
+
+export async function devListBodyWeights(max = 400) {
+  const state = load();
+  return [...(state.bodyWeights || [])]
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, max);
 }
 
