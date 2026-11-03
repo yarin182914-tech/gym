@@ -232,3 +232,90 @@ export async function renderBodyWeightChart(canvas, { labels, raw, trend }, exis
     },
   });
 }
+
+// Shared look for the cardio charts below: no legend, themed tooltip, one
+// recessive y grid.
+function cardioChartOptions(colors, { yTicks, reverseY = false, tooltipLabel }) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: colors.tooltipBg,
+        titleColor: colors.text,
+        bodyColor: colors.text,
+        titleFont: { family: 'Rubik' },
+        bodyFont: { family: 'Rubik' },
+        padding: 10,
+        callbacks: { label: tooltipLabel },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { family: 'Rubik', size: 11 }, color: colors.muted, maxTicksLimit: 8, maxRotation: 0 },
+      },
+      y: {
+        reverse: reverseY,
+        grid: { color: colors.grid },
+        beginAtZero: !reverseY,
+        ticks: { font: { family: 'Oswald', size: 11 }, color: colors.muted, maxTicksLimit: 5, callback: yTicks },
+      },
+    },
+  };
+}
+
+// Cardio minutes per week — bars, the current week in the accent colour.
+export async function renderCardioWeeksChart(canvas, { labels, minutes }, existingChart) {
+  const Chart = await loadChartLib();
+  if (existingChart) existingChart.destroy();
+  const colors = themeColors();
+  const css = getComputedStyle(document.documentElement);
+  const accent = css.getPropertyValue('--accent').trim();
+  return new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: minutes,
+        backgroundColor: minutes.map((_, i) => (i === minutes.length - 1 ? accent : colors.line)),
+        borderRadius: 4,
+        maxBarThickness: 28,
+      }],
+    },
+    options: cardioChartOptions(colors, {
+      yTicks: (v) => v,
+      tooltipLabel: (ctx) => `${ctx.parsed.y} דק'`,
+    }),
+  });
+}
+
+// Average pace per workout (seconds per km), y reversed so a faster pace
+// sits higher — "up is better", like every other progress chart here.
+export async function renderPaceChart(canvas, { labels, paces, formatPace }, existingChart) {
+  const Chart = await loadChartLib();
+  if (existingChart) existingChart.destroy();
+  const colors = themeColors();
+  return new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: paces,
+        borderColor: colors.line,
+        borderWidth: 2,
+        pointRadius: 4,
+        pointBackgroundColor: colors.line,
+        pointBorderColor: colors.line,
+        tension: 0.2,
+        fill: false,
+      }],
+    },
+    options: cardioChartOptions(colors, {
+      reverseY: true,
+      yTicks: (v) => formatPace(v),
+      tooltipLabel: (ctx) => `${formatPace(ctx.parsed.y)} /ק"מ`,
+    }),
+  });
+}

@@ -9,12 +9,14 @@ import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { openExerciseEditSheet } from '../ui/exercise-edit-sheet.js';
 import { mountBodyWeightTrend } from '../ui/body-weight-trend.js';
+import { mountCardioStats } from '../ui/cardio-stats.js';
 
 let pageRoot = null;
 // The exercise-progress part of the screen, which render() rebuilds; the
 // body-weight card above it lives in its own host.
 let container = null;
 let bodyWeightTrend = null;
+let cardioStats = null;
 let allExerciseNames = [];
 let categoryByName = new Map();
 // name -> { id, name, category } — real library entries have a real id;
@@ -33,6 +35,7 @@ let picker = { open: false, query: '', category: null };
 window.addEventListener('gym-theme-change', () => {
   if (container && chartInstance) render();
   bodyWeightTrend?.redraw();
+  cardioStats?.redraw();
 });
 
 export function unmountDashboard() {
@@ -40,6 +43,8 @@ export function unmountDashboard() {
   chartInstance = null;
   bodyWeightTrend?.destroy();
   bodyWeightTrend = null;
+  cardioStats?.destroy();
+  cardioStats = null;
   pageRoot = null;
   container = null;
   allExerciseNames = [];
@@ -64,9 +69,11 @@ export async function mountDashboard(rootEl) {
   ]);
   if (isStale(token)) return;
 
-  rootEl.innerHTML = '<div data-dash-weight></div><div data-dash-exercises></div>';
+  rootEl.innerHTML = '<div data-dash-weight></div><div data-dash-cardio></div><div data-dash-exercises></div>';
   bodyWeightTrend?.destroy();
   bodyWeightTrend = mountBodyWeightTrend(rootEl.querySelector('[data-dash-weight]'), weights);
+  cardioStats?.destroy();
+  cardioStats = mountCardioStats(rootEl.querySelector('[data-dash-cardio]'), workouts);
   container = rootEl.querySelector('[data-dash-exercises]');
 
   const namesInRecencyOrder = [];
@@ -74,7 +81,7 @@ export async function mountDashboard(rootEl) {
   categoryByName = new Map();
   for (const w of workouts) {
     for (const ex of w.exercises || []) {
-      // Cardio has no weight to chart or rank — it gets its own stats later.
+      // Cardio has no weight to chart or rank — it has its own card above.
       if (ex.kind === 'cardio') continue;
       if (!seen.has(ex.name)) { seen.add(ex.name); namesInRecencyOrder.push(ex.name); }
       if (ex.category) categoryByName.set(ex.name, ex.category);

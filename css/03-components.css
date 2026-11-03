@@ -1855,3 +1855,29 @@ th {
   color: var(--text-muted);
   text-align: end;
 }
+
+/* ===== Cardio stats (Dashboard) — see js/ui/cardio-stats.js ===== */
+.cardio-chart-label {
+  font-size: 0.8rem;
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.cardio-pace-headline {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+.cardio-pace-headline .num {
+  color: var(--purple);
+  font-weight: var(--weight-semibold);
+}
+
+.stat-unit {
+  font-size: 0.7rem;
+  font-weight: var(--weight-regular);
+  color: var(--text-muted);
+  margin-inline-start: 3px;
+}
