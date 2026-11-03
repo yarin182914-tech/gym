@@ -3,7 +3,8 @@
 // One entry per calendar day (see setBodyWeight). Until today's is in, the
 // card is an entry row pre-filled with the last weight, so the usual
 // weigh-in is a ±0.1 nudge and שמירה; once it's in, it shrinks to a single
-// line with the change since the previous weigh-in.
+// line with the change since the previous weigh-in. The entry row has a
+// date, today by default, for filling in a morning that was missed.
 //
 // Owns its element, like numeric-input: Nutrition's render() rebuilds the
 // whole screen on every change, so it re-attaches this same element instead
@@ -44,25 +45,27 @@ function changeText(kg, prev) {
   return `<bdi dir="ltr">${sign}${Math.abs(d)}</bdi> ${from}`;
 }
 
-// weights: newest day first (listBodyWeights); kept up to date in place.
+// weights: newest day first (listBodyWeights); kept that way in place.
 export function createBodyWeightCard(weights) {
   const el = document.createElement('div');
   el.className = 'card bw-card';
   let editing = false;
+  let dateKey = todayKey(); // the day being entered — today unless changed
   let draft = null;
   let saving = false;
 
-  const today = () => weights.find((w) => w.date === todayKey());
-  const previous = () => weights.find((w) => w.date < todayKey());
+  const entryFor = (key) => weights.find((w) => w.date === key);
+  // Newest-first, so the first one earlier than `key` is the nearest.
+  const previousBefore = (key) => weights.find((w) => w.date < key);
 
   function render() {
-    const entry = today();
+    const entry = entryFor(todayKey());
     if (entry && !editing) renderLogged(entry);
-    else renderEntry(entry);
+    else renderEntry();
   }
 
   function renderLogged(entry) {
-    const change = changeText(entry.kg, previous());
+    const change = changeText(entry.kg, previousBefore(entry.date));
     el.innerHTML = `
       <div class="bw-logged">
         <span class="bw-label">משקל בוקר</span>
@@ -72,18 +75,26 @@ export function createBodyWeightCard(weights) {
       </div>`;
     el.querySelector('[data-bw-edit]').addEventListener('click', () => {
       editing = true;
+      dateKey = todayKey();
       render();
       el.querySelector('.numeric-field-input')?.focus();
     });
   }
 
-  function renderEntry(entry) {
-    const prev = previous();
-    draft = entry?.kg ?? prev?.kg ?? null;
+  function renderEntry() {
+    const isToday = dateKey === todayKey();
+    const existing = entryFor(dateKey);
+    const prev = previousBefore(dateKey);
+    // That day's own weight if it has one; otherwise the closest weigh-in —
+    // before it, or (filling in an older gap) the first one after it.
+    draft = existing?.kg ?? prev?.kg ?? [...weights].reverse().find((w) => w.date > dateKey)?.kg ?? null;
+    const hint = existing && !isToday
+      ? `כבר נשמר ליום הזה: <span class="num">${existing.kg}</span> — שמירה תחליף`
+      : prev ? `אחרון: <span class="num">${prev.kg}</span> · ${relativeDay(prev.date)}` : '';
     el.innerHTML = `
       <div class="bw-head">
         <span class="bw-label">משקל בוקר</span>
-        ${prev ? `<span class="bw-last">אחרון: <span class="num">${prev.kg}</span> · ${relativeDay(prev.date)}</span>` : ''}
+        <input type="date" class="bw-date${isToday ? '' : ' bw-date--past'}" data-bw-date value="${dateKey}" max="${todayKey()}" aria-label="תאריך השקילה">
       </div>
       <div class="bw-entry">
         <div class="bw-stepper">
@@ -91,9 +102,10 @@ export function createBodyWeightCard(weights) {
           <div class="bw-field" data-bw-field></div>
           <button type="button" class="bw-step" data-bw-step="1" aria-label="עוד 0.1">+</button>
         </div>
-        ${editing ? '<button type="button" class="btn btn-secondary" data-bw-cancel>ביטול</button>' : ''}
+        ${editing || !isToday ? '<button type="button" class="btn btn-secondary" data-bw-cancel>ביטול</button>' : ''}
         <button type="button" class="btn btn-primary" data-bw-save>שמירה</button>
-      </div>`;
+      </div>
+      ${hint ? `<div class="bw-last">${hint}</div>` : ''}`;
 
     const field = mountNumericField(el.querySelector('[data-bw-field]'), {
       value: draft,
@@ -104,6 +116,12 @@ export function createBodyWeightCard(weights) {
     });
     field.setPlaceholder('0.0');
 
+    el.querySelector('[data-bw-date]').addEventListener('change', (e) => {
+      // A cleared or future date falls back to today.
+      const v = e.target.value;
+      dateKey = v && v <= todayKey() ? v : todayKey();
+      renderEntry();
+    });
     el.querySelectorAll('[data-bw-step]').forEach((btn) => {
       btn.addEventListener('click', () => {
         if (draft === null) return;
@@ -117,6 +135,7 @@ export function createBodyWeightCard(weights) {
     });
     el.querySelector('[data-bw-cancel]')?.addEventListener('click', () => {
       editing = false;
+      dateKey = todayKey();
       render();
     });
     el.querySelector('[data-bw-save]').addEventListener('click', save);
@@ -128,8 +147,9 @@ export function createBodyWeightCard(weights) {
       showToast('יש להזין משקל');
       return;
     }
+    const key = dateKey;
     const kg = round2(draft);
-    const prev = previous();
+    const prev = previousBefore(key);
     if (prev && Math.abs(kg - prev.kg) >= SUSPICIOUS_JUMP_KG) {
       const ok = await confirmDialog({
         title: 'לשמור את המשקל?',
@@ -139,8 +159,7 @@ export function createBodyWeightCard(weights) {
       if (!ok) return;
     }
 
-    const key = todayKey();
-    const note = today()?.note || '';
+    const note = entryFor(key)?.note || '';
     saving = true;
     el.querySelector('[data-bw-save]')?.setAttribute('disabled', '');
     try {
@@ -153,11 +172,14 @@ export function createBodyWeightCard(weights) {
     } finally {
       saving = false;
     }
-    const saved = { id: key, date: key, kg, note };
     const i = weights.findIndex((w) => w.date === key);
-    if (i >= 0) weights[i] = saved;
-    else weights.unshift(saved);
+    if (i >= 0) weights.splice(i, 1);
+    weights.push({ id: key, date: key, kg, note });
+    weights.sort((a, b) => (a.date < b.date ? 1 : -1));
+
+    if (key !== todayKey()) showToast(`נשמר ל-${formatDayMonthHe(parseDateInputValue(key))}`);
     editing = false;
+    dateKey = todayKey();
     render();
   }
 

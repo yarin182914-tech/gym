@@ -1776,3 +1776,24 @@ th {
   color: var(--accent);
   padding: 4px 0;
 }
+
+.bw-date {
+  height: 30px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-family: var(--font-numeric);
+  font-size: 0.8rem;
+}
+
+/* A past day is the unusual case — make it obvious which day gets saved. */
+.bw-date--past {
+  color: var(--gold);
+  background: var(--accent-dim);
+}
+
+.bw-entry + .bw-last {
+  margin-top: var(--space-2);
+}
