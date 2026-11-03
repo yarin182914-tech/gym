@@ -585,6 +585,18 @@ th {
 
 .bottom-nav a.active { color: var(--accent); font-weight: var(--weight-bold); }
 
+/* The active tab's icon sits in a soft pill, as on a native tab bar. */
+.bottom-nav a .icon {
+  box-sizing: content-box;
+  padding: 3px 16px;
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+
+.bottom-nav a.active .icon {
+  background: var(--accent-dim);
+}
+
 /* ===== Desktop: promote nav to a sidebar ===== */
 @media (min-width: 900px) {
   body { padding-bottom: 0; }
@@ -1243,7 +1255,9 @@ th {
 .set-more-btn,
 .toggle-group button,
 .bottom-nav a,
-.feedback-fab {
+.app-bar-btn,
+.session-when,
+.bw-step {
   transition: transform 0.1s ease;
 }
 
@@ -1254,8 +1268,17 @@ th {
 .set-done-btn:active,
 .set-field--reps:active,
 .bottom-nav a:active,
-.feedback-fab:active {
+.app-bar-btn:active,
+.session-when:active,
+.bw-step:active {
   transform: scale(0.96);
+}
+
+/* Rows that open something — a tinted press instead of a shrink, which
+   would read oddly on a full-width row. */
+.bw-hist-row:active,
+.settings-item:active {
+  background: var(--accent-dim);
 }
 
 /* A short, subtle loading state for a button mid-async-action (e.g. "סיום

@@ -48,6 +48,13 @@ export function startRouter() {
     const route = routes[name];
     active = { name, unmount: route.unmount };
     routeListeners.forEach((fn) => fn(name));
+    // A new screen opens at its top and eases in, like a native one —
+    // not wherever the last screen happened to be scrolled to.
+    window.scrollTo(0, 0);
+    const appEl = document.getElementById('app');
+    appEl?.classList.remove('route-enter');
+    void appEl?.offsetWidth; // restart the animation
+    appEl?.classList.add('route-enter');
     route.mount();
 
     // There is no page load to reset focus, so send it to the new screen.

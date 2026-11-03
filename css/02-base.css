@@ -17,6 +17,22 @@ html, body {
   overscroll-behavior-y: none;
 }
 
+/* App, not page: no text selection or iOS long-press callout on the
+   interface itself (a long press on a button selecting its label is a
+   browser tell), and no double-tap zoom delay. Anything typed into stays
+   selectable. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+input, textarea, [contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 body {
   min-height: 100vh;
   padding-bottom: calc(var(--nav-height) + var(--safe-bottom));
@@ -180,4 +196,57 @@ button {
   justify-content: center;
   text-align: center;
   padding: 24px;
+}
+
+/* ===== Screen transitions and loading =====
+   Each new screen eases in (js/lib/router.js restarts .route-enter on
+   every route change). */
+#app.route-enter {
+  animation: route-enter 0.22s ease-out;
+}
+
+@keyframes route-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Placeholder cards while a screen's data loads (core/page.js
+   renderLoading). Held back a moment, so a fast load never flashes them. */
+.skeleton-page {
+  animation: skeleton-in 0.2s ease 0.15s both;
+}
+
+.skeleton {
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-raised) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes skeleton-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app.route-enter,
+  .skeleton-page,
+  .skeleton {
+    animation: none;
+  }
 }

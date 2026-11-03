@@ -21,6 +21,17 @@ export function isStale(token) {
   return token !== currentToken;
 }
 
+// Placeholder cards shaped roughly like a screen — a title strip, a tall
+// card, two shorter ones — instead of a line of "loading" text. The message
+// stays for screen readers.
 export function renderLoading(container, message) {
-  if (container) container.innerHTML = `<p class="text-muted">${message}</p>`;
+  if (!container) return;
+  container.innerHTML = `
+    <div class="skeleton-page" aria-busy="true">
+      <span class="visually-hidden">${message}</span>
+      <div class="skeleton" style="height:22px; width:40%;"></div>
+      <div class="skeleton" style="height:220px;"></div>
+      <div class="skeleton" style="height:96px;"></div>
+      <div class="skeleton" style="height:96px;"></div>
+    </div>`;
 }
