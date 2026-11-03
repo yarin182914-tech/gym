@@ -100,7 +100,7 @@ export async function mountDashboard(rootEl) {
   if (allExerciseNames.length === 0) {
     container.innerHTML = `
       <div class="card" style="text-align:center;">
-        <h2>התקדמות</h2>
+        <h2>תרגילי כוח</h2>
         ${emptyState('עוד אין נתונים — תתחיל לתעד אימונים כדי לראות כאן גרפים.')}
       </div>`;
     return;
@@ -162,7 +162,7 @@ async function render() {
 
   container.innerHTML = `
     <div class="card">
-      <h2 style="margin-bottom:12px;">התקדמות</h2>
+      <h2 style="margin-bottom:12px;">תרגילי כוח</h2>
 
       <button type="button" class="dash-exercise-trigger${picker.open ? ' dash-exercise-trigger--open' : ''}" id="exercise-trigger">
         <span>${esc(selectedExercise)}</span>
