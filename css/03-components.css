@@ -565,7 +565,8 @@ th {
   height: calc(var(--nav-height) + var(--safe-bottom));
   padding-bottom: var(--safe-bottom);
   background: var(--surface);
-  border-top: 1px solid var(--border);
+  /* No border-top: the surface/background contrast already separates the
+     bar, and a hairline there read as a stray white line on the phone. */
   display: flex;
   z-index: 50;
 }
