@@ -1797,3 +1797,61 @@ th {
 .bw-entry + .bw-last {
   margin-top: var(--space-2);
 }
+
+/* ===== Body weight — Dashboard trend and History list ===== */
+.bw-trend-headline {
+  text-align: center;
+  font-weight: var(--weight-semibold);
+  color: var(--purple);
+  margin: 0 0 12px;
+}
+
+.history-view-toggle {
+  margin-bottom: var(--space-3);
+}
+
+.history-view-toggle .toggle-group {
+  display: flex;
+}
+
+.history-view-toggle .toggle-group button {
+  flex: 1;
+}
+
+.bw-week-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.bw-week-avg {
+  color: var(--text);
+  font-weight: var(--weight-semibold);
+}
+
+.bw-hist-row {
+  display: grid;
+  grid-template-columns: 1fr auto 5.5rem;
+  align-items: baseline;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  text-align: start;
+  color: var(--text);
+}
+
+.bw-hist-kg {
+  font-size: 1.05rem;
+  font-weight: var(--weight-semibold);
+}
+
+.bw-hist-diff {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: end;
+}

@@ -148,6 +148,12 @@ export async function devSetBodyWeight(dateKey, { kg, note = '' }) {
   save(state);
 }
 
+export async function devDeleteBodyWeight(dateKey) {
+  const state = load();
+  state.bodyWeights = (state.bodyWeights || []).filter((w) => w.id !== dateKey);
+  save(state);
+}
+
 export async function devListBodyWeights(max = 400) {
   const state = load();
   return [...(state.bodyWeights || [])]

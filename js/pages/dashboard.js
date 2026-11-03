@@ -1,4 +1,4 @@
-import { listWorkouts, getExerciseHistory, listExerciseLibrary, CATEGORY_GROUPS } from '../lib/firestore.js';
+import { listWorkouts, getExerciseHistory, listExerciseLibrary, listBodyWeights, CATEGORY_GROUPS } from '../lib/firestore.js';
 import { renderProgressChart, heaviestSet } from '../lib/charts.js';
 import { esc } from '../core/dom.js';
 import { formatDayMonthHe as shortDate, unitLabel, round1 } from '../lib/format.js';
@@ -8,8 +8,13 @@ import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { openExerciseEditSheet } from '../ui/exercise-edit-sheet.js';
+import { mountBodyWeightTrend } from '../ui/body-weight-trend.js';
 
+let pageRoot = null;
+// The exercise-progress part of the screen, which render() rebuilds; the
+// body-weight card above it lives in its own host.
 let container = null;
+let bodyWeightTrend = null;
 let allExerciseNames = [];
 let categoryByName = new Map();
 // name -> { id, name, category } — real library entries have a real id;
@@ -27,11 +32,15 @@ let picker = { open: false, query: '', category: null };
 // when the theme switch flips while this screen is showing.
 window.addEventListener('gym-theme-change', () => {
   if (container && chartInstance) render();
+  bodyWeightTrend?.redraw();
 });
 
 export function unmountDashboard() {
   if (chartInstance) chartInstance.destroy();
   chartInstance = null;
+  bodyWeightTrend?.destroy();
+  bodyWeightTrend = null;
+  pageRoot = null;
   container = null;
   allExerciseNames = [];
   categoryByName = new Map();
@@ -41,11 +50,24 @@ export function unmountDashboard() {
 
 export async function mountDashboard(rootEl) {
   const token = beginMount();
-  container = rootEl;
-  renderLoading(container, 'טוען נתוני התקדמות...');
+  pageRoot = rootEl;
+  renderLoading(rootEl, 'טוען נתוני התקדמות...');
 
-  const [workouts, libraryEntries] = await Promise.all([listWorkouts(500), listExerciseLibrary()]);
+  const [workouts, libraryEntries, weights] = await Promise.all([
+    listWorkouts(500),
+    listExerciseLibrary(),
+    // A failed weigh-in load shouldn't take the exercise progress with it.
+    listBodyWeights(1000).catch((err) => {
+      console.error('[body-weight] load failed', err);
+      return [];
+    }),
+  ]);
   if (isStale(token)) return;
+
+  rootEl.innerHTML = '<div data-dash-weight></div><div data-dash-exercises></div>';
+  bodyWeightTrend?.destroy();
+  bodyWeightTrend = mountBodyWeightTrend(rootEl.querySelector('[data-dash-weight]'), weights);
+  container = rootEl.querySelector('[data-dash-exercises]');
 
   const namesInRecencyOrder = [];
   const seen = new Set();
@@ -287,7 +309,7 @@ function wireExercisePicker() {
       if (!entry) return;
       openExerciseEditSheet(entry, {
         onSaved: async () => {
-          await mountDashboard(container);
+          await mountDashboard(pageRoot);
         },
       });
     });

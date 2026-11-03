@@ -9,7 +9,7 @@ import {
   devListExerciseLibrary, devAddExerciseToLibrary,
   devRenameExerciseEverywhere, devDeleteExerciseFromLibrary,
   devAddNutritionEntry, devListNutritionEntries,
-  devSetBodyWeight, devListBodyWeights,
+  devSetBodyWeight, devListBodyWeights, devDeleteBodyWeight,
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
 } from './dev-store.js';
 
@@ -279,6 +279,11 @@ export async function setBodyWeight(dateKey, { kg, note = '' }) {
     note,
     loggedAt: serverTimestamp(),
   });
+}
+
+export async function deleteBodyWeight(dateKey) {
+  if (!useCloud) return devDeleteBodyWeight(dateKey);
+  await deleteDoc(doc(db, 'users', uidOrThrow(), 'bodyWeight', dateKey));
 }
 
 // Newest day first.

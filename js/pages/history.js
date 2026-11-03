@@ -1,4 +1,4 @@
-import { listWorkouts, deleteWorkout } from '../lib/firestore.js';
+import { listWorkouts, deleteWorkout, listBodyWeights } from '../lib/firestore.js';
 import { formatDateHe, formatMonthHe, toDate } from '../lib/format.js';
 import { esc } from '../core/dom.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
@@ -10,9 +10,15 @@ import { icon } from '../ui/icon.js';
 import { showToast } from '../ui/toast.js';
 import { navigate } from '../lib/router.js';
 import { openWorkoutForEditing } from './active-session.js';
+import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
+import { mountBodyWeightHistory } from '../ui/body-weight-history.js';
 
 let container = null;
 let workouts = [];
+let weights = []; // body weigh-ins, newest day first
+// 'workouts' | 'weight' — kept across visits, so coming back lands on the
+// same view.
+let historyView = 'workouts';
 let expanded = new Set(); // workout ids
 // 'YYYY-MM' keys — in-memory only, same as `expanded`: resets when you leave
 // this screen and come back, it doesn't persist across visits.
@@ -34,9 +40,17 @@ export async function mountHistory(rootEl) {
   const token = beginMount();
   container = rootEl;
   renderLoading(container, 'טוען היסטוריית אימונים...');
-  const loaded = await listWorkouts(200);
+  const [loaded, loadedWeights] = await Promise.all([
+    listWorkouts(200),
+    // A failed weigh-in load shouldn't take the workouts with it.
+    listBodyWeights(1000).catch((err) => {
+      console.error('[body-weight] load failed', err);
+      return [];
+    }),
+  ]);
   if (isStale(token)) return;
   workouts = loaded;
+  weights = loadedWeights;
   // Open the month the most recent workout falls in — usually "this month",
   // but never assumes that: a user who hasn't trained yet this month would
   // otherwise land on an all-collapsed, seemingly-empty screen.
@@ -47,6 +61,7 @@ export async function mountHistory(rootEl) {
 export function unmountHistory() {
   container = null;
   workouts = [];
+  weights = [];
   expanded = new Set();
   expandedMonths = new Set();
   selectedDate = null;
@@ -75,11 +90,41 @@ function groupByMonth(list) {
   return groups;
 }
 
+function viewToggle() {
+  return `<div class="history-view-toggle">${toggleGroup({
+    name: 'history-view',
+    active: historyView,
+    label: 'תצוגה',
+    groupAttrs: 'data-history-view',
+    options: [{ value: 'workouts', label: 'אימונים' }, { value: 'weight', label: 'משקל' }],
+  })}</div>`;
+}
+
+function wireViewToggle() {
+  const group = container.querySelector('[data-history-view]');
+  group.classList.add('toggle-group--live');
+  patchToggleGroup(group, historyView);
+  group.querySelectorAll('button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.historyView === historyView) return;
+      historyView = btn.dataset.historyView;
+      render();
+    });
+  });
+}
+
 function render() {
   if (!container) return;
   rowRefs = new Map();
   monthRefs = new Map();
+  if (historyView === 'weight') {
+    container.innerHTML = `${viewToggle()}<div data-bw-history></div>`;
+    wireViewToggle();
+    mountBodyWeightHistory(container.querySelector('[data-bw-history]'), weights);
+    return;
+  }
   container.innerHTML = `
+    ${viewToggle()}
     <div class="card">
       <div class="row" style="margin-bottom:10px;">
         <button class="btn btn-secondary" id="cal-prev">‹</button>
@@ -92,6 +137,7 @@ function render() {
     <div id="workout-list"></div>
   `;
 
+  wireViewToggle();
   renderCalendar();
 
   const list = container.querySelector('#workout-list');

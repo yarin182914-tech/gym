@@ -11,7 +11,8 @@
 // of re-creating it — an edit in progress survives opening the meal form.
 
 import { setBodyWeight } from '../lib/firestore.js';
-import { dateInputValue, parseDateInputValue, formatDayMonthHe } from '../lib/format.js';
+import { parseDateInputValue, formatDayMonthHe } from '../lib/format.js';
+import { todayKey, round2, upsertWeight } from '../lib/body-weight.js';
 import { mountNumericField } from './numeric-input.js';
 import { confirmDialog } from './confirm-dialog.js';
 import { showToast } from './toast.js';
@@ -21,11 +22,6 @@ const STEP = 0.1;
 // for 78.4) than a real change, so it asks before saving.
 const SUSPICIOUS_JUMP_KG = 5;
 
-const round2 = (n) => Math.round(n * 100) / 100;
-
-function todayKey() {
-  return dateInputValue(new Date());
-}
 
 // "אתמול", "לפני 3 ימים", "28 באוק"
 function relativeDay(key) {
@@ -172,10 +168,7 @@ export function createBodyWeightCard(weights) {
     } finally {
       saving = false;
     }
-    const i = weights.findIndex((w) => w.date === key);
-    if (i >= 0) weights.splice(i, 1);
-    weights.push({ id: key, date: key, kg, note });
-    weights.sort((a, b) => (a.date < b.date ? 1 : -1));
+    upsertWeight(weights, { id: key, date: key, kg, note });
 
     if (key !== todayKey()) showToast(`נשמר ל-${formatDayMonthHe(parseDateInputValue(key))}`);
     editing = false;

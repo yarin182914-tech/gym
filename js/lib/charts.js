@@ -160,3 +160,75 @@ export async function renderProgressChart(canvas, { labels, values, prFlags, for
     plugins: [selectiveLabelsPlugin(values, prFlags, formatValue, colors)],
   });
 }
+
+// Body weight: each morning's weigh-in as a faint dot, with the 7-day
+// average drawn through them as the line — the dots show the daily noise,
+// the line the trend. Both arrays run one entry per calendar day (null on
+// days with nothing), so the x-axis spaces days evenly even across gaps.
+export async function renderBodyWeightChart(canvas, { labels, raw, trend }, existingChart) {
+  const Chart = await loadChartLib();
+  if (existingChart) existingChart.destroy();
+
+  const colors = themeColors();
+  const kg = (v) => `${round1(v)} ק"ג`;
+
+  return new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'ממוצע 7 ימים',
+          data: trend,
+          borderColor: colors.line,
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointBackgroundColor: colors.line,
+          tension: 0.3,
+          spanGaps: true,
+          fill: false,
+        },
+        {
+          label: 'שקילה',
+          data: raw,
+          showLine: false,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          pointBackgroundColor: colors.muted,
+          pointBorderColor: colors.muted,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: colors.tooltipBg,
+          titleColor: colors.text,
+          bodyColor: colors.text,
+          titleFont: { family: 'Rubik' },
+          bodyFont: { family: 'Rubik' },
+          padding: 10,
+          filter: (item) => item.parsed.y !== null,
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${kg(ctx.parsed.y)}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { family: 'Rubik', size: 11 }, color: colors.muted, maxTicksLimit: 6, maxRotation: 0 },
+        },
+        y: {
+          grid: { color: colors.grid },
+          ticks: { font: { family: 'Oswald', size: 11 }, color: colors.muted, maxTicksLimit: 5 },
+        },
+      },
+    },
+  });
+}
