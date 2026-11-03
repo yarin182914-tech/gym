@@ -2297,3 +2297,40 @@ th {
   font-weight: var(--weight-semibold);
   color: var(--text);
 }
+
+/* Nutrition: the day bar above the ring — ‹ day › — and the selected
+   day's meals, each a button that opens its edit sheet. */
+.nut-day-bar {
+  position: relative; /* anchors the compact date picker's floating panel */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: var(--space-3);
+}
+
+.nut-meal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.nut-meal-row:last-child {
+  border-bottom: 0;
+}
+
+.nut-macro-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 12px;
+}

@@ -1,15 +1,21 @@
 import { renderPlateDial } from '../lib/plate-dial.js';
-import { addNutritionEntry, listNutritionEntries, listBodyWeights } from '../lib/firestore.js';
+import {
+  addNutritionEntry, listNutritionEntries, updateNutritionEntry, deleteNutritionEntry, listBodyWeights,
+} from '../lib/firestore.js';
 import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
 import { toDate, dateInputValue, parseDateInputValue } from '../lib/format.js';
+import { todayKey, shiftKey } from '../lib/body-weight.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { stepper } from '../ui/stepper.js';
 import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { mountNumericField } from '../ui/numeric-input.js';
 import { createBodyWeightCard } from '../ui/body-weight-card.js';
-import { mountDateField } from '../ui/date-time-picker.js';
+import { mountDateField, friendlyDate } from '../ui/date-time-picker.js';
+import { openBottomSheet } from '../ui/bottom-sheet.js';
+import { confirmDialog } from '../ui/confirm-dialog.js';
+import { showToast } from '../ui/toast.js';
 
 const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
 // 'snack' is kept only so older entries saved under it still display a
@@ -38,12 +44,11 @@ let aiStatus = null; // null | 'loading' | 'unavailable' | 'error' | 'reviewing'
 let reviewItems = null; // mutable copy of analyzeFoodPhoto()'s items while aiStatus === 'reviewing'
 let gramsFieldCtrls = []; // mountNumericField controllers, one per reviewItems row
 let bodyWeightCard = null; // created once per visit, re-attached by every render()
+// The day the ring, the macro bars and the meal list show ('yyyy-mm-dd').
+// Today on every visit; the day bar steps back through earlier ones.
+let selectedDay = todayKey();
 
-function isToday(d) {
-  const a = toDate(d);
-  const now = new Date();
-  return a.getFullYear() === now.getFullYear() && a.getMonth() === now.getMonth() && a.getDate() === now.getDate();
-}
+const dayOf = (d) => dateInputValue(toDate(d));
 
 export async function mountNutrition(rootEl) {
   const token = beginMount();
@@ -72,14 +77,18 @@ export function unmountNutrition() {
   reviewItems = null;
   gramsFieldCtrls = [];
   bodyWeightCard = null;
+  selectedDay = todayKey();
 }
 
-function todayEntries() {
-  return entries.filter((e) => isToday(e.date));
+// The selected day's meals, earliest first.
+function dayEntries() {
+  return entries
+    .filter((e) => dayOf(e.date) === selectedDay)
+    .sort((a, b) => toDate(a.date) - toDate(b.date));
 }
 
-function todayTotals() {
-  return todayEntries().reduce((acc, e) => ({
+function dayTotals() {
+  return dayEntries().reduce((acc, e) => ({
     calories: acc.calories + (e.calories || 0),
     proteinG: acc.proteinG + (e.proteinG || 0),
     carbsG: acc.carbsG + (e.carbsG || 0),
@@ -101,11 +110,26 @@ function macroBar(label, value, target) {
     </div>`;
 }
 
+// Where a meal was logged from, as a small icon after its meal type.
+function sourceMark(e) {
+  if (e.source === 'photo') return ` · ${icon('camera', { className: 'icon--sm' })}`;
+  if (e.source === 'coach') return ` · <span title="הוזן מהצ'אט" style="display:inline-flex;">${icon('message-square', { className: 'icon--sm' })}</span>`;
+  return '';
+}
+
 function render() {
-  const totals = todayTotals();
+  const totals = dayTotals();
+  const meals = dayEntries();
+  const isToday = selectedDay === todayKey();
 
   container.innerHTML = `
     <div id="body-weight-slot"></div>
+
+    <div class="nut-day-bar">
+      <button type="button" class="cal-nav" data-day-step="-1" aria-label="היום הקודם">${icon('chevron-right', { className: 'icon--sm' })}</button>
+      <div data-day-field></div>
+      <button type="button" class="cal-nav" data-day-step="1" aria-label="היום הבא"${isToday ? ' disabled' : ''}>${icon('chevron-left', { className: 'icon--sm' })}</button>
+    </div>
 
     <div class="card" style="text-align:center;">
       <div id="calorie-ring" style="margin-bottom:8px;"></div>
@@ -120,21 +144,41 @@ function render() {
     ${formOpen ? renderForm() : `<button class="btn btn-primary btn-block" id="open-form-btn">+ הוספת ארוחה</button>`}
 
     <div class="card">
-      <h3 style="color:var(--text); margin-bottom:10px;">היום</h3>
-      ${todayEntries().length === 0
-        ? emptyState('עוד לא נרשמו ארוחות היום.')
-        : todayEntries().map((e) => `
-          <div class="row" style="margin-bottom:8px;">
+      <h3 style="color:var(--text); margin-bottom:10px;">${esc(friendlyDate(selectedDay))}</h3>
+      ${meals.length === 0
+        ? emptyState(isToday ? 'עוד לא נרשמו ארוחות היום.' : 'לא נרשמו ארוחות ביום הזה.')
+        : meals.map((e) => `
+          <button type="button" class="nut-meal-row" data-meal-id="${esc(e.id)}">
             <div>
               <div style="font-weight:var(--weight-semibold);">${esc(e.description || 'ארוחה')}</div>
-              <div class="text-muted" style="font-size:0.75rem; display:flex; align-items:center; gap:4px;">${esc(MEAL_LABELS[e.mealType] || e.mealType)}${e.source === 'photo' ? ` · ${icon('camera', { className: 'icon--sm' })}` : ''}</div>
+              <div class="text-muted" style="font-size:0.75rem; display:flex; align-items:center; gap:4px;">${esc(MEAL_LABELS[e.mealType] || e.mealType)}${sourceMark(e)}</div>
             </div>
             <span class="num" style="font-weight:var(--weight-bold); letter-spacing:var(--tracking-tight);">${esc(e.calories)} קל'</span>
-          </div>`).join('')}
+          </button>`).join('')}
     </div>
   `;
 
   container.querySelector('#body-weight-slot').replaceWith(bodyWeightCard);
+
+  mountDateField(container.querySelector('[data-day-field]'), {
+    value: selectedDay,
+    ariaLabel: 'היום המוצג',
+    compact: true,
+    accent: !isToday,
+    onChange: (v) => {
+      selectedDay = v;
+      render();
+    },
+  });
+  container.querySelectorAll('[data-day-step]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      selectedDay = shiftKey(selectedDay, Number(btn.dataset.dayStep));
+      render();
+    });
+  });
+  container.querySelectorAll('[data-meal-id]').forEach((row) => {
+    row.addEventListener('click', () => openMealSheet(entries.find((e) => e.id === row.dataset.mealId)));
+  });
 
   renderPlateDial(container.querySelector('#calorie-ring'), {
     progress: totals.calories / TARGETS.calories,
@@ -150,7 +194,8 @@ function render() {
       form = {
         description: '', calories: 0, proteinG: 0, carbsG: 0, fatG: 0,
         mealType: defaultMealType(), mealTypeIsOther: false,
-        date: new Date(), source: 'manual',
+        // A meal added while browsing an earlier day goes to that day.
+        date: isToday ? new Date() : parseDateInputValue(selectedDay), source: 'manual',
       };
       aiStatus = null;
       formOpen = true;
@@ -275,12 +320,149 @@ function wireForm() {
 
   container.querySelector('#save-form-btn').addEventListener('click', async () => {
     const { mealTypeIsOther, ...entry } = form; // transient UI-only flag, never persisted
-    await addNutritionEntry(entry);
+    try {
+      await addNutritionEntry(entry);
+      entries = await listNutritionEntries(200);
+    } catch (err) {
+      console.error('[nutrition] save failed', err);
+      showToast('השמירה נכשלה — נסה שוב');
+      return;
+    }
     formOpen = false;
     form = null;
     aiStatus = null;
-    entries = await listNutritionEntries(200);
+    selectedDay = dayOf(entry.date); // show the day it was saved to
     render();
+  });
+}
+
+// ---------- editing a saved meal ----------
+
+// Tapping a meal in the list: change any of it, or delete it.
+function openMealSheet(entry) {
+  if (!entry) return;
+  const draft = {
+    description: entry.description || '',
+    mealType: entry.mealType,
+    isOther: !MEAL_TYPE_OPTIONS.some((opt) => opt.value === entry.mealType),
+    day: dayOf(entry.date),
+    calories: entry.calories || 0,
+    proteinG: entry.proteinG || 0,
+    carbsG: entry.carbsG || 0,
+    fatG: entry.fatG || 0,
+  };
+  const MACROS = [
+    { key: 'calories', label: 'קלוריות', unit: "קל'" },
+    { key: 'proteinG', label: 'חלבון', unit: 'g' },
+    { key: 'carbsG', label: 'פחמימות', unit: 'g' },
+    { key: 'fatG', label: 'שומן', unit: 'g' },
+  ];
+
+  openBottomSheet({
+    ariaLabel: 'עריכת ארוחה',
+    render(body, sheetApi) {
+      const renderPills = () => `
+        ${MEAL_TYPE_OPTIONS.map((opt) => `<button type="button" class="pill${!draft.isOther && draft.mealType === opt.value ? ' active' : ''}" data-sheet-meal="${opt.value}">${opt.label}</button>`).join('')}
+        <button type="button" class="pill${draft.isOther ? ' active' : ''}" data-sheet-meal="other">אחר</button>`;
+
+      body.innerHTML = `
+        <h3 style="margin:0 0 14px; color:var(--text);">עריכת ארוחה</h3>
+        <input type="text" class="search-bar" data-sheet-desc placeholder="תיאור הארוחה" value="${esc(draft.description)}" style="margin-bottom:10px;">
+        <div class="pill-row-label">סוג ארוחה</div>
+        <div class="pill-row" data-sheet-pills>${renderPills()}</div>
+        <input type="text" class="search-bar" data-sheet-other placeholder="סוג הארוחה" value="${esc(MEAL_LABELS[entry.mealType] || entry.mealType || '')}" style="margin-bottom:10px;"${draft.isOther ? '' : ' hidden'}>
+        <div class="pill-row-label">תאריך</div>
+        <div data-sheet-date></div>
+        <div class="nut-macro-grid">
+          ${MACROS.map((m) => `
+            <div>
+              <div class="sheet-field-label">${m.label}</div>
+              <div data-sheet-macro="${m.key}"></div>
+            </div>`).join('')}
+        </div>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-danger" data-sheet-delete>מחיקה</button>
+          <button type="button" class="btn btn-secondary" data-sheet-cancel>ביטול</button>
+          <button type="button" class="btn btn-primary" data-sheet-save>שמירה</button>
+        </div>`;
+
+      body.querySelector('[data-sheet-desc]').addEventListener('input', (e) => { draft.description = e.target.value; });
+      const otherInput = body.querySelector('[data-sheet-other]');
+      otherInput.addEventListener('input', (e) => { draft.mealType = e.target.value; });
+      const pillsEl = body.querySelector('[data-sheet-pills]');
+      pillsEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-sheet-meal]');
+        if (!btn) return;
+        draft.isOther = btn.dataset.sheetMeal === 'other';
+        draft.mealType = draft.isOther ? otherInput.value : btn.dataset.sheetMeal;
+        otherInput.hidden = !draft.isOther;
+        pillsEl.innerHTML = renderPills();
+      });
+
+      mountDateField(body.querySelector('[data-sheet-date]'), {
+        value: draft.day,
+        ariaLabel: 'תאריך הארוחה',
+        onChange: (v) => { draft.day = v; },
+      });
+      for (const m of MACROS) {
+        mountNumericField(body.querySelector(`[data-sheet-macro="${m.key}"]`), {
+          value: draft[m.key],
+          unitLabel: m.unit,
+          ariaLabel: m.label,
+          onCommit: (v) => { draft[m.key] = v; },
+        });
+      }
+
+      body.querySelector('[data-sheet-cancel]').addEventListener('click', () => sheetApi.close());
+
+      body.querySelector('[data-sheet-save]').addEventListener('click', async () => {
+        const patch = {
+          description: draft.description.trim(),
+          mealType: draft.mealType || entry.mealType,
+          calories: Math.round(draft.calories),
+          proteinG: draft.proteinG,
+          carbsG: draft.carbsG,
+          fatG: draft.fatG,
+        };
+        // Moving it to another day keeps its time of day.
+        if (draft.day !== dayOf(entry.date)) {
+          const d = parseDateInputValue(draft.day);
+          const old = toDate(entry.date);
+          d.setHours(old.getHours(), old.getMinutes(), old.getSeconds(), old.getMilliseconds());
+          patch.date = d;
+        }
+        try {
+          await updateNutritionEntry(entry.id, patch);
+        } catch (err) {
+          console.error('[nutrition] update failed', err);
+          showToast('השמירה נכשלה — נסה שוב');
+          return;
+        }
+        Object.assign(entry, patch);
+        sheetApi.close();
+        render();
+      });
+
+      body.querySelector('[data-sheet-delete]').addEventListener('click', async () => {
+        const ok = await confirmDialog({
+          title: 'למחוק את הארוחה?',
+          message: `${entry.description || 'ארוחה'} · ${entry.calories || 0} קל'`,
+          confirmLabel: 'מחיקה',
+          danger: true,
+        });
+        if (!ok) return;
+        try {
+          await deleteNutritionEntry(entry.id);
+        } catch (err) {
+          console.error('[nutrition] delete failed', err);
+          showToast('המחיקה נכשלה — נסה שוב');
+          return;
+        }
+        entries = entries.filter((e) => e !== entry);
+        sheetApi.close();
+        render();
+      });
+    },
   });
 }
 

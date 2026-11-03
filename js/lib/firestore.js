@@ -8,7 +8,7 @@ import {
   devEnsureUserDoc, devCreateWorkout, devUpdateWorkout, devDeleteWorkout, devListWorkouts,
   devListExerciseLibrary, devAddExerciseToLibrary,
   devRenameExerciseEverywhere, devDeleteExerciseFromLibrary,
-  devAddNutritionEntry, devListNutritionEntries,
+  devAddNutritionEntry, devListNutritionEntries, devUpdateNutritionEntry, devDeleteNutritionEntry,
   devSetBodyWeight, devListBodyWeights, devDeleteBodyWeight,
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
 } from './dev-store.js';
@@ -255,6 +255,16 @@ export async function addNutritionEntry(entry) {
     source: entry.source ?? 'manual',
   });
   return docRef.id;
+}
+
+export async function updateNutritionEntry(entryId, patch) {
+  if (!useCloud) return devUpdateNutritionEntry(entryId, patch);
+  await updateDoc(doc(db, 'users', uidOrThrow(), 'nutritionEntries', entryId), patch);
+}
+
+export async function deleteNutritionEntry(entryId) {
+  if (!useCloud) return devDeleteNutritionEntry(entryId);
+  await deleteDoc(doc(db, 'users', uidOrThrow(), 'nutritionEntries', entryId));
 }
 
 export async function listNutritionEntries(max = 200) {

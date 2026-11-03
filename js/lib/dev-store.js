@@ -134,6 +134,22 @@ export async function devAddNutritionEntry(entry) {
   return id;
 }
 
+export async function devUpdateNutritionEntry(id, patch) {
+  const state = load();
+  const e = state.nutritionEntries.find((x) => x.id === id);
+  if (!e) return;
+  for (const [key, value] of Object.entries(patch)) {
+    e[key] = value instanceof Date ? value.toISOString() : value;
+  }
+  save(state);
+}
+
+export async function devDeleteNutritionEntry(id) {
+  const state = load();
+  state.nutritionEntries = state.nutritionEntries.filter((x) => x.id !== id);
+  save(state);
+}
+
 export async function devListNutritionEntries(max = 200) {
   const state = load();
   return [...state.nutritionEntries]
