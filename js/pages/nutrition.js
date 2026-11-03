@@ -12,12 +12,15 @@ import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { mountNumericField } from '../ui/numeric-input.js';
 import { createBodyWeightCard } from '../ui/body-weight-card.js';
+import { mountNutritionTrend } from '../ui/nutrition-trend.js';
 import { mountDateField, friendlyDate } from '../ui/date-time-picker.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
 import { showToast } from '../ui/toast.js';
 
 const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
+// Enough for the trend card's month and then some, at several meals a day.
+const MEALS_TO_LOAD = 400;
 // 'snack' is kept only so older entries saved under it still display a
 // label instead of falling back to the raw key — the form itself now
 // offers three presets plus free text instead of a fixed 4th category.
@@ -47,6 +50,7 @@ let bodyWeightCard = null; // created once per visit, re-attached by every rende
 // The day the ring, the macro bars and the meal list show ('yyyy-mm-dd').
 // Today on every visit; the day bar steps back through earlier ones.
 let selectedDay = todayKey();
+let trend = null; // the "מגמה" card's controller — its chart is destroyed on every re-render
 
 const dayOf = (d) => dateInputValue(toDate(d));
 
@@ -55,7 +59,7 @@ export async function mountNutrition(rootEl) {
   container = rootEl;
   renderLoading(container, 'טוען נתוני תזונה...');
   const [loaded, weights] = await Promise.all([
-    listNutritionEntries(200),
+    listNutritionEntries(MEALS_TO_LOAD),
     // A failed weigh-in load shouldn't take the meals down with it.
     listBodyWeights(400).catch((err) => {
       console.error('[body-weight] load failed', err);
@@ -78,6 +82,8 @@ export function unmountNutrition() {
   gramsFieldCtrls = [];
   bodyWeightCard = null;
   selectedDay = todayKey();
+  trend?.destroy();
+  trend = null;
 }
 
 // The selected day's meals, earliest first.
@@ -121,6 +127,7 @@ function render() {
   const totals = dayTotals();
   const meals = dayEntries();
   const isToday = selectedDay === todayKey();
+  trend?.destroy();
 
   container.innerHTML = `
     <div id="body-weight-slot"></div>
@@ -156,6 +163,8 @@ function render() {
             <span class="num" style="font-weight:var(--weight-bold); letter-spacing:var(--tracking-tight);">${esc(e.calories)} קל'</span>
           </button>`).join('')}
     </div>
+
+    <div data-nut-trend></div>
   `;
 
   container.querySelector('#body-weight-slot').replaceWith(bodyWeightCard);
@@ -175,6 +184,16 @@ function render() {
       selectedDay = shiftKey(selectedDay, Number(btn.dataset.dayStep));
       render();
     });
+  });
+  trend = mountNutritionTrend(container.querySelector('[data-nut-trend]'), {
+    entries,
+    targets: TARGETS,
+    selectedDay,
+    onPickDay: (key) => {
+      selectedDay = key;
+      render();
+      container.querySelector('.nut-day-bar').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
   });
   container.querySelectorAll('[data-meal-id]').forEach((row) => {
     row.addEventListener('click', () => openMealSheet(entries.find((e) => e.id === row.dataset.mealId)));
@@ -322,7 +341,7 @@ function wireForm() {
     const { mealTypeIsOther, ...entry } = form; // transient UI-only flag, never persisted
     try {
       await addNutritionEntry(entry);
-      entries = await listNutritionEntries(200);
+      entries = await listNutritionEntries(MEALS_TO_LOAD);
     } catch (err) {
       console.error('[nutrition] save failed', err);
       showToast('השמירה נכשלה — נסה שוב');

@@ -319,3 +319,53 @@ export async function renderPaceChart(canvas, { labels, paces, formatPace }, exi
     }),
   });
 }
+
+// Calories per day — bars, the day shown above in the accent colour, with
+// the daily target as a dashed line across. Tapping a bar calls onPick(i).
+export async function renderCaloriesChart(canvas, { labels, calories, proteins, target, selectedIndex, onPick }, existingChart) {
+  const Chart = await loadChartLib();
+  if (existingChart) existingChart.destroy();
+  const colors = themeColors();
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  const options = cardioChartOptions(colors, {
+    yTicks: (v) => v,
+    tooltipLabel: (ctx) => {
+      const i = ctx.dataIndex;
+      return calories[i] ? `${calories[i]} קל' · חלבון ${proteins[i]}g` : 'לא נרשם';
+    },
+  });
+  options.plugins.tooltip.filter = (item) => item.datasetIndex === 0; // not the target line
+  options.interaction = { mode: 'index', intersect: false };
+  options.onClick = (evt, _els, chart) => {
+    const hit = chart.getElementsAtEventForMode(evt, 'index', { intersect: false }, false)[0];
+    // Deferred: picking re-renders the screen, destroying this chart — which
+    // mustn't happen while Chart.js is still inside its own click handling.
+    if (hit) setTimeout(() => onPick?.(hit.index), 0);
+  };
+  return new Chart(canvas, {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'bar',
+          data: calories,
+          backgroundColor: calories.map((_, i) => (i === selectedIndex ? accent : colors.line)),
+          borderRadius: 4,
+          maxBarThickness: 28,
+          order: 2,
+        },
+        {
+          type: 'line',
+          data: labels.map(() => target),
+          borderColor: colors.muted,
+          borderWidth: 1,
+          borderDash: [4, 4],
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          order: 1,
+        },
+      ],
+    },
+    options,
+  });
+}

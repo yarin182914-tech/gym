@@ -2302,6 +2302,7 @@ th {
    day's meals, each a button that opens its edit sheet. */
 .nut-day-bar {
   position: relative; /* anchors the compact date picker's floating panel */
+  scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 72px); /* clear of the sticky app bar when a chart bar jumps here */
   display: flex;
   align-items: center;
   justify-content: space-between;
