@@ -90,3 +90,23 @@ export function convertWeight(weight, fromUnit, toUnit) {
   const kg = fromUnit === 'lb' ? weight * KG_PER_LB : weight;
   return round1(toUnit === 'lb' ? kg / KG_PER_LB : kg);
 }
+
+// "18:30" — a workout's start time.
+export function formatTimeHe(value) {
+  return toDate(value).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Whether a saved workout's start carries a real time of day. A workout
+// logged afterwards without one is saved with `noTime`; ones saved before
+// that flag existed sit at exactly 12:00:00.000 (parseDateInputValue's
+// noon), which no live workout ever lands on to the millisecond.
+export function workoutHasTime(w) {
+  if (w.noTime) return false;
+  const d = toDate(w.startTime || w.date);
+  return !(d.getHours() === 12 && d.getMinutes() === 0 && d.getSeconds() === 0 && d.getMilliseconds() === 0);
+}
+
+// hh:mm for a native <input type="time">, in local time.
+export function timeInputValue(date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}

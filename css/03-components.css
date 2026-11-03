@@ -1881,3 +1881,73 @@ th {
   color: var(--text-muted);
   margin-inline-start: 3px;
 }
+
+/* ===== Active session header: date/time + delete ===== */
+.session-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.session-when {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--control-h);
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.session-when-add {
+  color: var(--accent);
+  font-weight: var(--weight-regular);
+}
+
+.session-delete {
+  width: var(--control-h);
+  height: var(--control-h);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--text-muted);
+}
+
+.session-delete:hover,
+.session-delete:active {
+  color: var(--danger);
+  background: var(--surface-raised);
+}
+
+.session-edit-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 8px 12px;
+  margin-bottom: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--accent-dim);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.sheet-field-label--row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.link-btn {
+  color: var(--accent);
+  font-size: 0.8rem;
+  text-transform: none;
+  letter-spacing: normal;
+}

@@ -14,11 +14,11 @@ import { confirmDialog } from '../ui/confirm-dialog.js';
 import { renderProgressChart, buildWeightSeries } from '../lib/charts.js';
 import {
   formatDateHe, formatWeight, unitLabel, convertWeight, SET_TYPES,
-  dateInputValue, parseDateInputValue, toDate,
+  dateInputValue, parseDateInputValue, toDate, formatTimeHe, workoutHasTime, timeInputValue,
 } from '../lib/format.js';
 import {
   listExerciseLibrary, seedExerciseLibraryIfEmpty, addExerciseToLibrary,
-  getLastPerformance, createWorkout, updateWorkout, getExerciseHistory, listWorkouts, CATEGORY_GROUPS,
+  getLastPerformance, createWorkout, updateWorkout, deleteWorkout, getExerciseHistory, listWorkouts, CATEGORY_GROUPS,
 } from '../lib/firestore.js';
 import {
   CARDIO_CATEGORY, CARDIO_LIBRARY, CARDIO_FIELDS, SEGMENT_KEYS, cardioActivity, hasInputModes,
@@ -29,7 +29,12 @@ import {
 let container = null;
 let library = [];
 let libraryReady = false; // the library has loaded at least once this app session
-let session = null; // { startedAt, realStartedAt, exercises: [...] }
+// { startedAt, realStartedAt, hasTime, live, exercises: [...] } — plus
+// editingWorkoutId / originalStartedAt / originalEndTime for a saved
+// workout reopened from History. hasTime: startedAt carries a real time of
+// day (one logged afterwards may have only a date). live: started with
+// "התחלת אימון", so it ends now rather than after the time spent logging.
+let session = null;
 let finishingWorkout = false; // guards finishWorkout() against double-submission while a save is in flight
 
 // A page reload — or iOS discarding a backgrounded tab, which it does
@@ -156,7 +161,10 @@ function persistSession(s = session) {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
       startedAt: s.startedAt.toISOString(),
       realStartedAt: s.realStartedAt.toISOString(),
+      hasTime: s.hasTime !== false,
+      live: !!s.live,
       editingWorkoutId: s.editingWorkoutId || null,
+      originalStartedAt: s.originalStartedAt ? s.originalStartedAt.toISOString() : null,
       originalEndTime: s.originalEndTime ? s.originalEndTime.toISOString() : null,
       timer: s.timer || null,
       exercises: s.exercises.map((ex) => ({
@@ -187,7 +195,14 @@ function loadPersistedSession() {
     return {
       startedAt: new Date(parsed.startedAt),
       realStartedAt: new Date(parsed.realStartedAt),
+      // Drafts saved before these fields existed: a same-day, non-edit
+      // workout was a live one, and every start had a time.
+      hasTime: parsed.hasTime ?? true,
+      live: parsed.live ?? (!parsed.editingWorkoutId && isSameDay(new Date(parsed.startedAt), new Date(parsed.realStartedAt))),
       editingWorkoutId: parsed.editingWorkoutId || null,
+      originalStartedAt: parsed.originalStartedAt
+        ? new Date(parsed.originalStartedAt)
+        : (parsed.editingWorkoutId ? new Date(parsed.startedAt) : null),
       originalEndTime: parsed.originalEndTime ? new Date(parsed.originalEndTime) : null,
       timer: parsed.timer || null,
       exercises: (parsed.exercises || []).map((ex) => ({
@@ -270,17 +285,22 @@ function render() {
     return;
   }
 
-  const isRetroactive = !isSameDay(session.startedAt, new Date());
   const isEditing = !!session.editingWorkoutId;
+  const whenText = `${isSameDay(session.startedAt, new Date()) ? 'היום' : formatDateHe(session.startedAt)}${session.hasTime ? ` · ${formatTimeHe(session.startedAt)}` : ''}`;
 
   container.innerHTML = `
+    <div class="session-head">
+      <button type="button" class="session-when" id="session-when-btn" aria-label="שינוי תאריך ושעה">
+        ${icon('calendar-days', { className: 'icon--sm' })}
+        <span>${esc(whenText)}</span>
+        ${session.hasTime ? '' : '<span class="session-when-add">+ שעה</span>'}
+      </button>
+      <button type="button" class="session-delete" id="delete-workout-btn" aria-label="מחיקת האימון">${icon('trash-2', { className: 'icon--sm' })}</button>
+    </div>
     ${isEditing ? `
-    <div class="card" style="text-align:center;">
-      <div class="text-muted" style="font-size:var(--text-sm);">${icon('calendar-days', { className: 'icon--sm' })} עריכת אימון מ-${esc(formatDateHe(session.startedAt))}</div>
-      <button class="btn btn-secondary btn-block" id="cancel-edit-btn" style="margin-top:10px;">ביטול עריכה</button>
-    </div>` : isRetroactive ? `
-    <div class="card" style="text-align:center;">
-      <div class="text-muted" style="font-size:var(--text-sm);">${icon('calendar-days', { className: 'icon--sm' })} ${esc(formatDateHe(session.startedAt))}</div>
+    <div class="session-edit-banner">
+      <span>עריכת אימון שמור</span>
+      <button type="button" class="btn btn-secondary" id="cancel-edit-btn">ביטול עריכה</button>
     </div>` : ''}
 
     <div id="progress-slot"></div>
@@ -304,6 +324,8 @@ function render() {
 
   container.querySelector('#finish-workout-btn').addEventListener('click', finishWorkout);
   container.querySelector('#cancel-edit-btn')?.addEventListener('click', cancelEditing);
+  container.querySelector('#session-when-btn').addEventListener('click', openWorkoutDetailsSheet);
+  container.querySelector('#delete-workout-btn').addEventListener('click', deleteCurrentWorkout);
   container.querySelector('#add-exercise-btn').addEventListener('click', () => {
     picker = { open: true, query: '', category: null };
     render();
@@ -2214,14 +2236,14 @@ function findExerciseLast(ex) {
   return toPoint(ex.previous.workoutDate, ex.previous.sets);
 }
 
-function startWorkout(customDate) {
+function startWorkout(customDate, hasTime = false) {
   const real = new Date();
   // realStartedAt is real wall-clock time even for a retroactive (backdated)
   // workout — startedAt is what gets saved/displayed as the workout's date,
   // realStartedAt is only ever used to measure how long finishing it took
   // (see finishWorkout's endTime calc), which is unrelated to which day the
   // user picked.
-  session = { startedAt: customDate || real, realStartedAt: real, exercises: [] };
+  session = { startedAt: customDate || real, realStartedAt: real, hasTime: !customDate || hasTime, live: !customDate, exercises: [] };
   persistSession();
   render();
 }
@@ -2286,7 +2308,10 @@ export function openWorkoutForEditing(workout) {
   persistSession({
     startedAt,
     realStartedAt: new Date(),
+    hasTime: workoutHasTime(workout),
+    live: false,
     editingWorkoutId: workout.id,
+    originalStartedAt: startedAt,
     originalEndTime: workout.endTime ? toDate(workout.endTime) : startedAt,
     exercises,
   });
@@ -2308,6 +2333,91 @@ async function cancelEditing() {
   render();
 }
 
+// A date at the given "hh:mm" — or left at noon (parseDateInputValue's
+// default) when there's no time.
+function withTime(date, time) {
+  if (!time) return date;
+  const [h, m] = time.split(':').map(Number);
+  const d = new Date(date);
+  d.setHours(h, m, 0, 0);
+  return d;
+}
+
+// The header's date: change the day of any open workout and add or change
+// its time — a live one whose start was missed, one logged afterwards, or
+// a saved one being edited.
+function openWorkoutDetailsSheet() {
+  if (!session) return;
+  openBottomSheet({
+    ariaLabel: 'תאריך ושעת האימון',
+    render(body, sheetApi) {
+      const todayStr = dateInputValue(new Date());
+      body.innerHTML = `
+        <h3 style="margin:0 0 14px; color:var(--text);">תאריך ושעה</h3>
+        <div class="sheet-field-label">תאריך</div>
+        <input type="date" class="search-bar" data-when-date value="${dateInputValue(session.startedAt)}" max="${todayStr}" style="margin-bottom:12px;">
+        <div class="sheet-field-label sheet-field-label--row">
+          <span>שעה <span class="text-muted">(לא חובה)</span></span>
+          <button type="button" class="link-btn" data-when-clear>ללא שעה</button>
+        </div>
+        <input type="time" class="search-bar" data-when-time value="${session.hasTime ? timeInputValue(session.startedAt) : ''}">
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-secondary" data-when-cancel>ביטול</button>
+          <button type="button" class="btn btn-primary" data-when-save>שמירה</button>
+        </div>`;
+      const timeInput = body.querySelector('[data-when-time]');
+      body.querySelector('[data-when-clear]').addEventListener('click', () => { timeInput.value = ''; });
+      body.querySelector('[data-when-cancel]').addEventListener('click', () => sheetApi.close());
+      body.querySelector('[data-when-save]').addEventListener('click', () => {
+        const day = body.querySelector('[data-when-date]').value;
+        if (!day || !session) return;
+        const time = timeInput.value;
+        const next = withTime(parseDateInputValue(day), time);
+        if (time && next > new Date()) {
+          showToast('השעה הזו עוד לא הגיעה');
+          return;
+        }
+        session.startedAt = next;
+        session.hasTime = !!time;
+        persistSession();
+        sheetApi.close();
+        render();
+      });
+    },
+  });
+}
+
+// The header's 🗑 — throws away a workout started by mistake, or, while
+// editing a saved one, deletes that workout from History too.
+async function deleteCurrentWorkout() {
+  if (!session) return;
+  const isEdit = !!session.editingWorkoutId;
+  const confirmed = await confirmDialog({
+    title: 'מחיקת אימון',
+    message: isEdit
+      ? `למחוק את האימון מ-${esc(formatDateHe(session.startedAt))}? הוא יימחק גם מההיסטוריה, והפעולה לא הפיכה.`
+      : 'למחוק את האימון? כל מה שהוזן בו יימחק ולא יישמר.',
+    confirmLabel: 'מחיקה',
+    cancelLabel: 'חזרה לאימון',
+    danger: true,
+  });
+  if (!confirmed || !session) return;
+  if (isEdit) {
+    try {
+      await deleteWorkout(session.editingWorkoutId);
+    } catch (err) {
+      console.error('deleteWorkout failed', err);
+      showToast('המחיקה נכשלה — נסה שוב');
+      return;
+    }
+  }
+  session = null;
+  stopTimerLoop();
+  localStorage.removeItem(SESSION_STORAGE_KEY);
+  render();
+  showToast('האימון נמחק');
+}
+
 // Bottom sheet for logging a workout that already happened — lets the
 // saved date (session.startedAt) differ from today, while session.realStartedAt
 // still tracks the actual moment logging began (see startWorkout).
@@ -2319,7 +2429,9 @@ function openPastWorkoutSheet() {
       body.innerHTML = `
         <h3 style="margin:0 0 14px; color:var(--text);">אימון שכבר בוצע</h3>
         <div class="sheet-field-label">תאריך האימון</div>
-        <input type="date" id="past-date-input" class="search-bar" value="${todayStr}" max="${todayStr}" style="margin-bottom:14px;">
+        <input type="date" id="past-date-input" class="search-bar" value="${todayStr}" max="${todayStr}" style="margin-bottom:12px;">
+        <div class="sheet-field-label">שעה <span class="text-muted">(לא חובה)</span></div>
+        <input type="time" id="past-time-input" class="search-bar" style="margin-bottom:14px;">
         <div class="sheet-actions">
           <button type="button" class="btn btn-secondary" id="past-cancel-btn">ביטול</button>
           <button type="button" class="btn btn-primary" id="past-start-btn">התחלה</button>
@@ -2329,9 +2441,14 @@ function openPastWorkoutSheet() {
       body.querySelector('#past-start-btn').addEventListener('click', () => {
         const val = body.querySelector('#past-date-input').value;
         if (!val) return;
-        const picked = parseDateInputValue(val);
+        const time = body.querySelector('#past-time-input').value;
+        const picked = withTime(parseDateInputValue(val), time);
+        if (time && picked > new Date()) {
+          showToast('השעה הזו עוד לא הגיעה');
+          return;
+        }
         sheetApi.close();
-        startWorkout(picked);
+        startWorkout(picked, !!time);
       });
     },
   });
@@ -2436,25 +2553,34 @@ async function finishWorkout() {
       .filter((ex) => ex.sets.length > 0);
 
     const elapsedMs = Date.now() - session.realStartedAt.getTime();
+    const start = session.startedAt.getTime();
+    const noTime = !session.hasTime;
     if (isEdit) {
-      // A reopened workout keeps its own date; the time spent now is added
-      // on top of its original end, covering a workout closed by mistake
-      // and then continued. Removing every set doesn't delete the saved
-      // workout — that's what History's own delete button is for.
-      if (exercises.length > 0) {
-        await updateWorkout(session.editingWorkoutId, {
-          endTime: new Date(session.originalEndTime.getTime() + elapsedMs),
-          exercises,
-        });
-      }
+      // The end moves with the start if the date/time was changed, and the
+      // time spent now is added on top of it, covering a workout closed by
+      // mistake and then continued. Removing every set keeps the saved
+      // workout (only its date/time is updated) — deleting it is the 🗑.
+      const shiftMs = start - (session.originalStartedAt || session.startedAt).getTime();
+      const when = {
+        date: session.startedAt,
+        startTime: session.startedAt,
+        endTime: new Date(session.originalEndTime.getTime() + shiftMs + elapsedMs),
+        noTime,
+      };
+      await updateWorkout(session.editingWorkoutId, exercises.length > 0 ? { ...when, exercises } : when);
     } else if (exercises.length > 0) {
-      // endTime is anchored to the picked date plus the real time spent
-      // logging — not wall-clock "now", which would blow up the duration
-      // History computes whenever startedAt is a past retroactive date.
+      // A live workout ends now — even if its start was moved earlier
+      // because "התחלת אימון" was pressed late. One logged afterwards is
+      // anchored to its picked date plus the real time spent logging, not
+      // wall-clock "now", which would blow up the duration History shows.
+      const endMs = session.live && isSameDay(session.startedAt, new Date())
+        ? Math.max(Date.now(), start + elapsedMs)
+        : start + elapsedMs;
       await createWorkout({
         date: session.startedAt,
         startTime: session.startedAt,
-        endTime: new Date(session.startedAt.getTime() + elapsedMs),
+        endTime: new Date(endMs),
+        noTime,
         exercises,
       });
     }

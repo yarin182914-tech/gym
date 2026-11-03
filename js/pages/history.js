@@ -1,5 +1,5 @@
 import { listWorkouts, deleteWorkout, listBodyWeights } from '../lib/firestore.js';
-import { formatDateHe, formatMonthHe, toDate } from '../lib/format.js';
+import { formatDateHe, formatMonthHe, toDate, formatTimeHe, workoutHasTime } from '../lib/format.js';
 import { esc } from '../core/dom.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { setsTable, cardioTable } from '../ui/sets-table.js';
@@ -354,7 +354,7 @@ function buildWorkoutRow(w) {
   el.innerHTML = `
     <div class="row" data-toggle style="cursor:pointer;">
       <div>
-        <strong>${formatDateHe(w.date)}</strong>
+        <strong>${formatDateHe(w.date)}${workoutHasTime(w) ? ` · ${formatTimeHe(start)}` : ''}</strong>
         <div class="text-muted" style="font-size:var(--text-sm);">${exerciseCount} תרגילים${durationMin ? ` · ${durationMin} דק'` : ''}</div>
       </div>
       <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-chevron aria-hidden="true">⌄</span>

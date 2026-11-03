@@ -47,6 +47,7 @@ export async function createWorkout(workout) {
       date: workout.date ?? serverTimestamp(),
       startTime: workout.startTime ?? serverTimestamp(),
       endTime: workout.endTime ?? null,
+      noTime: !!workout.noTime,
       notes: workout.notes ?? '',
       exercises: workout.exercises ?? [],
     });

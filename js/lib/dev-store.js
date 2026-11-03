@@ -33,6 +33,7 @@ export async function devCreateWorkout(workout) {
     date: workout.date instanceof Date ? workout.date.toISOString() : new Date().toISOString(),
     startTime: workout.startTime instanceof Date ? workout.startTime.toISOString() : new Date().toISOString(),
     endTime: workout.endTime instanceof Date ? workout.endTime.toISOString() : null,
+    noTime: !!workout.noTime,
     notes: workout.notes ?? '',
     exercises: workout.exercises ?? [],
   });
