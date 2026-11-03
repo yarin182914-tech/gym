@@ -11,6 +11,7 @@ import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { openExerciseEditSheet } from '../ui/exercise-edit-sheet.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
+import { mountDateField, mountTimeField } from '../ui/date-time-picker.js';
 import { renderProgressChart, buildWeightSeries } from '../lib/charts.js';
 import {
   formatDateHe, formatWeight, unitLabel, convertWeight, SET_TYPES,
@@ -450,7 +451,7 @@ function renderLastTimeModal() {
   return `
     <div class="modal-overlay" id="last-time-overlay">
       <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="last-time-title">
-        <button class="modal-close" id="last-time-close" type="button" aria-label="סגירה">✕</button>
+        <button class="modal-close" id="last-time-close" type="button" aria-label="סגירה">${icon('x', { className: 'icon--sm' })}</button>
         <h3 id="last-time-title" style="color:var(--text);">${esc(name)}</h3>
         ${body}
       </div>
@@ -783,7 +784,7 @@ function buildExerciseCard(ex) {
       <button type="button" class="set-more-btn" data-last-time aria-label="פעם קודמת">${icon('clock', { className: 'icon--sm' })}</button>
       <button type="button" class="set-more-btn set-more-btn--danger" data-delete-exercise aria-label="מחיקת התרגיל">${icon('trash-2', { className: 'icon--sm' })}</button>
       <button type="button" class="set-more-btn" data-collapse-toggle aria-label="כיווץ/הרחבת התרגיל">
-        <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-collapse-chevron aria-hidden="true">⌄</span>
+        <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-collapse-chevron aria-hidden="true">${icon('chevron-down', { className: 'icon--sm' })}</span>
       </button>
     </div>
     <div class="history-detail${isOpen ? ' history-detail--open' : ''}" data-exercise-detail>
@@ -1193,13 +1194,13 @@ function buildSetRow(ex, set, role) {
         <span class="numeric-field-unit">חזרות</span>
       </button>
       <button type="button" class="set-done-btn${set.done ? ' set-done-btn--done' : ''}" data-role="done-btn" aria-label="סימון סט כבוצע">
-        <span class="done-glyph">✓</span>
+        <span class="done-glyph">${icon('check', { className: 'icon--sm' })}</span>
       </button>
     </div>
     <div class="wheel-picker-slot" data-role="wheel-slot" hidden></div>
     <div class="set-row-meta">
       ${buildSetRowMeta(set, role)}
-      <button type="button" class="set-more-btn set-more-btn--meta" data-role="more-btn" aria-label="עוד אפשרויות לסט">⋯</button>
+      <button type="button" class="set-more-btn set-more-btn--meta" data-role="more-btn" aria-label="עוד אפשרויות לסט">${icon('ellipsis', { className: 'icon--sm' })}</button>
       <span class="pr-badge" data-role="pr-badge" ${set.isPR ? '' : 'hidden'}>שיא</span>
     </div>
     <span class="set-row-notes" data-role="notes" hidden></span>
@@ -1393,17 +1394,17 @@ function buildCardioRow(ex, set) {
       <span class="set-index" data-role="set-index"></span>
       ${fields.map((f) => `<div class="set-field" data-field="${f}"></div>`).join('')}
       <button type="button" class="set-done-btn${set.done ? ' set-done-btn--done' : ''}" data-role="done-btn" aria-label="סימון קטע כבוצע">
-        <span class="done-glyph">✓</span>
+        <span class="done-glyph">${icon('check', { className: 'icon--sm' })}</span>
       </button>
     </div>
     <div class="set-row-meta">
-      <button type="button" class="timer-chip num" data-role="timer-btn">▶</button>
-      <button type="button" class="timer-chip" data-role="timer-stop" aria-label="עצירת הטיימר" hidden>⏹</button>
+      <button type="button" class="timer-chip num" data-role="timer-btn" aria-label="הפעלת טיימר לקטע">${icon('play', { className: 'icon--sm' })}</button>
+      <button type="button" class="timer-chip" data-role="timer-stop" aria-label="עצירת הטיימר" hidden>${icon('square', { className: 'icon--sm' })}</button>
       ${efforts.length ? `
         <div class="effort-chips" role="group" aria-label="עצימות">
           ${efforts.map((e) => `<button type="button" class="effort-chip" data-effort="${e.id}" aria-pressed="false">${e.label}</button>`).join('')}
         </div>` : ''}
-      <button type="button" class="set-more-btn set-more-btn--meta" data-role="more-btn" aria-label="עוד אפשרויות לקטע">⋯</button>
+      <button type="button" class="set-more-btn set-more-btn--meta" data-role="more-btn" aria-label="עוד אפשרויות לקטע">${icon('ellipsis', { className: 'icon--sm' })}</button>
       <span class="cardio-derived num" data-role="derived"></span>
     </div>
     <span class="set-row-notes" data-role="notes" hidden></span>
@@ -1632,7 +1633,7 @@ function completeTimedSegment(ex, set, endedAt) {
     stopTimerLoop();
     patchExerciseCard(ex);
     persistSession();
-    showToast('✓ סיימת את הקטעים');
+    showToast(`${icon('check', { className: 'icon--sm' })} סיימת את הקטעים`);
   }
 }
 
@@ -1687,7 +1688,7 @@ function patchTimerChip(ex, set) {
   ctrl.row.classList.toggle('set-row--timing', !!mine);
   ctrl.timerStopBtn.hidden = !mine;
   if (!mine) {
-    ctrl.timerBtn.textContent = '▶';
+    ctrl.timerBtn.innerHTML = icon('play', { className: 'icon--sm' });
     ctrl.timerBtn.setAttribute('aria-label', set.durationSec ? 'הפעלת טיימר לקטע' : 'הפעלת סטופר לקטע');
     ctrl.timerBtn.classList.remove('active');
     return;
@@ -1695,7 +1696,7 @@ function patchTimerChip(ex, set) {
   const paused = t.pausedMs !== null;
   // A countdown shows 0:01 until it really ends; a stopwatch counts whole seconds done.
   const sec = (t.mode === 'down' ? Math.ceil : Math.floor)(timerReading(t) / 1000);
-  ctrl.timerBtn.textContent = `${paused ? '▶' : '⏸'} ${formatClock(sec)}`;
+  ctrl.timerBtn.innerHTML = `${icon(paused ? 'play' : 'pause', { className: 'icon--sm' })}<span>${formatClock(sec)}</span>`;
   ctrl.timerBtn.setAttribute('aria-label', paused ? 'המשך טיימר' : 'השהיית טיימר');
   ctrl.timerBtn.classList.toggle('active', !paused);
 }
@@ -2351,27 +2352,25 @@ function openWorkoutDetailsSheet() {
   openBottomSheet({
     ariaLabel: 'תאריך ושעת האימון',
     render(body, sheetApi) {
-      const todayStr = dateInputValue(new Date());
       body.innerHTML = `
         <h3 style="margin:0 0 14px; color:var(--text);">תאריך ושעה</h3>
         <div class="sheet-field-label">תאריך</div>
-        <input type="date" class="search-bar" data-when-date value="${dateInputValue(session.startedAt)}" max="${todayStr}" style="margin-bottom:12px;">
-        <div class="sheet-field-label sheet-field-label--row">
-          <span>שעה <span class="text-muted">(לא חובה)</span></span>
-          <button type="button" class="link-btn" data-when-clear>ללא שעה</button>
-        </div>
-        <input type="time" class="search-bar" data-when-time value="${session.hasTime ? timeInputValue(session.startedAt) : ''}">
+        <div data-when-date></div>
+        <div class="sheet-field-label">שעה <span class="text-muted">(לא חובה)</span></div>
+        <div data-when-time></div>
         <div class="sheet-actions">
           <button type="button" class="btn btn-secondary" data-when-cancel>ביטול</button>
           <button type="button" class="btn btn-primary" data-when-save>שמירה</button>
         </div>`;
-      const timeInput = body.querySelector('[data-when-time]');
-      body.querySelector('[data-when-clear]').addEventListener('click', () => { timeInput.value = ''; });
+      const dateField = mountDateField(body.querySelector('[data-when-date]'), { value: dateInputValue(session.startedAt) });
+      const timeField = mountTimeField(body.querySelector('[data-when-time]'), {
+        value: session.hasTime ? timeInputValue(session.startedAt) : '',
+      });
       body.querySelector('[data-when-cancel]').addEventListener('click', () => sheetApi.close());
       body.querySelector('[data-when-save]').addEventListener('click', () => {
-        const day = body.querySelector('[data-when-date]').value;
+        const day = dateField.getValue();
         if (!day || !session) return;
-        const time = timeInput.value;
+        const time = timeField.getValue();
         const next = withTime(parseDateInputValue(day), time);
         if (time && next > new Date()) {
           showToast('השעה הזו עוד לא הגיעה');
@@ -2425,23 +2424,24 @@ function openPastWorkoutSheet() {
   openBottomSheet({
     ariaLabel: 'הוספת אימון שכבר בוצע',
     render(body, sheetApi) {
-      const todayStr = dateInputValue(new Date());
       body.innerHTML = `
         <h3 style="margin:0 0 14px; color:var(--text);">אימון שכבר בוצע</h3>
         <div class="sheet-field-label">תאריך האימון</div>
-        <input type="date" id="past-date-input" class="search-bar" value="${todayStr}" max="${todayStr}" style="margin-bottom:12px;">
+        <div data-past-date></div>
         <div class="sheet-field-label">שעה <span class="text-muted">(לא חובה)</span></div>
-        <input type="time" id="past-time-input" class="search-bar" style="margin-bottom:14px;">
+        <div data-past-time></div>
         <div class="sheet-actions">
           <button type="button" class="btn btn-secondary" id="past-cancel-btn">ביטול</button>
           <button type="button" class="btn btn-primary" id="past-start-btn">התחלה</button>
         </div>
       `;
+      const dateField = mountDateField(body.querySelector('[data-past-date]'), { value: dateInputValue(new Date()) });
+      const timeField = mountTimeField(body.querySelector('[data-past-time]'), { value: '' });
       body.querySelector('#past-cancel-btn').addEventListener('click', () => sheetApi.close());
       body.querySelector('#past-start-btn').addEventListener('click', () => {
-        const val = body.querySelector('#past-date-input').value;
+        const val = dateField.getValue();
         if (!val) return;
-        const time = body.querySelector('#past-time-input').value;
+        const time = timeField.getValue();
         const picked = withTime(parseDateInputValue(val), time);
         if (time && picked > new Date()) {
           showToast('השעה הזו עוד לא הגיעה');
@@ -2591,7 +2591,7 @@ async function finishWorkout() {
     session = null;
     localStorage.removeItem(SESSION_STORAGE_KEY);
     render();
-    showToast(isEdit ? '✓ האימון עודכן' : '✓ האימון נשמר בהצלחה');
+    showToast(`${icon('check', { className: 'icon--sm' })} ${isEdit ? 'האימון עודכן' : 'האימון נשמר בהצלחה'}`);
   } catch (err) {
     console.error('finishWorkout failed', err);
     showToast('שגיאה בשמירת האימון — נסה שוב');

@@ -7,6 +7,7 @@
 import { esc } from '../core/dom.js';
 import { openBottomSheet } from './bottom-sheet.js';
 import { showToast } from './toast.js';
+import { icon } from './icon.js';
 import { createFeedback, updateFeedback } from '../lib/firestore.js';
 import { auth } from '../firebase-config.js';
 
@@ -80,7 +81,7 @@ export function openFeedbackSheet({ item = null, onSaved } = {}) {
             await createFeedback({ text, category, author });
           }
           sheetApi.close();
-          showToast(isEdit ? '✓ המשוב עודכן' : '✓ תודה, המשוב נשמר');
+          showToast(`${icon('check', { className: 'icon--sm' })} ${isEdit ? 'המשוב עודכן' : 'תודה, המשוב נשמר'}`);
           onSaved?.();
         } catch (err) {
           console.error('feedback save failed', err);

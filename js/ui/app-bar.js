@@ -57,7 +57,7 @@ function openSettingsSheet() {
         <button type="button" class="settings-item" ${attr}>
           ${icon(iconName, { className: 'icon--sm' })}
           <span class="settings-item-text">${label}${hint ? `<span class="settings-item-hint">${hint}</span>` : ''}</span>
-          <span class="settings-item-chevron" aria-hidden="true">‹</span>
+          <span class="settings-item-chevron" aria-hidden="true">${icon('chevron-left', { className: 'icon--sm' })}</span>
         </button>`;
       body.innerHTML = `
         <h3 style="margin:0 0 10px; color:var(--text);">הגדרות</h3>

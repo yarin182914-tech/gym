@@ -166,7 +166,7 @@ async function render() {
 
       <button type="button" class="dash-exercise-trigger${picker.open ? ' dash-exercise-trigger--open' : ''}" id="exercise-trigger">
         <span>${esc(selectedExercise)}</span>
-        <span class="dash-exercise-trigger-icon" aria-hidden="true">▾</span>
+        <span class="dash-exercise-trigger-icon" aria-hidden="true">${icon('chevron-down', { className: 'icon--sm' })}</span>
       </button>
       ${picker.open ? renderExercisePicker() : ''}
 

@@ -6,6 +6,7 @@ import { setBodyWeight, deleteBodyWeight } from '../lib/firestore.js';
 import { formatDayMonthHe, parseDateInputValue, round1 } from '../lib/format.js';
 import { todayKey, shiftKey, signedKg, round2, upsertWeight } from '../lib/body-weight.js';
 import { mountNumericField } from './numeric-input.js';
+import { mountDateField } from './date-time-picker.js';
 import { openBottomSheet } from './bottom-sheet.js';
 import { confirmDialog } from './confirm-dialog.js';
 import { emptyState } from './empty-state.js';
@@ -73,7 +74,7 @@ export function mountBodyWeightHistory(host, weights) {
           <h3 style="margin:0 0 14px; color:var(--text);">${entry ? `${dayLabel(entry.date)} · ${shortDate(entry.date)}` : 'הוספת שקילה'}</h3>
           ${entry ? '' : `
             <div class="sheet-field-label">תאריך</div>
-            <input type="date" class="search-bar" data-bw-sheet-date value="${dateKey}" max="${todayKey()}" style="margin-bottom:12px;">`}
+            <div data-bw-sheet-date></div>`}
           <div class="sheet-field-label">משקל</div>
           <div class="bw-field" data-bw-sheet-field></div>
           <p class="text-muted" data-bw-sheet-hint style="margin:8px 0 0; font-size:0.8rem;"></p>
@@ -98,12 +99,17 @@ export function mountBodyWeightHistory(host, weights) {
           hint.textContent = existing ? `כבר נשמר ליום הזה: ${existing.kg} — שמירה תחליף` : '';
         };
         refreshHint();
-        body.querySelector('[data-bw-sheet-date]')?.addEventListener('change', (e) => {
-          const v = e.target.value;
-          dateKey = v && v <= todayKey() ? v : todayKey();
-          e.target.value = dateKey;
-          refreshHint();
-        });
+        const dateHost = body.querySelector('[data-bw-sheet-date]');
+        if (dateHost) {
+          mountDateField(dateHost, {
+            value: dateKey,
+            ariaLabel: 'תאריך השקילה',
+            onChange: (v) => {
+              dateKey = v;
+              refreshHint();
+            },
+          });
+        }
 
         body.querySelector('[data-bw-cancel]').addEventListener('click', () => sheetApi.close());
         body.querySelector('[data-bw-save]').addEventListener('click', async () => {

@@ -9,6 +9,7 @@ import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { mountNumericField } from '../ui/numeric-input.js';
 import { createBodyWeightCard } from '../ui/body-weight-card.js';
+import { mountDateField } from '../ui/date-time-picker.js';
 
 const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
 // 'snack' is kept only so older entries saved under it still display a
@@ -203,7 +204,7 @@ function renderForm() {
       ${form.mealTypeIsOther ? `<input type="text" id="form-meal-type-other" class="search-bar" placeholder="סוג הארוחה" value="${esc(form.mealType)}" style="margin-bottom:10px;">` : ''}
 
       <div class="pill-row-label">תאריך</div>
-      <input type="date" id="form-date" class="search-bar" value="${dateInputValue(form.date)}" max="${dateInputValue(new Date())}" style="margin-bottom:10px;">
+      <div id="form-date"></div>
 
       <input type="text" id="form-description" class="search-bar" placeholder="תיאור הארוחה" value="${esc(form.description)}" style="margin:10px 0;">
 
@@ -239,9 +240,10 @@ function wireForm() {
   const otherInput = container.querySelector('#form-meal-type-other');
   otherInput?.addEventListener('input', (e) => { form.mealType = e.target.value; });
 
-  container.querySelector('#form-date').addEventListener('change', (e) => {
-    if (!e.target.value) return;
-    form.date = parseDateInputValue(e.target.value);
+  mountDateField(container.querySelector('#form-date'), {
+    value: dateInputValue(form.date),
+    ariaLabel: 'תאריך הארוחה',
+    onChange: (v) => { form.date = parseDateInputValue(v); },
   });
 
   container.querySelectorAll('[data-field-inc]').forEach((btn) => btn.addEventListener('click', () => {

@@ -14,6 +14,7 @@ import { setBodyWeight } from '../lib/firestore.js';
 import { parseDateInputValue, formatDayMonthHe } from '../lib/format.js';
 import { todayKey, round2, upsertWeight } from '../lib/body-weight.js';
 import { mountNumericField } from './numeric-input.js';
+import { mountDateField } from './date-time-picker.js';
 import { confirmDialog } from './confirm-dialog.js';
 import { showToast } from './toast.js';
 
@@ -90,7 +91,7 @@ export function createBodyWeightCard(weights) {
     el.innerHTML = `
       <div class="bw-head">
         <span class="bw-label">משקל בוקר</span>
-        <input type="date" class="bw-date${isToday ? '' : ' bw-date--past'}" data-bw-date value="${dateKey}" max="${todayKey()}" aria-label="תאריך השקילה">
+        <div data-bw-date></div>
       </div>
       <div class="bw-entry">
         <div class="bw-stepper">
@@ -112,11 +113,15 @@ export function createBodyWeightCard(weights) {
     });
     field.setPlaceholder('0.0');
 
-    el.querySelector('[data-bw-date]').addEventListener('change', (e) => {
-      // A cleared or future date falls back to today.
-      const v = e.target.value;
-      dateKey = v && v <= todayKey() ? v : todayKey();
-      renderEntry();
+    mountDateField(el.querySelector('[data-bw-date]'), {
+      value: dateKey,
+      ariaLabel: 'תאריך השקילה',
+      compact: true,
+      accent: !isToday, // a past day is the unusual case — make it obvious
+      onChange: (v) => {
+        dateKey = v;
+        renderEntry();
+      },
     });
     el.querySelectorAll('[data-bw-step]').forEach((btn) => {
       btn.addEventListener('click', () => {

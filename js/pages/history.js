@@ -127,9 +127,9 @@ function render() {
     ${viewToggle()}
     <div class="card">
       <div class="row" style="margin-bottom:10px;">
-        <button class="btn btn-secondary" id="cal-prev">‹</button>
+        <button class="btn btn-secondary" id="cal-prev" aria-label="החודש הקודם">${icon('chevron-right', { className: 'icon--sm' })}</button>
         <h3 id="cal-heading" style="margin:0;">${formatMonthHe(calendarMonth)}</h3>
-        <button class="btn btn-secondary" id="cal-next">›</button>
+        <button class="btn btn-secondary" id="cal-next" aria-label="החודש הבא">${icon('chevron-left', { className: 'icon--sm' })}</button>
       </div>
       <div id="cal-grid" style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center;"></div>
       <div id="cal-hint" class="text-muted" style="font-size:var(--text-sm); text-align:center; min-height:1.2em; margin-top:6px; opacity:0; transition:opacity 0.2s ease;"></div>
@@ -318,7 +318,7 @@ function buildMonthSection(key, group) {
   el.innerHTML = `
     <div class="row" data-month-toggle style="cursor:pointer; margin-bottom:8px;">
       <h3 style="margin:0;">${esc(monthLabel)}</h3>
-      <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-chevron aria-hidden="true">⌄</span>
+      <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-chevron aria-hidden="true">${icon('chevron-down', { className: 'icon--sm' })}</span>
     </div>
     <div class="history-detail${isOpen ? ' history-detail--open' : ''}" data-detail>
       <div class="history-detail-inner" data-workouts-slot></div>
@@ -357,7 +357,7 @@ function buildWorkoutRow(w) {
         <strong>${formatDateHe(w.date)}${workoutHasTime(w) ? ` · ${formatTimeHe(start)}` : ''}</strong>
         <div class="text-muted" style="font-size:var(--text-sm);">${exerciseCount} תרגילים${durationMin ? ` · ${durationMin} דק'` : ''}</div>
       </div>
-      <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-chevron aria-hidden="true">⌄</span>
+      <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-chevron aria-hidden="true">${icon('chevron-down', { className: 'icon--sm' })}</span>
     </div>
     <div class="history-detail${isOpen ? ' history-detail--open' : ''}" data-detail>
       <div class="history-detail-inner">

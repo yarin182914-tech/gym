@@ -14,7 +14,8 @@ const ITEM_H = 40; // px; must match the inline height set on .wheel-item below
 const VISIBLE = 3; // odd, so exactly one item centers in the viewport
 const PAD = (ITEM_H * (VISIBLE - 1)) / 2;
 
-export function mountWheelPicker(hostEl, { min = 0, max = 99, value = min, onCommit }) {
+// format: how each number is shown — e.g. zero-padded minutes on a clock.
+export function mountWheelPicker(hostEl, { min = 0, max = 99, value = min, format = String, onCommit }) {
   const count = max - min + 1;
   let selectedIdx = Math.min(Math.max(value - min, 0), count - 1);
 
@@ -31,7 +32,7 @@ export function mountWheelPicker(hostEl, { min = 0, max = 99, value = min, onCom
     const item = document.createElement('div');
     item.className = 'wheel-item';
     item.style.height = `${ITEM_H}px`;
-    item.textContent = String(n);
+    item.textContent = format(n);
     track.appendChild(item);
     items.push(item);
   }

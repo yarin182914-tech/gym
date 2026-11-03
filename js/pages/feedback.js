@@ -61,7 +61,7 @@ function itemRow(item) {
     <div class="card feedback-item" data-uid="${esc(item.id)}">
       <div class="row" style="margin-bottom:6px;">
         <span class="feedback-status feedback-status--${esc(item.status || 'new')}">${esc(statusLabel(item.status))}</span>
-        <button type="button" class="set-more-btn" data-role="fb-more" aria-label="עוד אפשרויות">⋯</button>
+        <button type="button" class="set-more-btn" data-role="fb-more" aria-label="עוד אפשרויות">${icon('ellipsis', { className: 'icon--sm' })}</button>
       </div>
       <p style="margin:0 0 8px; color:var(--text); white-space:pre-wrap;">${esc(item.text)}</p>
       <div class="text-muted" style="font-size:0.78rem; display:flex; gap:6px; flex-wrap:wrap;">
