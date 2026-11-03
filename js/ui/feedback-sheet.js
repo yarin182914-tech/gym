@@ -1,8 +1,8 @@
 // Add/edit form for one site-feedback item — a bottom sheet, same shell as
 // every other quick-entry flow in this app (js/ui/bottom-sheet.js). Shared
 // by two callers that must stay identical: the dedicated Feedback page's
-// own "+" button, and the site-wide floating button (feedback-fab.js) that
-// opens it from wherever the user happens to be. One form, one save path.
+// own "+" button, and "שליחת משוב" in the app bar's settings (app-bar.js),
+// which opens it from wherever the user happens to be. One form, one save path.
 
 import { esc } from '../core/dom.js';
 import { openBottomSheet } from './bottom-sheet.js';

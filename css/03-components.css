@@ -595,9 +595,9 @@ th {
     padding: 24px 24px 24px 240px;
   }
 
-  .theme-bar {
+  .app-bar-inner {
     max-width: 880px;
-    padding: 24px 24px 0 240px;
+    padding: 0 24px 0 240px;
   }
 
   .bottom-nav {
@@ -1182,28 +1182,6 @@ th {
   .install-banner {
     animation: none;
   }
-}
-
-/* ===== Feedback FAB (see js/ui/feedback-fab.js) =====
-   Fixed, site-wide — not page-scoped markup, so it survives every route
-   change instead of being rebuilt (or briefly missing) on navigation. */
-.feedback-fab {
-  position: fixed;
-  inset-inline-end: var(--space-4);
-  bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-4));
-  z-index: 55; /* above .bottom-nav (50), below the install banner/sheets/modals */
-  width: 52px;
-  height: 52px;
-  border-radius: var(--radius-full);
-  display: grid;
-  place-items: center;
-  background: var(--accent);
-  color: var(--gold-text);
-  box-shadow: var(--shadow-lg);
-}
-
-.feedback-fab:hover {
-  background: var(--accent-hover);
 }
 
 /* ===== Feedback status pill (see js/pages/feedback.js) ===== */
@@ -1950,4 +1928,81 @@ th {
   font-size: 0.8rem;
   text-transform: none;
   letter-spacing: normal;
+}
+
+/* ===== Settings sheet (app bar ⚙) and install steps ===== */
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 14px;
+  text-align: start;
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.settings-item + .settings-item {
+  border-top: 1px solid var(--border);
+}
+
+.settings-item:active {
+  background: var(--accent-dim);
+}
+
+.settings-item .icon {
+  color: var(--accent);
+  flex: none;
+}
+
+.settings-item-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-item-hint {
+  font-size: 0.75rem;
+  font-weight: var(--weight-regular);
+  color: var(--text-muted);
+}
+
+.settings-item-chevron {
+  color: var(--text-muted);
+  font-size: 1.2rem;
+}
+
+.install-steps {
+  list-style: none;
+  counter-reset: step;
+  margin: 12px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.install-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  font-size: var(--text-sm);
+}
+
+.install-steps .icon {
+  color: var(--accent);
+  flex: none;
 }

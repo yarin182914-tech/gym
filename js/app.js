@@ -9,8 +9,7 @@ import { mountNutrition, unmountNutrition } from './pages/nutrition.js';
 import { mountPlan } from './pages/plan.js';
 import { mountFeedback, unmountFeedback } from './pages/feedback.js';
 import { captureInstallPrompt, notifyAppEntered } from './ui/install-banner.js';
-import { mountFeedbackFab } from './ui/feedback-fab.js';
-import { mountThemeSwitch } from './ui/theme-switch.js';
+import { mountAppBar } from './ui/app-bar.js';
 
 const authScreen = document.getElementById('auth-screen');
 const appRoot = document.getElementById('app');
@@ -43,8 +42,7 @@ async function enterApp() {
   appRoot.classList.remove('hidden');
   nav.classList.remove('hidden');
   notifyAppEntered();
-  mountFeedbackFab();
-  mountThemeSwitch(appRoot);
+  mountAppBar(appRoot);
   await ensureUserDoc();
   if (!routerStarted) {
     startRouter();

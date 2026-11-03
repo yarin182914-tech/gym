@@ -1,6 +1,6 @@
 // DARK · RANDOM · BRIGHT — the colour theme switch at the top of every
-// screen. Sits outside #app (just above it), like the feedback button, so a
-// route change never rebuilds it. The theme logic itself lives in
+// screen, in the app bar (js/ui/app-bar.js), outside #app so a route
+// change never rebuilds it. The theme logic itself lives in
 // js/theme-boot.js (window.gymTheme), which already applied the saved theme
 // before first paint; this is only the control.
 
@@ -17,7 +17,7 @@ const PALETTE_NAMES = {
 
 let mounted = false;
 
-export function mountThemeSwitch(beforeEl) {
+export function mountThemeSwitch(hostEl) {
   if (mounted || !window.gymTheme) return;
   mounted = true;
 
@@ -34,7 +34,7 @@ export function mountThemeSwitch(beforeEl) {
       { value: 'bright', label: 'BRIGHT' },
     ],
   });
-  beforeEl.before(bar);
+  hostEl.appendChild(bar);
 
   const group = bar.querySelector('[data-theme-switch]');
   group.classList.add('toggle-group--live');

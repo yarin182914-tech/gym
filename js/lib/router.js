@@ -2,6 +2,13 @@ const DEFAULT_ROUTE = 'session';
 
 const routes = {};
 let active = null; // { name, unmount }
+const routeListeners = [];
+
+// fn(name) on every screen change — and right away if one is showing.
+export function onRouteChange(fn) {
+  routeListeners.push(fn);
+  if (active) fn(active.name);
+}
 
 // `unmount` is optional but must be supplied by any route that starts a timer,
 // subscription, or anything else that outlives a single render. Routes share
@@ -40,6 +47,7 @@ export function startRouter() {
 
     const route = routes[name];
     active = { name, unmount: route.unmount };
+    routeListeners.forEach((fn) => fn(name));
     route.mount();
 
     // There is no page load to reset focus, so send it to the new screen.

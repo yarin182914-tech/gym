@@ -108,19 +108,67 @@ button {
   padding: 16px 16px calc(24px);
 }
 
-/* DARK · RANDOM · BRIGHT switch (js/ui/theme-switch.js), just above #app
-   and lined up with it. */
-.theme-bar {
+/* Top app bar (js/ui/app-bar.js): screen title, the DARK · RANDOM ·
+   BRIGHT switch and ⚙. Sticky under the status bar — in the installed app
+   the page runs edge to edge (black-translucent), so it pads itself by the
+   notch's safe-area inset rather than hiding behind it. Translucent and
+   blurred so content scrolling under it stays faintly visible, the way a
+   native navigation bar behaves. */
+.app-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40; /* under .bottom-nav (50) and every overlay */
+  padding-top: env(safe-area-inset-top, 0px);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-bar-inner {
   max-width: 640px;
   margin: 0 auto;
-  padding: 12px 16px 0;
+  height: 52px;
+  padding: 0 16px;
   display: flex;
-  justify-content: center;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.app-bar-title {
+  margin: 0;
+  font-size: 1.35rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.app-bar-btn {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--text-muted);
+}
+
+.app-bar-btn:active {
+  background: var(--surface-raised);
+  color: var(--text);
 }
 
 .theme-bar .toggle-group button {
   letter-spacing: var(--tracking-wide);
   font-size: var(--text-xs);
+  padding: 0 9px;
 }
 
 /* ===== Auth screen ===== */
