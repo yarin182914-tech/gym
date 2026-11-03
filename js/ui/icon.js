@@ -41,6 +41,12 @@ const PATHS = {
   'chevron-down': '<path d="m6 9 6 6 6-6"/>',
   'chevron-left': '<path d="m15 18-6-6 6-6"/>',
   'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+  bike: '<circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>',
+  // Lucide has no running/walking figure or stairs — these three are from
+  // Tabler Icons (MIT), drawn on the same 24px grid and 2px round stroke.
+  run: '<circle cx="13" cy="4" r="1"/><path d="M4 17l5 1l.75 -1.5"/><path d="M15 21l0 -4l-4 -3l1 -6"/><path d="M7 12l0 -3l5 -1l3 3l3 1"/>',
+  walk: '<circle cx="13" cy="4" r="1"/><path d="M7 21l3 -4"/><path d="M16 21l-2 -4l-3 -3l1 -6"/><path d="M6 12l2 -3l4 -1l3 3l3 1"/>',
+  stairs: '<path d="M22 5h-5v5h-5v5h-5v5h-5"/>',
 };
 
 // className is appended (not replaced) — e.g. icon('clock', { className: 'icon--sm' }).

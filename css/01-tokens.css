@@ -2,6 +2,10 @@
    values are allowed to appear — everything else references these. */
 /* ===== Design tokens ===== */
 :root {
+  /* Workout types (History list and calendar): strength is the theme's
+     own accent, cardio a colour each theme sets well apart from it. */
+  --strength: var(--accent);
+  --cardio: #3bb08f;
   /* ---- Color — a dark, warm "editorial" theme ----
      --bg / --surface / --surface-raised   backgrounds, darkest to most raised
      --border                              hairline dividers — translucent
@@ -47,17 +51,16 @@
   color-scheme: dark;
 
   /* ---- Typography ---- */
-  --font-display: 'Suez One', serif;   /* headings — round, classic Hebrew display face; single weight only */
+  --font-display: 'Rubik', sans-serif; /* headings — the body face at its boldest cut (--weight-display) */
   --font-body: 'Rubik', sans-serif;    /* everything else — round, Hebrew-native */
   --font-numeric: 'Oswald', sans-serif; /* weights, reps, timers — tabular figures (Latin digits only, so Oswald renders fine here) */
 
-  /* Only the weights actually loaded (index.html): Suez One 400 (its only
-     cut — never reference --weight-semibold/--weight-bold on --font-display,
-     the browser would synthesize a fake bold), Rubik 400/500/600/700,
+  /* Only the weights actually loaded (index.html): Rubik 400/500/600/700,
      Oswald 400/500/700. */
   --weight-regular: 400;
   --weight-semibold: 500;
   --weight-bold: 700;
+  --weight-display: 700; /* headings and exercise names */
 
   /* Line-height and letter-spacing — the same "one shared ramp" idea as the
      type scale below, replacing what used to be one-off hardcoded values
@@ -132,6 +135,7 @@
 
 /* BRIGHT — "warm paper": cream and gold. */
 :root[data-theme="bright"] {
+  --cardio: #17786a;
   --bg: #f5efe6;
   --surface: #fffaf3;
   --surface-raised: #f0e7da;
@@ -168,6 +172,7 @@
 
 /* Synthwave: night purple, neon pink, cyan. */
 :root[data-theme="synthwave"] {
+  --cardio: #3dffb0;
   --bg: #140b2e;
   --surface: #1f1442;
   --surface-raised: #2a1b55;
@@ -195,6 +200,7 @@
 
 /* Acid sunset: dark plum, orange, pink, yellow. */
 :root[data-theme="acid-sunset"] {
+  --cardio: #4ad7ff;
   --bg: #24091f;
   --surface: #33102c;
   --surface-raised: #43173a;
@@ -222,6 +228,7 @@
 
 /* Pop art: bright yellow, black, pink, blue — the one light RANDOM palette. */
 :root[data-theme="pop-art"] {
+  --cardio: #d81b7a;
   --bg: #ffe94a;
   --surface: #fffbe0;
   --surface-raised: #fff3a8;
@@ -254,6 +261,7 @@
 
 /* Acid jungle: deep green, neon lime, purple. */
 :root[data-theme="acid-jungle"] {
+  --cardio: #31c8ff;
   --bg: #05211c;
   --surface: #0a2e27;
   --surface-raised: #103c33;
@@ -281,6 +289,7 @@
 
 /* '70s groove: brown, mustard, orange, turquoise. */
 :root[data-theme="groove70"] {
+  --cardio: #2bb3a3;
   --bg: #2e1c0f;
   --surface: #3d2715;
   --surface-raised: #4a311b;

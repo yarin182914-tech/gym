@@ -25,7 +25,7 @@
 
 .exercise-name {
   font-family: var(--font-display);
-  font-weight: var(--weight-regular);
+  font-weight: var(--weight-display);
   font-size: 1.25rem;
   line-height: var(--leading-tight);
   color: var(--accent-2);
@@ -1326,45 +1326,44 @@ th {
    are ever confused for one another, and any combination stays legible. */
 .history-day {
   position: relative;
-  padding: 6px 0;
+  padding: 5px 0 3px;
   border-radius: var(--radius-sm);
 }
 
+/* A day with a workout: bold, with one dot per type trained under the
+   number — gold-ish for strength, the theme's cardio colour for cardio. */
 .history-day--workout {
-  background: var(--accent);
-  color: var(--gold-text);
   font-weight: var(--weight-bold);
+  color: var(--text);
 }
+
+.history-day-dots {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  height: 5px;
+  margin-top: 2px;
+}
+
+.history-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+
+.history-dot--strength { background: var(--strength); }
+.history-dot--cardio { background: var(--cardio); }
 
 .history-day--today {
   box-shadow: inset 0 0 0 2px var(--accent);
 }
 
-/* A workout day that's also today: the fill already reads as "today" against
-   the rest of the grid, so the ring switches to white to stay visible on top
-   of it instead of doubling up on the same accent colour. */
-.history-day--today.history-day--workout {
-  box-shadow: inset 0 0 0 2px var(--accent-contrast);
-}
 
-/* "Selected" (synced with whichever workout is open in the list below) is a
-   small dot rather than a ring or fill, deliberately — it needs to stay
-   visible layered on top of either of the other two states without any
-   combined-state CSS for every pairing. */
-.history-day--selected::after {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
-  border-radius: var(--radius-full);
-  background: var(--purple);
-}
-
-.history-day--selected.history-day--workout::after {
-  background: var(--accent-contrast);
+/* "Selected" — synced with whichever workout is open in the list below —
+   is a soft tint, so it layers under the today ring and the type dots
+   without clashing with either. */
+.history-day--selected {
+  background: var(--accent-dim);
 }
 
 #cal-grid {
@@ -2222,4 +2221,79 @@ th {
 
 .wheel-picker::-webkit-scrollbar {
   display: none;
+}
+
+/* ===== History rows by workout type ===== */
+.history-row {
+  border-inline-start: 3px solid var(--strength);
+}
+
+.history-row--cardio {
+  border-inline-start-color: var(--cardio);
+}
+
+.history-row-head {
+  justify-content: flex-start;
+}
+
+.history-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-badge {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--strength);
+  background: color-mix(in srgb, var(--strength) 18%, transparent);
+}
+
+.history-badge--cardio {
+  color: var(--cardio);
+  background: color-mix(in srgb, var(--cardio) 18%, transparent);
+}
+
+/* Both in one workout: the badge splits between the two colours. */
+.history-badge--mixed {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--strength) 22%, transparent) 50%,
+    color-mix(in srgb, var(--cardio) 22%, transparent) 50%);
+}
+
+.history-row-text strong {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-row-summary {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Date on the row's far edge: day and month on top, weekday and time
+   under it — the way a native list carries a timestamp. */
+.history-row-when {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: end;
+}
+
+.history-row-when span:first-child {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
 }

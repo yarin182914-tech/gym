@@ -11,6 +11,7 @@ import { showToast } from '../ui/toast.js';
 import { navigate } from '../lib/router.js';
 import { openWorkoutForEditing } from './active-session.js';
 import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
+import { cardioActivity, summarizeSegments, formatSummary, formatKm } from '../lib/cardio.js';
 import { mountBodyWeightHistory } from '../ui/body-weight-history.js';
 
 let container = null;
@@ -184,12 +185,18 @@ function renderCalendar() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const startOffset = firstDay.getDay();
 
-  const workoutDays = new Set(
-    workouts
-      .map((w) => toDate(w.date))
-      .filter((d) => d.getFullYear() === year && d.getMonth() === month)
-      .map((d) => d.getDate())
-  );
+  // day -> Set of 'strength' / 'cardio' trained that day (a mixed
+  // workout counts as both).
+  const kindsByDay = new Map();
+  for (const w of workouts) {
+    const d = toDate(w.date);
+    if (d.getFullYear() !== year || d.getMonth() !== month) continue;
+    const { kind } = workoutKind(w);
+    const set = kindsByDay.get(d.getDate()) || new Set();
+    if (kind !== 'cardio') set.add('strength');
+    if (kind !== 'strength') set.add('cardio');
+    kindsByDay.set(d.getDate(), set);
+  }
 
   const today = new Date();
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
@@ -199,14 +206,16 @@ function renderCalendar() {
   ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'].forEach((d) => cells.push(`<div class="text-muted" style="font-size:var(--text-sm);">${d}</div>`));
   for (let i = 0; i < startOffset; i++) cells.push('<div></div>');
   for (let day = 1; day <= daysInMonth; day++) {
-    const isWorkoutDay = workoutDays.has(day);
+    const kinds = kindsByDay.get(day);
+    const isWorkoutDay = !!kinds;
     const isToday = isCurrentMonth && day === today.getDate();
     const isSelected = isSelectedMonth && day === selectedDate.getDate();
     const classes = ['num', 'history-day'];
     if (isWorkoutDay) classes.push('history-day--workout');
     if (isToday) classes.push('history-day--today');
     if (isSelected) classes.push('history-day--selected');
-    cells.push(`<div class="${classes.join(' ')}" data-day="${day}">${day}</div>`);
+    const dots = kinds ? ['strength', 'cardio'].filter((k) => kinds.has(k)).map((k) => `<i class="history-dot history-dot--${k}"></i>`).join('') : '';
+    cells.push(`<div class="${classes.join(' ')}" data-day="${day}">${day}<span class="history-day-dots">${dots}</span></div>`);
   }
   grid.innerHTML = cells.join('');
 
@@ -310,6 +319,52 @@ function syncCalendarToDate(date) {
   renderCalendar();
 }
 
+// ---------- workout type ----------
+// Strength, cardio or both — drives each row's colour, icon and summary,
+// and the calendar's dots.
+
+const ACTIVITY_ICON = { run: 'run', walk: 'walk', bike: 'bike', stairs: 'stairs' };
+
+function workoutKind(w) {
+  const exercises = w.exercises || [];
+  const cardio = exercises.filter((ex) => ex.kind === 'cardio');
+  const strength = exercises.filter((ex) => ex.kind !== 'cardio');
+  const activities = [...new Set(cardio.map((ex) => ex.activity))];
+  let kind = 'strength';
+  if (cardio.length) kind = strength.length ? 'mixed' : 'cardio';
+  return { kind, cardio, strength, activities };
+}
+
+// "כוח", "ריצה", "ריצה + הליכה", "כוח + ריצה"
+function kindLabel({ kind, activities }) {
+  const names = activities.map((a) => cardioActivity(a).name).join(' + ');
+  if (kind === 'cardio') return names;
+  if (kind === 'mixed') return `כוח + ${names}`;
+  return 'כוח';
+}
+
+// Strength: exercises and sets; cardio: distance, time and pace (pace only
+// for a single activity — a walk-and-run average means nothing); both: the
+// two, short. The workout's own length closes it when there's room.
+function kindSummary({ kind, cardio, strength, activities }, durationMin) {
+  const sets = strength.reduce((n, ex) => n + (ex.sets || []).length, 0);
+  const cardioTotals = summarizeSegments(cardio.flatMap((ex) => ex.sets || []));
+  const parts = [];
+  if (kind === 'cardio') {
+    const text = formatSummary(cardioTotals, { withPace: activities.length === 1 });
+    if (text) parts.push(text);
+    else if (durationMin) parts.push(`${durationMin} דק'`);
+    return parts.join(' · ') || `${cardio.length} פעילויות`;
+  }
+  parts.push(`${strength.length} תרגילים`);
+  if (kind === 'strength') parts.push(`${sets} סטים`);
+  if (kind === 'mixed' && cardioTotals.distanceKm) {
+    parts.push(`${cardioActivity(activities[0]).name} ${formatKm(cardioTotals.distanceKm)} ק"מ`);
+  }
+  if (durationMin) parts.push(`${durationMin} דק'`);
+  return parts.join(' · ');
+}
+
 function buildMonthSection(key, group) {
   const el = document.createElement('div');
   const isOpen = expandedMonths.has(key);
@@ -344,18 +399,28 @@ function buildMonthSection(key, group) {
 
 function buildWorkoutRow(w) {
   const el = document.createElement('div');
-  el.className = 'card';
-  const exerciseCount = (w.exercises || []).length;
+  const type = workoutKind(w);
+  el.className = `card history-row history-row--${type.kind}`;
   const start = w.startTime ? toDate(w.startTime) : toDate(w.date);
   const end = w.endTime ? toDate(w.endTime) : null;
   const durationMin = end ? Math.round((end - start) / 60000) : null;
   const isOpen = expanded.has(w.id);
+  // The month is the section heading above, so the row drops the year.
+  const date = toDate(w.date);
+  const dayMonth = date.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
+  const weekday = date.toLocaleDateString('he-IL', { weekday: 'short' });
+  const badgeIcon = type.kind === 'cardio' ? ACTIVITY_ICON[type.activities[0]] || 'run' : 'dumbbell';
 
   el.innerHTML = `
-    <div class="row" data-toggle style="cursor:pointer;">
-      <div>
-        <strong>${formatDateHe(w.date)}${workoutHasTime(w) ? ` · ${formatTimeHe(start)}` : ''}</strong>
-        <div class="text-muted" style="font-size:var(--text-sm);">${exerciseCount} תרגילים${durationMin ? ` · ${durationMin} דק'` : ''}</div>
+    <div class="row history-row-head" data-toggle style="cursor:pointer;">
+      <span class="history-badge history-badge--${type.kind}">${icon(badgeIcon)}</span>
+      <div class="history-row-text">
+        <strong>${esc(kindLabel(type))}</strong>
+        <div class="history-row-summary">${esc(kindSummary(type, durationMin))}</div>
+      </div>
+      <div class="history-row-when">
+        <span>${esc(dayMonth)}</span>
+        <span>${esc(weekday)}${workoutHasTime(w) ? ` · ${formatTimeHe(start)}` : ''}</span>
       </div>
       <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-chevron aria-hidden="true">${icon('chevron-down', { className: 'icon--sm' })}</span>
     </div>
