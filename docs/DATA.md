@@ -17,6 +17,7 @@ public repo.
 | `users/{uid}/exerciseLibrary` | auto | The strength-exercise quick-pick list |
 | `users/{uid}/nutritionEntries` | auto | Meals |
 | `users/{uid}/bodyWeight` | `yyyy-mm-dd` | One weigh-in per day |
+| `users/{uid}/dailyActivity` | `yyyy-mm-dd` | Calories out, one per day |
 | `siteFeedback` (top level) | auto | App feedback board — don't write here |
 
 ---
@@ -84,6 +85,36 @@ are just the sum).
 ```json
 // users/{uid}/bodyWeight/2026-11-03
 { "date": "2026-11-03", "kg": 78.4, "note": "", "loggedAt": "serverTimestamp()", "source": "coach" }
+```
+
+---
+
+## Daily activity (calories out) — `users/{uid}/dailyActivity/{yyyy-mm-dd}`
+
+**The doc id is the local date**, like body weight: one document per day,
+and writing the day again replaces it (use `set`). Nutrition's
+"נכנס מול יוצא" card shows the day's eaten calories against
+`totalOutKcal`, plus the average of the last 7 days that have both.
+
+| Field | Type | Notes |
+|---|---|---|
+| `date` | string | Same `yyyy-mm-dd` as the doc id |
+| `steps` | number | Steps that day (iPhone), `0` if unknown |
+| `baseKcal` | number | Resting + daily life, currently `1950` (Mifflin BMR × 1.2) |
+| `stepsKcal` | number | `round(steps × 0.04)` |
+| `workoutKcal` | number | Strength ≈ 250 kcal/hour of the workout; `0` if none |
+| `totalOutKcal` | number | `baseKcal + stepsKcal + workoutKcal` — what the app shows |
+| `note` | string | Usually `""` |
+| `loggedAt` | Timestamp | When it was saved (server timestamp) |
+| `source` | string | `coach` (written from outside) · `manual` (typed in the app) |
+
+All the kcal fields are integers. Keep `totalOutKcal` equal to the sum —
+the app trusts it as-is.
+
+```json
+// users/{uid}/dailyActivity/2026-11-04
+{ "date": "2026-11-04", "steps": 14000, "baseKcal": 1950, "stepsKcal": 560,
+  "workoutKcal": 310, "totalOutKcal": 2820, "note": "", "loggedAt": "serverTimestamp()", "source": "coach" }
 ```
 
 ---

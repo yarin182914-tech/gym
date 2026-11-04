@@ -178,6 +178,20 @@ export async function devListBodyWeights(max = 400) {
     .slice(0, max);
 }
 
+export async function devSetDailyActivity(dateKey, data) {
+  const state = load();
+  state.dailyActivity = (state.dailyActivity || []).filter((a) => a.id !== dateKey);
+  state.dailyActivity.push({ ...data, id: dateKey, date: dateKey, loggedAt: new Date().toISOString() });
+  save(state);
+}
+
+export async function devListDailyActivity(max = 60) {
+  const state = load();
+  return [...(state.dailyActivity || [])]
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .slice(0, max);
+}
+
 // ---------- site feedback (shared board — see firestore.js for why this
 // isn't scoped under the user, unlike everything above) ----------
 
