@@ -25,6 +25,16 @@ function uid() {
 
 export async function devEnsureUserDoc() { /* no-op: load() already seeds a default user */ }
 
+export async function devGetUserSettings() {
+  return load().user || {};
+}
+
+export async function devUpdateUserSettings(patch) {
+  const state = load();
+  state.user = { ...state.user, ...patch };
+  save(state);
+}
+
 export async function devCreateWorkout(workout) {
   const state = load();
   const id = uid();

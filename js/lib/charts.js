@@ -321,8 +321,9 @@ export async function renderPaceChart(canvas, { labels, paces, formatPace }, exi
 }
 
 // Calories per day — bars, the day shown above in the accent colour, with
-// the daily target as a dashed line across. Tapping a bar calls onPick(i).
-export async function renderCaloriesChart(canvas, { labels, calories, proteins, target, selectedIndex, onPick }, existingChart) {
+// each day's target as a dashed step line across. Tapping a bar calls
+// onPick(i).
+export async function renderCaloriesChart(canvas, { labels, calories, proteins, targets, selectedIndex, onPick }, existingChart) {
   const Chart = await loadChartLib();
   if (existingChart) existingChart.destroy();
   const colors = themeColors();
@@ -331,7 +332,7 @@ export async function renderCaloriesChart(canvas, { labels, calories, proteins, 
     yTicks: (v) => v,
     tooltipLabel: (ctx) => {
       const i = ctx.dataIndex;
-      return calories[i] ? `${calories[i]} קל' · חלבון ${proteins[i]}g` : 'לא נרשם';
+      return calories[i] ? `${calories[i]} / ${targets[i]} קל' · חלבון ${proteins[i]}g` : 'לא נרשם';
     },
   });
   options.plugins.tooltip.filter = (item) => item.datasetIndex === 0; // not the target line
@@ -356,7 +357,8 @@ export async function renderCaloriesChart(canvas, { labels, calories, proteins, 
         },
         {
           type: 'line',
-          data: labels.map(() => target),
+          data: targets,
+          stepped: 'middle', // flat over each bar, stepping between days
           borderColor: colors.muted,
           borderWidth: 1,
           borderDash: [4, 4],

@@ -17,7 +17,8 @@ public repo.
 | `users/{uid}/exerciseLibrary` | auto | The strength-exercise quick-pick list |
 | `users/{uid}/nutritionEntries` | auto | Meals |
 | `users/{uid}/bodyWeight` | `yyyy-mm-dd` | One weigh-in per day |
-| `users/{uid}/dailyActivity` | `yyyy-mm-dd` | Calories out, one per day |
+| `users/{uid}/dailyActivity` | `yyyy-mm-dd` | Calories out, one per day — also the day's calorie target |
+| `users/{uid}` (the doc itself) | — | Settings, e.g. the default calorie target |
 | `siteFeedback` (top level) | auto | App feedback board — don't write here |
 
 ---
@@ -96,6 +97,11 @@ and writing the day again replaces it (use `set`). Nutrition's
 "נכנס מול יוצא" card shows the day's eaten calories against
 `totalOutKcal`, plus the average of the last 7 days that have both.
 
+**`totalOutKcal` is also that day's calorie target** — the ring on the
+nutrition screen and the target line on its trend chart. The goal is not to
+eat past what was burned. Days with no `dailyActivity` doc use the default
+target on the user doc (below).
+
 | Field | Type | Notes |
 |---|---|---|
 | `date` | string | Same `yyyy-mm-dd` as the doc id |
@@ -116,6 +122,18 @@ the app trusts it as-is.
 { "date": "2026-11-04", "steps": 14000, "baseKcal": 1950, "stepsKcal": 560,
   "workoutKcal": 310, "totalOutKcal": 2820, "note": "", "loggedAt": "serverTimestamp()", "source": "coach" }
 ```
+
+---
+
+## User settings — `users/{uid}` (the user doc itself)
+
+| Field | Type | Notes |
+|---|---|---|
+| `calorieTarget` | number | Default daily calorie target, for days with no `dailyActivity` doc. `2000` when missing. Set in the app (tap the target under the ring). |
+
+The doc has other fields (`displayName`, `createdAt`…) — update only the
+field you mean to change (`set` with `merge: true`, or `update`), never
+overwrite the whole doc.
 
 ---
 

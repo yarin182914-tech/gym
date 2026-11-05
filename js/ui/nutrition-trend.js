@@ -21,9 +21,10 @@ const RANGES = [
 const WEEKDAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 let range = '7'; // kept across visits, like the body-weight card's range
 
-// entries: every loaded meal; selectedDay: the day the screen shows;
-// onPickDay(key): a bar was tapped. Returns { destroy }.
-export function mountNutritionTrend(host, { entries, targets, selectedDay, onPickDay }) {
+// entries: every loaded meal; targetFor(key): that day's calorie target;
+// selectedDay: the day the screen shows; onPickDay(key): a bar was tapped.
+// Returns { destroy }.
+export function mountNutritionTrend(host, { entries, targetFor, selectedDay, onPickDay }) {
   let chart = null;
 
   function render() {
@@ -86,7 +87,7 @@ export function mountNutritionTrend(host, { entries, targets, selectedDay, onPic
       labels: keys.map((k) => (days === 7 ? WEEKDAYS[parseDateInputValue(k).getDay()] : formatDayMonthHe(parseDateInputValue(k)))),
       calories: keys.map((k) => Math.round(byDay.get(k).calories)),
       proteins: keys.map((k) => Math.round(byDay.get(k).proteinG)),
-      target: targets.calories,
+      targets: keys.map(targetFor),
       selectedIndex: keys.indexOf(selectedDay),
       onPick: (i) => onPickDay(keys[i]),
     }, pending).then((c) => {

@@ -1,7 +1,7 @@
 import { renderPlateDial } from '../lib/plate-dial.js';
 import {
   addNutritionEntry, listNutritionEntries, updateNutritionEntry, deleteNutritionEntry, listBodyWeights,
-  setDailyActivity, listDailyActivity,
+  setDailyActivity, listDailyActivity, getUserSettings, updateUserSettings,
 } from '../lib/firestore.js';
 import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
@@ -20,7 +20,13 @@ import { openBottomSheet } from '../ui/bottom-sheet.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
 import { showToast } from '../ui/toast.js';
 
-const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
+const TARGETS = { proteinG: 190, carbsG: 260, fatG: 80 };
+// A day's calorie target is what was burned that day (its dailyActivity
+// totalOutKcal — the point is not to eat past it). Until that's logged,
+// it's this default, editable and kept on the user doc as calorieTarget.
+const DEFAULT_CALORIE_TARGET = 2000;
+// Calorie fields go well past the numeric field's weight-sized default max.
+const MAX_KCAL = 9999;
 // Enough for the trend card's month and then some, at several meals a day.
 const MEALS_TO_LOAD = 400;
 // The eating plan is lunch and dinner only (intermittent fasting); a third
@@ -53,18 +59,22 @@ let reviewItems = null; // mutable copy of analyzeFoodPhoto()'s items while aiSt
 let gramsFieldCtrls = []; // mountNumericField controllers, one per reviewItems row
 let bodyWeightCard = null; // created once per visit, re-attached by every render()
 let activities = []; // dailyActivity docs, newest day first
+let calorieDefault = DEFAULT_CALORIE_TARGET;
 // The day the ring, the macro bars and the meal list show ('yyyy-mm-dd').
 // Today on every visit; the day bar steps back through earlier ones.
 let selectedDay = todayKey();
 let trend = null; // the "מגמה" card's controller — its chart is destroyed on every re-render
 
 const dayOf = (d) => dateInputValue(toDate(d));
+const activityOn = (day) => activities.find((a) => a.date === day);
+// The calorie target for a day: its logged burn, else the default.
+const calorieTargetFor = (day) => totalOut(activityOn(day)) ?? calorieDefault;
 
 export async function mountNutrition(rootEl) {
   const token = beginMount();
   container = rootEl;
   renderLoading(container, 'טוען נתוני תזונה...');
-  const [loaded, weights, acts] = await Promise.all([
+  const [loaded, weights, acts, settings] = await Promise.all([
     listNutritionEntries(MEALS_TO_LOAD),
     // A failed weigh-in load shouldn't take the meals down with it.
     listBodyWeights(400).catch((err) => {
@@ -75,10 +85,15 @@ export async function mountNutrition(rootEl) {
       console.error('[daily-activity] load failed', err);
       return [];
     }),
+    getUserSettings().catch((err) => {
+      console.error('[nutrition] settings load failed', err);
+      return {};
+    }),
   ]);
   if (isStale(token)) return;
   entries = loaded;
   activities = acts;
+  calorieDefault = Number(settings.calorieTarget) || DEFAULT_CALORIE_TARGET;
   bodyWeightCard = createBodyWeightCard(weights);
   render();
 }
@@ -218,6 +233,53 @@ function openActivitySheet() {
   });
 }
 
+// The ring's "יעד" button: explains where the day's target comes from and
+// changes the default used on days with no burn logged yet.
+function openTargetSheet() {
+  let draft = calorieDefault;
+  const out = totalOut(activityOn(selectedDay));
+  openBottomSheet({
+    ariaLabel: 'יעד קלוריות',
+    render(body, sheetApi) {
+      body.innerHTML = `
+        <h3 style="margin:0 0 6px; color:var(--text);">יעד קלוריות</h3>
+        <p class="text-muted" style="font-size:0.8rem; margin:0 0 4px;">היעד של כל יום הוא כמה ששרפת בו — לא לעבור אותו. כשהשריפה של היום עוד לא הוזנה, היעד הוא ברירת המחדל.</p>
+        ${out === null ? '' : `<p class="text-muted" style="font-size:0.8rem; margin:0;">${esc(friendlyDate(selectedDay))}: שריפה <span class="num">${fmt(out)}</span> קל'</p>`}
+        <div class="sheet-field-label">ברירת מחדל</div>
+        <div class="bw-field" data-target-field></div>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-secondary" data-target-cancel>ביטול</button>
+          <button type="button" class="btn btn-primary" data-target-save>שמירה</button>
+        </div>`;
+      mountNumericField(body.querySelector('[data-target-field]'), {
+        value: draft,
+        unitLabel: "קל'",
+        ariaLabel: 'יעד ברירת מחדל',
+        max: MAX_KCAL,
+        onCommit: (v) => { draft = v; },
+      });
+      body.querySelector('[data-target-cancel]').addEventListener('click', () => sheetApi.close());
+      body.querySelector('[data-target-save]').addEventListener('click', async () => {
+        const value = Math.round(draft);
+        if (!value) {
+          showToast('יש להזין יעד');
+          return;
+        }
+        try {
+          await updateUserSettings({ calorieTarget: value });
+        } catch (err) {
+          console.error('[nutrition] target save failed', err);
+          showToast('השמירה נכשלה — נסה שוב');
+          return;
+        }
+        calorieDefault = value;
+        sheetApi.close();
+        render();
+      });
+    },
+  });
+}
+
 // Where a meal was logged from, as a small icon after its meal type.
 function sourceMark(e) {
   if (e.source === 'photo') return ` · ${icon('camera', { className: 'icon--sm' })}`;
@@ -242,6 +304,7 @@ function render() {
 
     <div class="card" style="text-align:center;">
       <div id="calorie-ring" style="margin-bottom:8px;"></div>
+      <button type="button" class="bw-edit" data-target-edit>${activityOn(selectedDay) ? 'יעד: לפי השריפה של היום' : `יעד קבוע · ${calorieDefault.toLocaleString('he-IL')} · שינוי`}</button>
     </div>
 
     <div class="card">
@@ -291,7 +354,7 @@ function render() {
   });
   trend = mountNutritionTrend(container.querySelector('[data-nut-trend]'), {
     entries,
-    targets: TARGETS,
+    targetFor: calorieTargetFor,
     selectedDay,
     onPickDay: (key) => {
       selectedDay = key;
@@ -300,13 +363,12 @@ function render() {
     },
   });
   container.querySelector('[data-energy-edit]').addEventListener('click', openActivitySheet);
+  container.querySelector('[data-target-edit]').addEventListener('click', openTargetSheet);
   container.querySelectorAll('[data-meal-id]').forEach((row) => {
     row.addEventListener('click', () => openMealSheet(entries.find((e) => e.id === row.dataset.mealId)));
   });
 
-  // Once the day's calories out are logged, that's the day's real target.
-  const dayOut = totalOut(activities.find((a) => a.date === selectedDay));
-  const calorieTarget = dayOut ?? TARGETS.calories;
+  const calorieTarget = calorieTargetFor(selectedDay);
   renderPlateDial(container.querySelector('#calorie-ring'), {
     progress: totals.calories / calorieTarget,
     valueText: String(Math.round(totals.calories)),
@@ -536,6 +598,7 @@ function openMealSheet(entry) {
           value: draft[m.key],
           unitLabel: m.unit,
           ariaLabel: m.label,
+          max: MAX_KCAL,
           onCommit: (v) => { draft[m.key] = v; },
         });
       }

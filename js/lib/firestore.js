@@ -5,7 +5,7 @@ import {
 import { db, useCloud } from '../firebase-config.js';
 import { currentUid } from '../auth.js';
 import {
-  devEnsureUserDoc, devCreateWorkout, devUpdateWorkout, devDeleteWorkout, devListWorkouts,
+  devEnsureUserDoc, devGetUserSettings, devUpdateUserSettings, devCreateWorkout, devUpdateWorkout, devDeleteWorkout, devListWorkouts,
   devListExerciseLibrary, devAddExerciseToLibrary,
   devRenameExerciseEverywhere, devDeleteExerciseFromLibrary,
   devAddNutritionEntry, devListNutritionEntries, devUpdateNutritionEntry, devDeleteNutritionEntry,
@@ -35,6 +35,19 @@ export async function ensureUserDoc() {
     });
   }
   return ref;
+}
+
+// Settings kept on users/{uid} itself, e.g. calorieTarget — read by the
+// app, and by anything else writing for the user (see docs/DATA.md).
+export async function getUserSettings() {
+  if (!useCloud) return devGetUserSettings();
+  const snap = await getDoc(doc(db, 'users', uidOrThrow()));
+  return snap.exists() ? snap.data() : {};
+}
+
+export async function updateUserSettings(patch) {
+  if (!useCloud) return devUpdateUserSettings(patch);
+  await setDoc(doc(db, 'users', uidOrThrow()), patch, { merge: true });
 }
 
 // ---------- workouts ----------

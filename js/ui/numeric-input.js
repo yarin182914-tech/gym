@@ -8,16 +8,18 @@
 // mounts into a host element and returns a small controller instead.
 
 const MIN = 0;
-const MAX = 999;
+const MAX = 999; // weights; calorie fields pass a higher max
 
-function clamp(n, fallback) {
+function clampTo(max, n, fallback) {
   if (!Number.isFinite(n)) return fallback;
-  return Math.min(Math.max(n, MIN), MAX);
+  return Math.min(Math.max(n, MIN), max);
 }
 
 // nullable: an emptied field commits null and stays empty (cardio, where
 // every value is optional) instead of snapping back to the last number.
-export function mountNumericField(hostEl, { value, unitLabel = '', ariaLabel = 'משקל', nullable = false, onCommit }) {
+// max: the highest value accepted (999 by default — a weight).
+export function mountNumericField(hostEl, { value, unitLabel = '', ariaLabel = 'משקל', nullable = false, max = MAX, onCommit }) {
+  const clamp = (n, fallback) => clampTo(max, n, fallback);
   const isBlank = (v) => nullable && (v === null || v === undefined || v === '');
   let lastGood = isBlank(value) ? null : clamp(value, 0);
   const shown = (v) => (v === null ? '' : v);
