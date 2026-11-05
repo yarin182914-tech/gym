@@ -1,11 +1,13 @@
 import { renderPlateDial } from '../lib/plate-dial.js';
 import {
   addNutritionEntry, listNutritionEntries, updateNutritionEntry, deleteNutritionEntry, listBodyWeights,
+  setDailyActivity, listDailyActivity,
 } from '../lib/firestore.js';
 import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
 import { toDate, dateInputValue, parseDateInputValue } from '../lib/format.js';
 import { todayKey, shiftKey } from '../lib/body-weight.js';
+import { buildActivity, totalOut, weekAverage, BASE_KCAL } from '../lib/daily-activity.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { stepper } from '../ui/stepper.js';
 import { emptyState } from '../ui/empty-state.js';
@@ -21,6 +23,9 @@ import { showToast } from '../ui/toast.js';
 const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
 // Enough for the trend card's month and then some, at several meals a day.
 const MEALS_TO_LOAD = 400;
+// The eating plan is lunch and dinner only (intermittent fasting); a third
+// entry in a day — a snack, a shake — is flagged on the in-vs-out card.
+const MAX_MEALS = 2;
 // 'snack' is kept only so older entries saved under it still display a
 // label instead of falling back to the raw key — the form itself now
 // offers three presets plus free text instead of a fixed 4th category.
@@ -47,6 +52,7 @@ let aiStatus = null; // null | 'loading' | 'unavailable' | 'error' | 'reviewing'
 let reviewItems = null; // mutable copy of analyzeFoodPhoto()'s items while aiStatus === 'reviewing'
 let gramsFieldCtrls = []; // mountNumericField controllers, one per reviewItems row
 let bodyWeightCard = null; // created once per visit, re-attached by every render()
+let activities = []; // dailyActivity docs, newest day first
 // The day the ring, the macro bars and the meal list show ('yyyy-mm-dd').
 // Today on every visit; the day bar steps back through earlier ones.
 let selectedDay = todayKey();
@@ -58,16 +64,21 @@ export async function mountNutrition(rootEl) {
   const token = beginMount();
   container = rootEl;
   renderLoading(container, 'טוען נתוני תזונה...');
-  const [loaded, weights] = await Promise.all([
+  const [loaded, weights, acts] = await Promise.all([
     listNutritionEntries(MEALS_TO_LOAD),
     // A failed weigh-in load shouldn't take the meals down with it.
     listBodyWeights(400).catch((err) => {
       console.error('[body-weight] load failed', err);
       return [];
     }),
+    listDailyActivity(60).catch((err) => {
+      console.error('[daily-activity] load failed', err);
+      return [];
+    }),
   ]);
   if (isStale(token)) return;
   entries = loaded;
+  activities = acts;
   bodyWeightCard = createBodyWeightCard(weights);
   render();
 }
@@ -81,6 +92,7 @@ export function unmountNutrition() {
   reviewItems = null;
   gramsFieldCtrls = [];
   bodyWeightCard = null;
+  activities = [];
   selectedDay = todayKey();
   trend?.destroy();
   trend = null;
@@ -116,6 +128,96 @@ function macroBar(label, value, target) {
     </div>`;
 }
 
+const kcalOn = (day) => entries
+  .filter((e) => dayOf(e.date) === day)
+  .reduce((sum, e) => sum + (e.calories || 0), 0);
+
+const fmt = (n) => Math.round(n).toLocaleString('he-IL');
+// "+188" / "−1,337" — U+2212 minus, LTR-isolated like the weight changes.
+const signed = (n) => `<bdi dir="ltr">${n > 0 ? '+' : n < 0 ? '−' : '±'}${fmt(Math.abs(n))}</bdi>`;
+const balanceColor = (n) => (n > 0 ? 'var(--danger)' : 'var(--success)');
+// Within the plan's meal count: a green check; over it: an amber warning.
+const mealCountMark = (n) => {
+  const [color, name] = n <= MAX_MEALS ? ['var(--success)', 'check'] : ['var(--gold)', 'triangle-alert'];
+  return `<span style="color:${color}; display:inline-flex; vertical-align:-2px;">${icon(name, { className: 'icon--sm' })}</span>`;
+};
+
+// "נכנס מול יוצא": the day's eaten calories against its logged calories
+// out, plus the 7-day average of days that have both.
+function energyCard(kcalIn, mealCount) {
+  const activity = activities.find((a) => a.date === selectedDay);
+  const out = totalOut(activity);
+  const week = weekAverage(activities, kcalOn, selectedDay);
+  const balance = out === null ? null : kcalIn - out;
+  const parts = activity ? [
+    `בסיס ${fmt(activity.baseKcal ?? BASE_KCAL)}`,
+    activity.steps ? `${fmt(activity.steps)} צעדים (${fmt(activity.stepsKcal ?? 0)})` : '',
+    activity.workoutKcal ? `אימון ${fmt(activity.workoutKcal)}` : '',
+  ].filter(Boolean).join(' · ') : '';
+  return `
+    <div class="card">
+      <div class="row" style="margin-bottom:10px;">
+        <h3 style="color:var(--text); margin:0;">נכנס מול יוצא</h3>
+        <button type="button" class="bw-edit" data-energy-edit>${activity ? 'עריכה' : 'הזנת צעדים'}</button>
+      </div>
+      <div class="row" style="text-align:center;">
+        <div style="flex:1;"><div class="text-muted" style="font-size:0.75rem;">נכנס</div><div class="num" style="font-weight:var(--weight-bold);">${fmt(kcalIn)}</div></div>
+        <div style="flex:1;"><div class="text-muted" style="font-size:0.75rem;">יוצא</div><div class="num" style="font-weight:var(--weight-bold);">${out === null ? '—' : fmt(out)}</div></div>
+        <div style="flex:1;"><div class="text-muted" style="font-size:0.75rem;">${balance === null ? 'מאזן' : balance > 0 ? 'עודף' : 'גירעון'}</div><div class="num" style="font-weight:var(--weight-bold); color:${balance === null ? 'inherit' : balanceColor(balance)};">${balance === null ? '—' : signed(balance)}</div></div>
+      </div>
+      ${parts ? `<div class="text-muted" style="font-size:0.75rem; margin-top:8px; text-align:center;">${esc(parts)}</div>` : ''}
+      ${mealCount ? `<div style="font-size:0.8rem; margin-top:8px; text-align:center;">${mealCountMark(mealCount)}${mealCount === 1 ? 'ארוחה אחת' : `${mealCount} ארוחות`}<span class="text-muted"> · יעד: צהריים וערב בלבד</span></div>` : ''}
+      ${week ? `<div class="text-muted" style="font-size:0.8rem; margin-top:10px; padding-top:8px; border-top:1px solid var(--border); text-align:center;">
+        ממוצע ${week.days === 7 ? 'שבועי' : `${week.days} ימים אחרונים`}: נכנס <span class="num">${fmt(week.in)}</span> · יוצא <span class="num">${fmt(week.out)}</span> · מאזן <span class="num" style="color:${balanceColor(week.balance)};">${signed(week.balance)}</span>
+      </div>` : ''}
+    </div>`;
+}
+
+function openActivitySheet() {
+  const day = selectedDay;
+  const existing = activities.find((a) => a.date === day);
+  const draft = { steps: existing?.steps ?? '', workoutKcal: existing?.workoutKcal ?? '' };
+  openBottomSheet({
+    ariaLabel: 'פעילות יומית',
+    render(body, sheetApi) {
+      body.innerHTML = `
+        <h3 style="margin:0 0 6px; color:var(--text);">פעילות · ${esc(friendlyDate(day))}</h3>
+        <p class="text-muted" style="font-size:0.8rem; margin:0 0 14px;">שריפה בסיסית ${fmt(existing?.baseKcal ?? BASE_KCAL)} קל' ביום, ועליה הצעדים והאימון.</p>
+        <div class="sheet-field-label">צעדים</div>
+        <input type="number" inputmode="numeric" min="0" dir="ltr" class="search-bar num" data-act-steps value="${esc(draft.steps)}" placeholder="0" style="margin-bottom:10px;">
+        <div class="sheet-field-label">אימון (קל')</div>
+        <input type="number" inputmode="numeric" min="0" dir="ltr" class="search-bar num" data-act-workout value="${esc(draft.workoutKcal)}" placeholder="0" style="margin-bottom:14px;">
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-secondary" data-act-cancel>ביטול</button>
+          <button type="button" class="btn btn-primary" data-act-save>שמירה</button>
+        </div>`;
+      body.querySelector('[data-act-cancel]').addEventListener('click', () => sheetApi.close());
+      body.querySelector('[data-act-save]').addEventListener('click', async () => {
+        const num = (sel) => Math.max(0, Number(body.querySelector(sel).value) || 0);
+        const data = buildActivity(day, {
+          steps: num('[data-act-steps]'),
+          workoutKcal: num('[data-act-workout]'),
+          baseKcal: existing?.baseKcal ?? BASE_KCAL,
+          note: existing?.note || '',
+        });
+        data.source = 'manual';
+        try {
+          await setDailyActivity(day, data);
+        } catch (err) {
+          console.error('[daily-activity] save failed', err);
+          showToast('השמירה נכשלה — נסה שוב');
+          return;
+        }
+        activities = activities.filter((a) => a.date !== day);
+        activities.push({ id: day, ...data });
+        activities.sort((a, b) => (a.date < b.date ? 1 : -1));
+        sheetApi.close();
+        render();
+      });
+    },
+  });
+}
+
 // Where a meal was logged from, as a small icon after its meal type.
 function sourceMark(e) {
   if (e.source === 'photo') return ` · ${icon('camera', { className: 'icon--sm' })}`;
@@ -147,6 +249,8 @@ function render() {
       ${macroBar('פחמימות', totals.carbsG, TARGETS.carbsG)}
       ${macroBar('שומן', totals.fatG, TARGETS.fatG)}
     </div>
+
+    ${energyCard(totals.calories, meals.length)}
 
     ${formOpen ? renderForm() : `<button class="btn btn-primary btn-block" id="open-form-btn">+ הוספת ארוחה</button>`}
 
@@ -195,14 +299,18 @@ function render() {
       container.querySelector('.nut-day-bar').scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
   });
+  container.querySelector('[data-energy-edit]').addEventListener('click', openActivitySheet);
   container.querySelectorAll('[data-meal-id]').forEach((row) => {
     row.addEventListener('click', () => openMealSheet(entries.find((e) => e.id === row.dataset.mealId)));
   });
 
+  // Once the day's calories out are logged, that's the day's real target.
+  const dayOut = totalOut(activities.find((a) => a.date === selectedDay));
+  const calorieTarget = dayOut ?? TARGETS.calories;
   renderPlateDial(container.querySelector('#calorie-ring'), {
-    progress: totals.calories / TARGETS.calories,
+    progress: totals.calories / calorieTarget,
     valueText: String(Math.round(totals.calories)),
-    label: `מתוך ${TARGETS.calories} קל'`,
+    label: `מתוך ${calorieTarget.toLocaleString('he-IL')} קל'`,
     variant: 'success',
   });
 

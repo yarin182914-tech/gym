@@ -10,6 +10,7 @@ import {
   devRenameExerciseEverywhere, devDeleteExerciseFromLibrary,
   devAddNutritionEntry, devListNutritionEntries, devUpdateNutritionEntry, devDeleteNutritionEntry,
   devSetBodyWeight, devListBodyWeights, devDeleteBodyWeight,
+  devSetDailyActivity, devListDailyActivity,
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
 } from './dev-store.js';
 
@@ -302,6 +303,30 @@ export async function listBodyWeights(max = 400) {
   if (!useCloud) return devListBodyWeights(max);
   const uid = uidOrThrow();
   const ref = collection(db, 'users', uid, 'bodyWeight');
+  const q = query(ref, orderBy('date', 'desc'), limit(max));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------- daily activity (calories out) ----------
+// Like body weight: one document per local day, keyed yyyy-mm-dd, so saving
+// a day again replaces it. Built by buildActivity() in daily-activity.js.
+
+export async function setDailyActivity(dateKey, data) {
+  if (!useCloud) return devSetDailyActivity(dateKey, data);
+  const uid = uidOrThrow();
+  await setDoc(doc(db, 'users', uid, 'dailyActivity', dateKey), {
+    ...data,
+    date: dateKey,
+    loggedAt: serverTimestamp(),
+  });
+}
+
+// Newest day first.
+export async function listDailyActivity(max = 60) {
+  if (!useCloud) return devListDailyActivity(max);
+  const uid = uidOrThrow();
+  const ref = collection(db, 'users', uid, 'dailyActivity');
   const q = query(ref, orderBy('date', 'desc'), limit(max));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
