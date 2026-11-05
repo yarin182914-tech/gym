@@ -20,6 +20,9 @@ import { confirmDialog } from '../ui/confirm-dialog.js';
 import { showToast } from '../ui/toast.js';
 
 const TARGETS = { calories: 2600, proteinG: 190, carbsG: 260, fatG: 80 };
+// The eating plan is lunch and dinner only (intermittent fasting); a third
+// entry in a day — a snack, a shake — is flagged on the in-vs-out card.
+const MAX_MEALS = 2;
 // 'snack' is kept only so older entries saved under it still display a
 // label instead of falling back to the raw key — the form itself now
 // offers three presets plus free text instead of a fixed 4th category.
@@ -130,7 +133,7 @@ const balanceColor = (n) => (n > 0 ? 'var(--danger)' : 'var(--success)');
 
 // "נכנס מול יוצא": the day's eaten calories against its logged calories
 // out, plus the 7-day average of days that have both.
-function energyCard(kcalIn) {
+function energyCard(kcalIn, mealCount) {
   const activity = activities.find((a) => a.date === selectedDay);
   const out = totalOut(activity);
   const week = weekAverage(activities, kcalOn, selectedDay);
@@ -152,6 +155,7 @@ function energyCard(kcalIn) {
         <div style="flex:1;"><div class="text-muted" style="font-size:0.75rem;">${balance === null ? 'מאזן' : balance > 0 ? 'עודף' : 'גירעון'}</div><div class="num" style="font-weight:var(--weight-bold); color:${balance === null ? 'inherit' : balanceColor(balance)};">${balance === null ? '—' : signed(balance)}</div></div>
       </div>
       ${parts ? `<div class="text-muted" style="font-size:0.75rem; margin-top:8px; text-align:center;">${esc(parts)}</div>` : ''}
+      ${mealCount ? `<div style="font-size:0.8rem; margin-top:8px; text-align:center;">${mealCount <= MAX_MEALS ? '✅' : '⚠️'} ${mealCount === 1 ? 'ארוחה אחת' : `${mealCount} ארוחות`}<span class="text-muted"> · יעד: צהריים וערב בלבד</span></div>` : ''}
       ${week ? `<div class="text-muted" style="font-size:0.8rem; margin-top:10px; padding-top:8px; border-top:1px solid var(--border); text-align:center;">
         ממוצע ${week.days === 7 ? 'שבועי' : `${week.days} ימים אחרונים`}: נכנס <span class="num">${fmt(week.in)}</span> · יוצא <span class="num">${fmt(week.out)}</span> · מאזן <span class="num" style="color:${balanceColor(week.balance)};">${signed(week.balance)}</span>
       </div>` : ''}
@@ -234,7 +238,7 @@ function render() {
       ${macroBar('שומן', totals.fatG, TARGETS.fatG)}
     </div>
 
-    ${energyCard(totals.calories)}
+    ${energyCard(totals.calories, meals.length)}
 
     ${formOpen ? renderForm() : `<button class="btn btn-primary btn-block" id="open-form-btn">+ הוספת ארוחה</button>`}
 
@@ -276,10 +280,13 @@ function render() {
     row.addEventListener('click', () => openMealSheet(entries.find((e) => e.id === row.dataset.mealId)));
   });
 
+  // Once the day's calories out are logged, that's the day's real target.
+  const dayOut = totalOut(activities.find((a) => a.date === selectedDay));
+  const calorieTarget = dayOut ?? TARGETS.calories;
   renderPlateDial(container.querySelector('#calorie-ring'), {
-    progress: totals.calories / TARGETS.calories,
+    progress: totals.calories / calorieTarget,
     valueText: String(Math.round(totals.calories)),
-    label: `מתוך ${TARGETS.calories} קל'`,
+    label: `מתוך ${calorieTarget.toLocaleString('he-IL')} קל'`,
     variant: 'success',
   });
 
