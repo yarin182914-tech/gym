@@ -15,7 +15,7 @@ import { mountDateField, mountTimeField } from '../ui/date-time-picker.js';
 import { renderProgressChart, buildWeightSeries } from '../lib/charts.js';
 import {
   formatDateHe, formatWeight, unitLabel, convertWeight, SET_TYPES,
-  dateInputValue, parseDateInputValue, toDate, formatTimeHe, workoutHasTime, timeInputValue,
+  dateInputValue, parseDateInputValue, toDate, formatTimeHe, workoutHasTime, timeInputValue, formatDayMonthHe,
 } from '../lib/format.js';
 import {
   listExerciseLibrary, seedExerciseLibraryIfEmpty, addExerciseToLibrary,
@@ -30,22 +30,33 @@ import {
 let container = null;
 let library = [];
 let libraryReady = false; // the library has loaded at least once this app session
-// { startedAt, realStartedAt, hasTime, live, exercises: [...] } — plus
+// { id, startedAt, realStartedAt, hasTime, live, exercises: [...] } — plus
 // editingWorkoutId / originalStartedAt / originalEndTime for a saved
 // workout reopened from History. hasTime: startedAt carries a real time of
 // day (one logged afterwards may have only a date). live: started with
 // "התחלת אימון", so it ends now rather than after the time spent logging.
+//
+// Several workouts can be open at once, one per tab in the strip above the
+// workout: `sessions` holds them all, `session` is the one on screen (always
+// one of `sessions`, or null when none is open). Everything below that
+// works on "the workout" works on `session`.
 let session = null;
+let sessions = [];
+let sessionsLoaded = false; // read back from storage at least once this page load
+const MAX_SESSIONS = 5;
 let finishingWorkout = false; // guards finishWorkout() against double-submission while a save is in flight
 
 // A page reload — or iOS discarding a backgrounded tab, which it does
-// aggressively — used to wipe `session` outright, since it only ever lived
-// in this module's memory. Mirroring it out to localStorage lets it be
-// rebuilt from real wall-clock timestamps instead of silently resetting to
-// nothing. Resumable regardless of how old the draft is — deliberately no
-// age cutoff: a workout left open for a day or two is exactly the case
-// this exists for, not a reason to discard it.
-const SESSION_STORAGE_KEY = 'gym-active-session-v1';
+// aggressively — used to wipe the workout outright, since it only ever lived
+// in this module's memory. Mirroring every open one out to localStorage lets
+// them be rebuilt from real wall-clock timestamps instead of silently
+// resetting to nothing. Resumable regardless of how old a draft is —
+// deliberately no age cutoff: a workout left open for a day or two is
+// exactly the case this exists for, not a reason to discard it.
+const SESSIONS_STORAGE_KEY = 'gym-active-sessions-v2';
+// Before tabs: a single workout, under its own key — moved into the list on
+// first load.
+const LEGACY_SESSION_STORAGE_KEY = 'gym-active-session-v1';
 let picker = { open: false, query: '', category: null };
 let lastTimeModal = null; // { name, previous }
 let recentExerciseNames = []; // fetched lazily each time the picker opens
@@ -75,33 +86,16 @@ export async function mountActiveSession(rootEl) {
   const token = beginMount();
   container = rootEl;
 
-  // Nothing in memory (fresh page load, or the tab was reloaded/discarded
-  // while backgrounded) — try to pick the workout back up from storage
-  // before doing anything else.
-  let restoredExercises = null;
-  if (!session) {
-    const restored = loadPersistedSession();
-    if (restored) {
-      session = restored;
-      // Restored _uid values came from a previous page load's counter —
-      // jump past them so any newly-added exercise/set can't collide.
-      uidSeq = Date.now();
-      restoredExercises = session.exercises;
-    }
-  }
+  // Fresh page load, or the tab was reloaded/discarded while backgrounded —
+  // pick the open workouts back up from storage before anything else.
+  loadSessions();
 
   // Drawn right away: the workout itself is already in memory or
   // localStorage, so nothing here needs to wait on the network. This used
   // to await the exercise library first — on a weak signal that left the
   // previous screen showing for seconds after tapping "אימון".
   render();
-
-  // Restored exercises were persisted without their "previous performance"
-  // data (see persistSession) — fetch it the same way a freshly-added
-  // exercise does, then patch each card in place once it arrives.
-  if (restoredExercises) {
-    for (const entry of restoredExercises) rehydrateExercise(entry);
-  }
+  if (session) rehydrateSession(session);
 
   loadLibrary(token);
   // A segment timer that was running when the page went away picks up
@@ -148,52 +142,88 @@ function isSameDay(a, b) {
 
 // ---------- persistence (survive reload / backgrounded-tab discard) ----------
 
-// Only the fields needed to rebuild the workout are kept — deliberately not
-// ex.previous/ex.history (Firestore-fetched lookups, refetched on restore by
-// rehydrateExercise instead of round-tripped through JSON on every tick).
-// Takes an explicit session so openWorkoutForEditing() can stage a draft
-// for the next mount without making it the live in-memory one.
-function persistSession(s = session) {
-  if (!s) {
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    return;
-  }
+// Saves every open workout, and which one is on screen. Only the fields
+// needed to rebuild each are kept — deliberately not ex.previous/ex.history
+// (Firestore-fetched lookups, refetched on restore by rehydrateExercise
+// instead of round-tripped through JSON on every tick).
+function persistSession() {
   try {
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
-      startedAt: s.startedAt.toISOString(),
-      realStartedAt: s.realStartedAt.toISOString(),
-      hasTime: s.hasTime !== false,
-      live: !!s.live,
-      editingWorkoutId: s.editingWorkoutId || null,
-      originalStartedAt: s.originalStartedAt ? s.originalStartedAt.toISOString() : null,
-      originalEndTime: s.originalEndTime ? s.originalEndTime.toISOString() : null,
-      timer: s.timer || null,
-      exercises: s.exercises.map((ex) => ({
-        _uid: ex._uid,
-        name: ex.name,
-        category: ex.category,
-        weightMode: ex.weightMode,
-        weightUnit: ex.weightUnit,
-        kind: ex.kind,
-        activity: ex.activity,
-        inputMode: ex.inputMode,
-        sets: ex.sets,
-      })),
-    }));
-  } catch { /* storage full/blocked — the session just won't survive a reload */ }
+    if (sessions.length === 0) {
+      localStorage.removeItem(SESSIONS_STORAGE_KEY);
+    } else {
+      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify({
+        activeId: session?.id ?? null,
+        sessions: sessions.map(serializeSession),
+      }));
+    }
+  } catch { /* storage full/blocked — the workouts just won't survive a reload */ }
+  updateNavBadge();
 }
 
-function loadPersistedSession() {
-  let raw;
+function newSessionId() {
+  return `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function serializeSession(s) {
+  return {
+    id: s.id,
+    startedAt: s.startedAt.toISOString(),
+    realStartedAt: s.realStartedAt.toISOString(),
+    hasTime: s.hasTime !== false,
+    live: !!s.live,
+    editingWorkoutId: s.editingWorkoutId || null,
+    originalStartedAt: s.originalStartedAt ? s.originalStartedAt.toISOString() : null,
+    originalEndTime: s.originalEndTime ? s.originalEndTime.toISOString() : null,
+    timer: s.timer || null,
+    exercises: s.exercises.map((ex) => ({
+      _uid: ex._uid,
+      name: ex.name,
+      category: ex.category,
+      weightMode: ex.weightMode,
+      weightUnit: ex.weightUnit,
+      kind: ex.kind,
+      activity: ex.activity,
+      inputMode: ex.inputMode,
+      sets: ex.sets,
+    })),
+  };
+}
+
+// Reads the open workouts back once per page load — a no-op after that,
+// since from then on memory is the source of truth and storage its mirror.
+function loadSessions() {
+  if (sessionsLoaded) return;
+  sessionsLoaded = true;
+  let saved = null;
   try {
-    raw = localStorage.getItem(SESSION_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-  if (!raw) return null;
+    const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
+    if (raw) {
+      saved = JSON.parse(raw);
+    } else {
+      // The single workout saved before tabs existed becomes the first tab.
+      const legacy = localStorage.getItem(LEGACY_SESSION_STORAGE_KEY);
+      if (legacy) saved = { activeId: null, sessions: [JSON.parse(legacy)] };
+    }
+  } catch { /* unreadable — start clean */ }
+
+  sessions = (saved?.sessions || []).map(deserializeSession).filter(Boolean);
+  session = sessions.find((s) => s.id === saved?.activeId) || sessions[0] || null;
+  // Restored _uid values came from a previous page load's counter — jump
+  // past them so any newly-added exercise/set can't collide.
+  if (sessions.length) uidSeq = Math.max(uidSeq, Date.now());
+  persistSession(); // writes the migrated list
+  // The legacy copy goes only once the list really holds it.
   try {
-    const parsed = JSON.parse(raw);
+    if (sessions.length === 0 || localStorage.getItem(SESSIONS_STORAGE_KEY)) {
+      localStorage.removeItem(LEGACY_SESSION_STORAGE_KEY);
+    }
+  } catch { /* fine */ }
+}
+
+function deserializeSession(parsed) {
+  try {
     return {
+      id: parsed.id || newSessionId(),
       startedAt: new Date(parsed.startedAt),
       realStartedAt: new Date(parsed.realStartedAt),
       // Drafts saved before these fields existed: a same-day, non-edit
@@ -214,8 +244,7 @@ function loadPersistedSession() {
       })),
     };
   } catch {
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    return null;
+    return null; // one corrupt entry doesn't take the other workouts with it
   }
 }
 
@@ -228,10 +257,10 @@ function loadPersistedSession() {
 // backstop for bfcache-eligible navigations Safari handles differently.
 // This is module-top-level code, so it only runs once per page load no
 // matter how many times mount/unmountActiveSession run — no double-
-// registration to guard against. The !container/!session guard makes it a
-// silent no-op whenever a different page is mounted or no workout is live.
+// registration to guard against. The guard makes it a silent no-op whenever
+// a different page is mounted or no workout is open.
 function persistIfActive() {
-  if (!container || !session) return;
+  if (!container || !sessionsLoaded || sessions.length === 0) return;
   persistSession();
 }
 document.addEventListener('visibilitychange', () => {
@@ -239,17 +268,29 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', persistIfActive);
 
+// Exercises restored from storage (or reopened from History) were kept
+// without their "previous performance" data — fetched once per page load
+// per workout, when it's first shown.
+function rehydrateSession(s) {
+  if (s.rehydrated) return;
+  s.rehydrated = true;
+  for (const entry of s.exercises) {
+    if (!entry.prevLoaded) rehydrateExercise(entry, s);
+  }
+}
+
 // Mirrors the tail of addExerciseToSession() for exercises that came back
-// from storage rather than from the picker — same fetch, same patch-in-place.
-async function rehydrateExercise(entry) {
+// from storage rather than from the picker — same fetch, same patch-in-place
+// (only if that workout is still the one on screen).
+async function rehydrateExercise(entry, owner) {
   const [prev, hist] = await Promise.all([
-    getLastPerformance(entry.name, session?.editingWorkoutId),
-    getExerciseHistory(entry.name, session?.editingWorkoutId),
+    getLastPerformance(entry.name, owner.editingWorkoutId),
+    getExerciseHistory(entry.name, owner.editingWorkoutId),
   ]);
   entry.previous = prev;
   entry.history = hist;
   entry.prevLoaded = true;
-  if (container) patchExerciseCard(entry);
+  if (container && owner === session) patchExerciseCard(entry);
 }
 
 // ---------- structural render ----------
@@ -290,6 +331,7 @@ function render() {
   const whenText = `${isSameDay(session.startedAt, new Date()) ? 'היום' : formatDateHe(session.startedAt)}${session.hasTime ? ` · ${formatTimeHe(session.startedAt)}` : ''}`;
 
   container.innerHTML = `
+    ${renderSessionTabs()}
     <div class="session-head">
       <button type="button" class="session-when" id="session-when-btn" aria-label="שינוי תאריך ושעה">
         ${icon('calendar-days', { className: 'icon--sm' })}
@@ -323,6 +365,7 @@ function render() {
   applyFocusMode();
   restoreScroll();
 
+  wireSessionTabs();
   container.querySelector('#finish-workout-btn').addEventListener('click', finishWorkout);
   container.querySelector('#cancel-edit-btn')?.addEventListener('click', cancelEditing);
   container.querySelector('#session-when-btn').addEventListener('click', openWorkoutDetailsSheet);
@@ -335,6 +378,153 @@ function render() {
 
   if (picker.open) wirePicker();
   if (lastTimeModal) wireLastTimeModal();
+}
+
+// ---------- open-workout tabs ----------
+//
+// One tab per open workout, above it: what kind it is (the History colours
+// — strength / cardio), when, "עריכה" for a saved one reopened, and a clock
+// while one of its segment timers runs. "+" opens another, up to
+// MAX_SESSIONS.
+
+function sessionKinds(s) {
+  const cardio = s.exercises.filter((ex) => ex.kind === 'cardio');
+  const strength = s.exercises.some((ex) => ex.kind !== 'cardio');
+  const activities = [...new Set(cardio.map((ex) => cardioActivity(ex.activity).name))];
+  return { strength, cardio: cardio.length > 0, activities };
+}
+
+function sessionTabTitle(s) {
+  const { strength, activities } = sessionKinds(s);
+  const parts = [...(strength ? ['כוח'] : []), ...activities];
+  if (parts.length === 0) return 'אימון';
+  return parts.length > 2 ? `${parts.slice(0, 2).join(' + ')}…` : parts.join(' + ');
+}
+
+function sessionTabWhen(s) {
+  const today = isSameDay(s.startedAt, new Date());
+  const day = today ? '' : formatDayMonthHe(s.startedAt);
+  const time = s.hasTime ? formatTimeHe(s.startedAt) : '';
+  const when = [day, time].filter(Boolean).join(' · ') || 'היום';
+  return s.editingWorkoutId ? `עריכה · ${when}` : when;
+}
+
+function renderSessionTabs() {
+  return `
+    <div class="session-tabs" role="tablist" aria-label="אימונים פתוחים">
+      ${sessions.map((s) => {
+        const active = s === session;
+        const { strength, cardio } = sessionKinds(s);
+        const timing = s.timer && s.timer.pausedMs === null;
+        return `
+        <button type="button" class="session-tab${active ? ' session-tab--active' : ''}" role="tab" aria-selected="${active}" data-session-tab="${esc(s.id)}">
+          <span class="session-tab-dots" aria-hidden="true">${strength ? '<span class="session-tab-dot session-tab-dot--strength"></span>' : ''}${cardio ? '<span class="session-tab-dot session-tab-dot--cardio"></span>' : ''}</span>
+          <span class="session-tab-text">
+            <span class="session-tab-title">${esc(sessionTabTitle(s))}</span>
+            <span class="session-tab-when">${esc(sessionTabWhen(s))}</span>
+          </span>
+          ${timing ? `<span class="session-tab-timer" aria-label="טיימר פועל">${icon('clock', { className: 'icon--sm' })}</span>` : ''}
+        </button>`;
+      }).join('')}
+      ${sessions.length < MAX_SESSIONS
+        ? `<button type="button" class="session-tab session-tab--add" id="add-session-btn" aria-label="אימון נוסף">${icon('square-plus', { className: 'icon--sm' })}</button>`
+        : ''}
+    </div>`;
+}
+
+function wireSessionTabs() {
+  container.querySelectorAll('[data-session-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => switchToSession(sessions.find((s) => s.id === btn.dataset.sessionTab)));
+  });
+  container.querySelector('#add-session-btn')?.addEventListener('click', openNewSessionSheet);
+  // Keep the tab on screen in view when the strip scrolls sideways.
+  container.querySelector('.session-tab--active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
+// Shows another open workout. The one being left keeps everything as is,
+// its segment timer included — that runs off timestamps, so it's caught up
+// the moment its tab is shown again.
+function switchToSession(next) {
+  if (!next || next === session || finishingWorkout) return;
+  leaveSession();
+  session = next;
+  persistSession();
+  render();
+  window.scrollTo(0, 0);
+  rehydrateSession(session);
+  if (session.timer) ensureTimerRunning();
+}
+
+// Puts away whatever belongs to the workout on screen, before another is
+// shown: open wheels, the exercise picker, the "last time" dialog, and the
+// timer loop (which only ever drives the workout on screen).
+function leaveSession() {
+  for (const refs of exerciseRefs.values()) {
+    for (const ctrl of refs.setsEls.values()) ctrl.closeWheel();
+  }
+  picker = { open: false, query: '', category: null };
+  lastTimeModal = null;
+  stopTimerLoop();
+}
+
+// Takes a workout off the tabs (finished, deleted, or an edit cancelled) and
+// shows the one next to it — or the "start a workout" screen if it was the
+// last.
+function closeSession(s) {
+  const idx = sessions.indexOf(s);
+  if (idx === -1) return;
+  sessions.splice(idx, 1);
+  if (s === session) {
+    leaveSession();
+    session = sessions[Math.min(idx, sessions.length - 1)] || null;
+  }
+  persistSession();
+  render();
+  window.scrollTo(0, 0);
+  if (session) {
+    rehydrateSession(session);
+    if (session.timer) ensureTimerRunning();
+  }
+}
+
+function openNewSessionSheet() {
+  openBottomSheet({
+    ariaLabel: 'אימון נוסף',
+    render(body, sheetApi) {
+      body.innerHTML = `
+        <h3 style="margin:0 0 14px; color:var(--text);">אימון נוסף</h3>
+        <p class="text-muted" style="font-size:0.8rem; margin:0 0 14px;">האימונים הפתוחים נשארים כמו שהם — עוברים ביניהם בלשוניות למעלה.</p>
+        <button type="button" class="btn btn-primary btn-block" data-new-live>התחלת אימון</button>
+        <button type="button" class="btn btn-secondary btn-block" data-new-past style="margin-top:8px;">הוספת אימון שכבר בוצע</button>`;
+      body.querySelector('[data-new-live]').addEventListener('click', () => {
+        sheetApi.close();
+        startWorkout();
+      });
+      body.querySelector('[data-new-past]').addEventListener('click', () => {
+        sheetApi.close();
+        openPastWorkoutSheet();
+      });
+    },
+  });
+}
+
+// "אימון" in the bottom nav shows how many workouts are open, once there's
+// more than one.
+function updateNavBadge() {
+  const link = document.querySelector('#bottom-nav a[data-route="session"]');
+  if (!link) return;
+  let badge = link.querySelector('.nav-badge');
+  if (sessions.length > 1) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'nav-badge num';
+      link.appendChild(badge);
+    }
+    badge.textContent = String(sessions.length);
+    badge.setAttribute('aria-label', `${sessions.length} אימונים פתוחים`);
+  } else {
+    badge?.remove();
+  }
 }
 
 // ---------- workout progress indicator ----------
@@ -2244,20 +2434,45 @@ function startWorkout(customDate, hasTime = false) {
   // realStartedAt is only ever used to measure how long finishing it took
   // (see finishWorkout's endTime calc), which is unrelated to which day the
   // user picked.
-  session = { startedAt: customDate || real, realStartedAt: real, hasTime: !customDate || hasTime, live: !customDate, exercises: [] };
+  if (sessions.length >= MAX_SESSIONS) {
+    showToast(`אפשר עד ${MAX_SESSIONS} אימונים פתוחים — צריך לסיים אחד קודם`);
+    return;
+  }
+  const created = {
+    id: newSessionId(),
+    startedAt: customDate || real,
+    realStartedAt: real,
+    hasTime: !customDate || hasTime,
+    live: !customDate,
+    exercises: [],
+    rehydrated: true, // nothing to fetch yet
+  };
+  leaveSession();
+  sessions.push(created);
+  session = created;
   persistSession();
   render();
+  window.scrollTo(0, 0);
 }
 
 // History's "continue / edit" button. Turns a saved workout back into a live
 // session — the reverse of buildSavedSets(), with dropGroup turned back into
-// parentUid links — and stages it as the persisted draft, so the next mount
-// restores it exactly like a resumed workout (fetching "last time" data on
-// the way). Finishing it then updates that same record instead of creating
-// a second one. Returns false, changing nothing, if a workout is already in
-// progress: that one is never overwritten.
+// parentUid links — opened in a tab of its own, beside any workout already
+// in progress, and made the one on screen; the next mount shows it (fetching
+// "last time" data on the way). Finishing it then updates that same record
+// instead of creating a second one. A workout already open for editing is
+// just brought forward. Returns false, changing nothing, when MAX_SESSIONS
+// workouts are already open.
 export function openWorkoutForEditing(workout) {
-  if (session || loadPersistedSession()) return false;
+  loadSessions();
+  const alreadyOpen = sessions.find((s) => s.editingWorkoutId === workout.id);
+  if (alreadyOpen) {
+    if (alreadyOpen !== session) leaveSession();
+    session = alreadyOpen;
+    persistSession();
+    return true;
+  }
+  if (sessions.length >= MAX_SESSIONS) return false;
 
   const exercises = (workout.exercises || []).map((savedEx) => {
     if (savedEx.kind === 'cardio') {
@@ -2306,7 +2521,8 @@ export function openWorkoutForEditing(workout) {
   });
 
   const startedAt = toDate(workout.startTime || workout.date);
-  persistSession({
+  const reopened = {
+    id: newSessionId(),
     startedAt,
     realStartedAt: new Date(),
     hasTime: workoutHasTime(workout),
@@ -2314,13 +2530,18 @@ export function openWorkoutForEditing(workout) {
     editingWorkoutId: workout.id,
     originalStartedAt: startedAt,
     originalEndTime: workout.endTime ? toDate(workout.endTime) : startedAt,
-    exercises,
-  });
+    exercises: exercises.map((ex) => ({ ...ex, previous: null, prevLoaded: false, history: null })),
+  };
+  leaveSession();
+  sessions.push(reopened);
+  session = reopened;
+  persistSession();
   return true;
 }
 
 // Leaves a reopened workout without saving — the stored one stays as it was.
 async function cancelEditing() {
+  const target = session;
   const confirmed = await confirmDialog({
     title: 'ביטול עריכה',
     message: 'לצאת בלי לשמור? האימון השמור יישאר כמו שהיה.',
@@ -2328,10 +2549,8 @@ async function cancelEditing() {
     cancelLabel: 'המשך עריכה',
     danger: true,
   });
-  if (!confirmed || !session) return;
-  session = null;
-  persistSession();
-  render();
+  if (!confirmed || !target || !sessions.includes(target)) return;
+  closeSession(target);
 }
 
 // A date at the given "hh:mm" — or left at noon (parseDateInputValue's
@@ -2390,6 +2609,7 @@ function openWorkoutDetailsSheet() {
 // editing a saved one, deletes that workout from History too.
 async function deleteCurrentWorkout() {
   if (!session) return;
+  const target = session;
   const isEdit = !!session.editingWorkoutId;
   const confirmed = await confirmDialog({
     title: 'מחיקת אימון',
@@ -2400,20 +2620,17 @@ async function deleteCurrentWorkout() {
     cancelLabel: 'חזרה לאימון',
     danger: true,
   });
-  if (!confirmed || !session) return;
+  if (!confirmed || !sessions.includes(target)) return;
   if (isEdit) {
     try {
-      await deleteWorkout(session.editingWorkoutId);
+      await deleteWorkout(target.editingWorkoutId);
     } catch (err) {
       console.error('deleteWorkout failed', err);
       showToast('המחיקה נכשלה — נסה שוב');
       return;
     }
   }
-  session = null;
-  stopTimerLoop();
-  localStorage.removeItem(SESSION_STORAGE_KEY);
-  render();
+  closeSession(target);
   showToast('האימון נמחק');
 }
 
@@ -2587,19 +2804,19 @@ async function finishWorkout() {
 
     // Only reached on success — a thrown error skips straight to catch,
     // leaving session (and the persisted draft) untouched so nothing is
-    // lost if the save actually failed.
-    session = null;
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    render();
+    // lost if the save actually failed. Tab switching is held off while
+    // finishingWorkout is set, so `session` is still the one just saved.
+    closeSession(session);
     showToast(`${icon('check', { className: 'icon--sm' })} ${isEdit ? 'האימון עודכן' : 'האימון נשמר בהצלחה'}`);
   } catch (err) {
     console.error('finishWorkout failed', err);
     showToast('שגיאה בשמירת האימון — נסה שוב');
   } finally {
     finishingWorkout = false;
-    // Only re-enable the button if the workout is still open — on success
-    // render() already swapped it out for the "ready to start" screen,
-    // which has no #finish-workout-btn to restore.
+    // Only re-enable the button if a workout is still on screen — on
+    // success closeSession() already re-rendered: either the next open
+    // workout (its button is fresh, so this is a no-op) or the "ready to
+    // start" screen, which has no #finish-workout-btn to restore.
     const btnAfter = session ? container?.querySelector('#finish-workout-btn') : null;
     if (btnAfter) {
       btnAfter.disabled = false;
@@ -2608,3 +2825,8 @@ async function finishWorkout() {
     }
   }
 }
+
+// Read the open workouts as soon as the app starts (app.js imports this
+// module), so the nav's open-workout count shows before the workout screen
+// is ever visited.
+loadSessions();

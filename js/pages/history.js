@@ -454,7 +454,7 @@ function buildWorkoutRow(w) {
   el.querySelector('[data-edit]').addEventListener('click', (e) => {
     e.stopPropagation();
     if (!openWorkoutForEditing(w)) {
-      showToast('יש אימון פתוח — צריך לסיים אותו לפני עריכת אימון אחר');
+      showToast('יש כבר 5 אימונים פתוחים — צריך לסיים אחד לפני עריכת אימון נוסף');
       return;
     }
     navigate('session');

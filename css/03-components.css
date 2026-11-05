@@ -2339,3 +2339,107 @@ th {
 .nut-macro-grid--3 {
   grid-template-columns: 1fr 1fr 1fr;
 }
+
+/* Open-workout tabs above the workout: one per open workout, scrolling
+   sideways when they don't fit. Only theme tokens — the dots reuse the
+   History strength/cardio colours, defined for every theme. */
+.session-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 calc(-1 * var(--space-3, 12px)) var(--space-3, 12px);
+  padding: 2px var(--space-3, 12px);
+}
+
+.session-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.session-tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+}
+
+.session-tab--active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
+.session-tab--add {
+  justify-content: center;
+  min-width: 44px;
+  color: var(--accent);
+  border-style: dashed;
+}
+
+.session-tab-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.session-tab-title {
+  font-size: 0.85rem;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.session-tab-when {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.session-tab-dots {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.session-tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.session-tab-dot--strength { background: var(--strength); }
+.session-tab-dot--cardio { background: var(--cardio); }
+
+.session-tab-timer {
+  display: inline-flex;
+  color: var(--accent);
+}
+
+/* "אימון" in the bottom nav: how many workouts are open, past one. */
+.bottom-nav a[data-route="session"] {
+  position: relative;
+}
+
+.nav-badge {
+  position: absolute;
+  top: 2px;
+  inset-inline-start: calc(50% + 10px);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--gold-text); /* the text colour primary buttons use on --accent */
+  font-size: 0.65rem;
+  font-weight: var(--weight-bold);
+  line-height: 16px;
+  text-align: center;
+}
