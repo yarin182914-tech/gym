@@ -179,10 +179,10 @@ export function mountTimeField(host, { value = '', onChange, ariaLabel = 'שעה
     setOpen(parts, true); // visible first — a hidden wheel can't scroll to its value
     wheels = [
       mountWheelPicker(parts.panel.querySelector('[data-wheel="h"]'), {
-        min: 0, max: 23, value: h, format: pad, onCommit: (v) => { h = v; set(`${pad(h)}:${pad(m)}`); },
+        min: 0, max: 23, value: h, format: pad, loop: true, onCommit: (v) => { h = v; set(`${pad(h)}:${pad(m)}`); },
       }),
       mountWheelPicker(parts.panel.querySelector('[data-wheel="m"]'), {
-        min: 0, max: 59, value: m, format: pad, onCommit: (v) => { m = v; set(`${pad(h)}:${pad(m)}`); },
+        min: 0, max: 59, value: m, format: pad, loop: true, onCommit: (v) => { m = v; set(`${pad(h)}:${pad(m)}`); },
       }),
     ];
     parts.panel.querySelector('[data-clear]').addEventListener('click', () => {
