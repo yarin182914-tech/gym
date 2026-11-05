@@ -20,11 +20,17 @@ import { openBottomSheet } from '../ui/bottom-sheet.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
 import { showToast } from '../ui/toast.js';
 
-const TARGETS = { proteinG: 190, carbsG: 260, fatG: 80 };
-// A day's calorie target is what was burned that day (its dailyActivity
-// totalOutKcal — the point is not to eat past it). Until that's logged,
-// it's this default, editable and kept on the user doc as calorieTarget.
-const DEFAULT_CALORIE_TARGET = 2000;
+// The daily goals, all editable in the "יעדים" sheet and kept on the user
+// doc (users/{uid}) under these same names. A day's calorie target is what
+// was burned that day (its dailyActivity totalOutKcal) less calorieDeficit;
+// until the burn is logged, it's calorieTarget.
+const DEFAULT_GOALS = {
+  calorieDeficit: 250,
+  calorieTarget: 2000,
+  proteinTarget: 140,
+  carbsTarget: 250,
+  fatTarget: 65,
+};
 // Calorie fields go well past the numeric field's weight-sized default max.
 const MAX_KCAL = 9999;
 // Enough for the trend card's month and then some, at several meals a day.
@@ -59,7 +65,7 @@ let reviewItems = null; // mutable copy of analyzeFoodPhoto()'s items while aiSt
 let gramsFieldCtrls = []; // mountNumericField controllers, one per reviewItems row
 let bodyWeightCard = null; // created once per visit, re-attached by every render()
 let activities = []; // dailyActivity docs, newest day first
-let calorieDefault = DEFAULT_CALORIE_TARGET;
+let goals = { ...DEFAULT_GOALS };
 // The day the ring, the macro bars and the meal list show ('yyyy-mm-dd').
 // Today on every visit; the day bar steps back through earlier ones.
 let selectedDay = todayKey();
@@ -73,8 +79,23 @@ window.addEventListener('gym-theme-change', () => {
 
 const dayOf = (d) => dateInputValue(toDate(d));
 const activityOn = (day) => activities.find((a) => a.date === day);
-// The calorie target for a day: its logged burn, else the default.
-const calorieTargetFor = (day) => totalOut(activityOn(day)) ?? calorieDefault;
+// The calorie target for a day: its logged burn less the deficit, else the
+// default.
+function calorieTargetFor(day) {
+  const out = totalOut(activityOn(day));
+  return out === null ? goals.calorieTarget : Math.max(0, out - goals.calorieDeficit);
+}
+
+// The user doc's saved goals over the defaults. The deficit may be 0;
+// every other goal must be above it.
+function goalsFrom(settings) {
+  const result = { ...DEFAULT_GOALS };
+  for (const key of Object.keys(DEFAULT_GOALS)) {
+    const v = Number(settings[key]);
+    if (Number.isFinite(v) && (v > 0 || (key === 'calorieDeficit' && v === 0))) result[key] = v;
+  }
+  return result;
+}
 
 export async function mountNutrition(rootEl) {
   const token = beginMount();
@@ -99,7 +120,7 @@ export async function mountNutrition(rootEl) {
   if (isStale(token)) return;
   entries = loaded;
   activities = acts;
-  calorieDefault = Number(settings.calorieTarget) || DEFAULT_CALORIE_TARGET;
+  goals = goalsFrom(settings);
   bodyWeightCard = createBodyWeightCard(weights);
   render();
 }
@@ -241,44 +262,63 @@ function openActivitySheet() {
 
 // The ring's "יעד" button: explains where the day's target comes from and
 // changes the default used on days with no burn logged yet.
+const GOAL_FIELDS = [
+  { key: 'calorieDeficit', label: 'גירעון מתחת לשריפה', unit: "קל'" },
+  { key: 'calorieTarget', label: 'יעד בלי שריפה', unit: "קל'" },
+  { key: 'proteinTarget', label: 'חלבון', unit: 'g' },
+  { key: 'carbsTarget', label: 'פחמימות', unit: 'g' },
+  { key: 'fatTarget', label: 'שומן', unit: 'g' },
+];
+
+// The ring's "יעדים" button: every daily goal — the calorie deficit, the
+// fallback calorie target, and the three macros — in one sheet.
 function openTargetSheet() {
-  let draft = calorieDefault;
+  const draft = { ...goals };
   const out = totalOut(activityOn(selectedDay));
   openBottomSheet({
-    ariaLabel: 'יעד קלוריות',
+    ariaLabel: 'יעדים',
     render(body, sheetApi) {
+      const field = (f) => `
+        <div>
+          <div class="sheet-field-label">${f.label}</div>
+          <div data-goal="${f.key}"></div>
+        </div>`;
       body.innerHTML = `
-        <h3 style="margin:0 0 6px; color:var(--text);">יעד קלוריות</h3>
-        <p class="text-muted" style="font-size:0.8rem; margin:0 0 4px;">היעד של כל יום הוא כמה ששרפת בו — לא לעבור אותו. כשהשריפה של היום עוד לא הוזנה, היעד הוא ברירת המחדל.</p>
-        ${out === null ? '' : `<p class="text-muted" style="font-size:0.8rem; margin:0;">${esc(friendlyDate(selectedDay))}: שריפה <span class="num">${fmt(out)}</span> קל'</p>`}
-        <div class="sheet-field-label">ברירת מחדל</div>
-        <div class="bw-field" data-target-field></div>
+        <h3 style="margin:0 0 6px; color:var(--text);">יעדים</h3>
+        <p class="text-muted" style="font-size:0.8rem; margin:0;">יעד הקלוריות של יום הוא השריפה שלו פחות הגירעון. כשהשריפה עוד לא הוזנה, היעד הוא היעד הקבוע.</p>
+        ${out === null ? '' : `<p class="text-muted" style="font-size:0.8rem; margin:4px 0 0;">${esc(friendlyDate(selectedDay))}: שריפה <span class="num">${fmt(out)}</span> · יעד <span class="num">${fmt(calorieTargetFor(selectedDay))}</span> קל'</p>`}
+        <div class="nut-macro-grid">${GOAL_FIELDS.slice(0, 2).map(field).join('')}</div>
+        <div class="nut-macro-grid nut-macro-grid--3">${GOAL_FIELDS.slice(2).map(field).join('')}</div>
         <div class="sheet-actions">
           <button type="button" class="btn btn-secondary" data-target-cancel>ביטול</button>
           <button type="button" class="btn btn-primary" data-target-save>שמירה</button>
         </div>`;
-      mountNumericField(body.querySelector('[data-target-field]'), {
-        value: draft,
-        unitLabel: "קל'",
-        ariaLabel: 'יעד ברירת מחדל',
-        max: MAX_KCAL,
-        onCommit: (v) => { draft = v; },
-      });
+      for (const f of GOAL_FIELDS) {
+        mountNumericField(body.querySelector(`[data-goal="${f.key}"]`), {
+          value: draft[f.key],
+          unitLabel: f.unit,
+          ariaLabel: f.label,
+          max: MAX_KCAL,
+          onCommit: (v) => { draft[f.key] = v; },
+        });
+      }
       body.querySelector('[data-target-cancel]').addEventListener('click', () => sheetApi.close());
       body.querySelector('[data-target-save]').addEventListener('click', async () => {
-        const value = Math.round(draft);
-        if (!value) {
-          showToast('יש להזין יעד');
+        const next = {};
+        for (const f of GOAL_FIELDS) next[f.key] = Math.round(draft[f.key] || 0);
+        const missing = GOAL_FIELDS.find((f) => f.key !== 'calorieDeficit' && !next[f.key]);
+        if (missing) {
+          showToast(`יש להזין ${missing.label}`);
           return;
         }
         try {
-          await updateUserSettings({ calorieTarget: value });
+          await updateUserSettings(next);
         } catch (err) {
-          console.error('[nutrition] target save failed', err);
+          console.error('[nutrition] goals save failed', err);
           showToast('השמירה נכשלה — נסה שוב');
           return;
         }
-        calorieDefault = value;
+        goals = next;
         sheetApi.close();
         render();
       });
@@ -310,13 +350,15 @@ function render() {
 
     <div class="card" style="text-align:center;">
       <div id="calorie-ring" style="margin-bottom:8px;"></div>
-      <button type="button" class="bw-edit" data-target-edit>${activityOn(selectedDay) ? 'יעד: לפי השריפה של היום' : `יעד קבוע · ${calorieDefault.toLocaleString('he-IL')} · שינוי`}</button>
+      <button type="button" class="bw-edit" data-target-edit>${activityOn(selectedDay)
+        ? `יעד: ${goals.calorieDeficit ? `השריפה פחות ${fmt(goals.calorieDeficit)}` : 'לפי השריפה'} · יעדים`
+        : `יעד קבוע · ${fmt(goals.calorieTarget)} · יעדים`}</button>
     </div>
 
     <div class="card">
-      ${macroBar('חלבון', totals.proteinG, TARGETS.proteinG)}
-      ${macroBar('פחמימות', totals.carbsG, TARGETS.carbsG)}
-      ${macroBar('שומן', totals.fatG, TARGETS.fatG)}
+      ${macroBar('חלבון', totals.proteinG, goals.proteinTarget)}
+      ${macroBar('פחמימות', totals.carbsG, goals.carbsTarget)}
+      ${macroBar('שומן', totals.fatG, goals.fatTarget)}
     </div>
 
     ${energyCard(totals.calories, meals.length)}

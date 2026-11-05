@@ -97,10 +97,10 @@ and writing the day again replaces it (use `set`). Nutrition's
 "נכנס מול יוצא" card shows the day's eaten calories against
 `totalOutKcal`, plus the average of the last 7 days that have both.
 
-**`totalOutKcal` is also that day's calorie target** — the ring on the
-nutrition screen and the target line on its trend chart. The goal is not to
-eat past what was burned. Days with no `dailyActivity` doc use the default
-target on the user doc (below).
+**`totalOutKcal` also sets that day's calorie target**: `totalOutKcal −
+calorieDeficit` (from the user doc, below; `250` by default) — the ring on
+the nutrition screen and the target line on its trend chart. Days with no
+`dailyActivity` doc use `calorieTarget` from the user doc instead.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -129,7 +129,14 @@ the app trusts it as-is.
 
 | Field | Type | Notes |
 |---|---|---|
-| `calorieTarget` | number | Default daily calorie target, for days with no `dailyActivity` doc. `2000` when missing. Set in the app (tap the target under the ring). |
+| `calorieDeficit` | number | kcal to stay under the day's burn: the target is `totalOutKcal − calorieDeficit`. `250` when missing; `0` allowed. |
+| `calorieTarget` | number | Calorie target for days with no `dailyActivity` doc. `2000` when missing. |
+| `proteinTarget` | number | Daily protein, grams. `140` when missing. |
+| `carbsTarget` | number | Daily carbs, grams. `250` when missing. |
+| `fatTarget` | number | Daily fat, grams. `65` when missing. |
+
+All integers, all set in the app's "יעדים" sheet (tap the line under the
+calorie ring on the nutrition screen), which writes them with `merge`.
 
 The doc has other fields (`displayName`, `createdAt`…) — update only the
 field you mean to change (`set` with `merge: true`, or `update`), never

@@ -2335,3 +2335,7 @@ th {
   grid-template-columns: 1fr 1fr;
   gap: 0 12px;
 }
+
+.nut-macro-grid--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
