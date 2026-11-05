@@ -233,6 +233,15 @@ export async function renderBodyWeightChart(canvas, { labels, raw, trend }, exis
   });
 }
 
+// Bar colours with one bar singled out (this week, the day shown): it's
+// drawn in full accent, the rest in a faded chart colour. Fading, not just a
+// different hue, because in some themes the accent and the chart colour are
+// the same (pop-art: both blue) and the highlight would vanish.
+function highlightBars(count, highlightIdx, colors, accent) {
+  const faded = /^#[0-9a-f]{6}$/i.test(colors.line) ? `${colors.line}73` : colors.line; // ~45% alpha
+  return Array.from({ length: count }, (_, i) => (i === highlightIdx ? accent : faded));
+}
+
 // Shared look for the cardio charts below: no legend, themed tooltip, one
 // recessive y grid.
 function cardioChartOptions(colors, { yTicks, reverseY = false, tooltipLabel }) {
@@ -279,7 +288,7 @@ export async function renderCardioWeeksChart(canvas, { labels, minutes }, existi
       labels,
       datasets: [{
         data: minutes,
-        backgroundColor: minutes.map((_, i) => (i === minutes.length - 1 ? accent : colors.line)),
+        backgroundColor: highlightBars(minutes.length, minutes.length - 1, colors, accent),
         borderRadius: 4,
         maxBarThickness: 28,
       }],
@@ -350,7 +359,7 @@ export async function renderCaloriesChart(canvas, { labels, calories, proteins, 
         {
           type: 'bar',
           data: calories,
-          backgroundColor: calories.map((_, i) => (i === selectedIndex ? accent : colors.line)),
+          backgroundColor: highlightBars(calories.length, selectedIndex, colors, accent),
           borderRadius: 4,
           maxBarThickness: 28,
           order: 2,
