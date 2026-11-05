@@ -11,6 +11,7 @@ import {
   devAddNutritionEntry, devListNutritionEntries, devUpdateNutritionEntry, devDeleteNutritionEntry,
   devSetBodyWeight, devListBodyWeights, devDeleteBodyWeight,
   devSetDailyActivity, devListDailyActivity,
+  devGetPlannedWorkout, devUpdatePlannedWorkout,
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
 } from './dev-store.js';
 
@@ -64,6 +65,8 @@ export async function createWorkout(workout) {
       noTime: !!workout.noTime,
       notes: workout.notes ?? '',
       exercises: workout.exercises ?? [],
+      // Started from the coach's plan for that day (plannedWorkouts doc id).
+      ...(workout.planId ? { planId: workout.planId } : {}),
     });
     return docRef.id;
   } finally {
@@ -343,6 +346,26 @@ export async function listDailyActivity(max = 60) {
   const q = query(ref, orderBy('date', 'desc'), limit(max));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------- planned workouts ----------
+// The coach's proposed workout for a day, written from outside the app (see
+// docs/DATA.md) — one document per local day, keyed yyyy-mm-dd. The app
+// only reads it and moves its status along (proposed → started → done, or
+// skipped).
+
+export async function getPlannedWorkout(dateKey) {
+  if (!useCloud) return devGetPlannedWorkout(dateKey);
+  const snap = await getDoc(doc(db, 'users', uidOrThrow(), 'plannedWorkouts', dateKey));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+export async function updatePlannedWorkout(dateKey, patch) {
+  if (!useCloud) return devUpdatePlannedWorkout(dateKey, patch);
+  await updateDoc(doc(db, 'users', uidOrThrow(), 'plannedWorkouts', dateKey), {
+    ...patch,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 // ---------- site feedback ----------

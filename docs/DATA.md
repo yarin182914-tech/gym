@@ -19,6 +19,7 @@ public repo.
 | `users/{uid}/bodyWeight` | `yyyy-mm-dd` | One weigh-in per day |
 | `users/{uid}/dailyActivity` | `yyyy-mm-dd` | Calories out, one per day — also the day's calorie target |
 | `users/{uid}` (the doc itself) | — | Settings, e.g. the default calorie target |
+| `users/{uid}/plannedWorkouts` | `yyyy-mm-dd` | The coach's proposed workout, one per day |
 | `siteFeedback` (top level) | auto | App feedback board — don't write here |
 
 ---
@@ -154,6 +155,7 @@ overwrite the whole doc.
 | `noTime` | boolean | `true` when the time of day isn't known (start is then noon) |
 | `notes` | string | Usually `""` |
 | `exercises` | array | See below. Never empty. |
+| `planId` | string | Only on a workout started from the coach's plan: that `plannedWorkouts` doc id (`yyyy-mm-dd`). Set by the app; History tags the workout "לפי תוכנית". |
 
 An exercise is either **strength** or **cardio**. History labels a workout
 by what it contains: only cardio → "ריצה" / "הליכה" etc., only strength →
@@ -305,6 +307,75 @@ distance and speed/pace give the third; pace = 3600 / speed):
       "sets": [
         { "setNumber": 1, "durationSec": 2700, "distanceKm": 4.2, "notes": "",
           "calc": { "durationSec": 2700, "distanceKm": 4.2, "speedKmh": 5.6, "paceSec": 643 } }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## Planned workouts ("אימון מומלץ") — `users/{uid}/plannedWorkouts/{yyyy-mm-dd}`
+
+The coach's proposal for a day. **The doc id is the local date**, one per
+day; writing the day again replaces it (use `set`). On that day, while no
+workout is open, the workout screen shows it as a card. The user can change
+any set's weight/reps, add or remove sets, and swap, add, remove or reorder
+exercises, then starts it, skips it, or ignores it for a free workout. A plan
+for any other date is never shown.
+
+| Field | Type | Notes |
+|---|---|---|
+| `date` | string | Same `yyyy-mm-dd` as the doc id |
+| `title` | string | Short, e.g. `"גב + רגליים"` — also the workout's tab name |
+| `coachNotes` | string | The coach's explanation, free Hebrew text (line breaks kept) |
+| `exercises` | array | **Exactly the workout exercise shape above** — strength: `name`, `category`, `sets` (`setNumber`, `type`, `weight`, `weightUnit`, `weightMode`, `reps`, `notes`, optional `dropGroup`); cardio: as in Workouts. Plus optional `reason` per exercise. |
+| `exercises[].reason` | string | Optional, one short line, e.g. `"שבוע שעבר 10×60 בכל הסטים → עולים ל-62.5"` |
+| `status` | string | `proposed` (write this) → `started` · `done` · `skipped` (the app sets these) |
+| `source` | string | `coach` |
+| `createdAt` | Timestamp | When written |
+| `updatedAt` | Timestamp | Last change (the app updates it on every status change) |
+| — set by the app — | | |
+| `startedExercises` | array | What was actually started, after the user's changes (same shape as `exercises`). `exercises` itself is never changed. |
+| `edited` | boolean | `true` when the user changed anything before starting |
+| `workoutId` | string | Once the workout is saved (`status: 'done'`): its `workouts` doc id |
+
+Rules for the coach:
+- Write `status: 'proposed'`. Don't overwrite a day whose `status` is
+  already `started` or `done`.
+- Exercise names must match `exerciseLibrary` character for character,
+  like any workout (see Workouts above); `category` from the same entry.
+- `weightMode` / `weightUnit` from the library entry's defaults.
+- Deleting a workout that was started from the plan puts the plan back to
+  `proposed`. "אימון חופשי" leaves it `proposed`.
+
+```json
+// users/{uid}/plannedWorkouts/2026-11-06
+{
+  "date": "2026-11-06",
+  "title": "גב + רגליים",
+  "coachNotes": "שבוע שני של עלייה. אם הסט האחרון בחתירה מרגיש קשה — להישאר על 60.",
+  "source": "coach",
+  "status": "proposed",
+  "createdAt": "serverTimestamp()",
+  "updatedAt": "serverTimestamp()",
+  "exercises": [
+    {
+      "name": "חתירה בישיבה",
+      "category": "גב",
+      "reason": "שבוע שעבר 10×60 בכל הסטים → עולים ל-62.5",
+      "sets": [
+        { "setNumber": 1, "type": "warmup",  "weight": 40,   "weightUnit": "kg", "weightMode": "total", "reps": 12, "notes": "" },
+        { "setNumber": 2, "type": "working", "weight": 62.5, "weightUnit": "kg", "weightMode": "total", "reps": 10, "notes": "" },
+        { "setNumber": 3, "type": "working", "weight": 62.5, "weightUnit": "kg", "weightMode": "total", "reps": 10, "notes": "" }
+      ]
+    },
+    {
+      "name": "סקוואט",
+      "category": "רגליים",
+      "sets": [
+        { "setNumber": 1, "type": "working", "weight": 80, "weightUnit": "kg", "weightMode": "total", "reps": 8, "notes": "" },
+        { "setNumber": 2, "type": "working", "weight": 80, "weightUnit": "kg", "weightMode": "total", "reps": 8, "notes": "" }
       ]
     }
   ]

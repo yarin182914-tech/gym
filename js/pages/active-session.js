@@ -12,6 +12,8 @@ import { icon } from '../ui/icon.js';
 import { openExerciseEditSheet } from '../ui/exercise-edit-sheet.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
 import { mountDateField, mountTimeField } from '../ui/date-time-picker.js';
+import { createPlannedWorkoutCard } from '../ui/planned-workout-card.js';
+import { todayKey } from '../lib/body-weight.js';
 import { renderProgressChart, buildWeightSeries } from '../lib/charts.js';
 import {
   formatDateHe, formatWeight, unitLabel, convertWeight, SET_TYPES,
@@ -20,6 +22,7 @@ import {
 import {
   listExerciseLibrary, seedExerciseLibraryIfEmpty, addExerciseToLibrary,
   getLastPerformance, createWorkout, updateWorkout, deleteWorkout, getExerciseHistory, listWorkouts, CATEGORY_GROUPS,
+  getPlannedWorkout, updatePlannedWorkout,
 } from '../lib/firestore.js';
 import {
   CARDIO_CATEGORY, CARDIO_LIBRARY, CARDIO_FIELDS, SEGMENT_KEYS, cardioActivity, hasInputModes,
@@ -98,6 +101,7 @@ export async function mountActiveSession(rootEl) {
   if (session) rehydrateSession(session);
 
   loadLibrary(token);
+  loadTodayPlan(token);
   // A segment timer that was running when the page went away picks up
   // where the clock says it should be.
   if (session?.timer) ensureTimerRunning();
@@ -175,6 +179,8 @@ function serializeSession(s) {
     originalStartedAt: s.originalStartedAt ? s.originalStartedAt.toISOString() : null,
     originalEndTime: s.originalEndTime ? s.originalEndTime.toISOString() : null,
     timer: s.timer || null,
+    planId: s.planId || null,
+    planTitle: s.planTitle || '',
     exercises: s.exercises.map((ex) => ({
       _uid: ex._uid,
       name: ex.name,
@@ -236,6 +242,8 @@ function deserializeSession(parsed) {
         : (parsed.editingWorkoutId ? new Date(parsed.startedAt) : null),
       originalEndTime: parsed.originalEndTime ? new Date(parsed.originalEndTime) : null,
       timer: parsed.timer || null,
+      planId: parsed.planId || null,
+      planTitle: parsed.planTitle || '',
       exercises: (parsed.exercises || []).map((ex) => ({
         ...ex,
         previous: null,
@@ -315,6 +323,7 @@ function render() {
 
   if (!session) {
     container.innerHTML = `
+      ${planCardVisible() ? '<div id="plan-slot"></div>' : ''}
       <div class="card" style="text-align:center;">
         <h2>מוכן להתחיל?</h2>
         <p class="text-muted">לחיצה תתחיל מעקב אחר האימון.</p>
@@ -323,6 +332,7 @@ function render() {
       </div>`;
     container.querySelector('#start-workout-btn').addEventListener('click', () => startWorkout());
     container.querySelector('#start-past-workout-btn').addEventListener('click', openPastWorkoutSheet);
+    container.querySelector('#plan-slot')?.replaceWith(planCardEl);
     restoreScroll();
     return;
   }
@@ -395,6 +405,7 @@ function sessionKinds(s) {
 }
 
 function sessionTabTitle(s) {
+  if (s.planTitle) return s.planTitle;
   const { strength, activities } = sessionKinds(s);
   const parts = [...(strength ? ['כוח'] : []), ...activities];
   if (parts.length === 0) return 'אימון';
@@ -2474,7 +2485,33 @@ export function openWorkoutForEditing(workout) {
   }
   if (sessions.length >= MAX_SESSIONS) return false;
 
-  const exercises = (workout.exercises || []).map((savedEx) => {
+  const startedAt = toDate(workout.startTime || workout.date);
+  const reopened = {
+    id: newSessionId(),
+    startedAt,
+    realStartedAt: new Date(),
+    hasTime: workoutHasTime(workout),
+    live: false,
+    editingWorkoutId: workout.id,
+    originalStartedAt: startedAt,
+    originalEndTime: workout.endTime ? toDate(workout.endTime) : startedAt,
+    exercises: sessionExercisesFrom(workout.exercises, { done: true }),
+  };
+  leaveSession();
+  sessions.push(reopened);
+  session = reopened;
+  persistSession();
+  return true;
+}
+
+// Saved exercises — a workout's, or a coach's plan's — as session
+// exercises: the reverse of buildSavedSets(), with dropGroup turned back
+// into parentUid links. done: every set starts ticked (a workout already
+// done) or not (a plan, still to do). "Last time" data is fetched when the
+// workout is first shown (rehydrateSession).
+function sessionExercisesFrom(savedExercises, { done }) {
+  return (savedExercises || []).map((savedEx) => {
+    const lookups = { previous: null, prevLoaded: false, history: null };
     if (savedEx.kind === 'cardio') {
       return {
         _uid: nextUid(),
@@ -2483,8 +2520,9 @@ export function openWorkoutForEditing(workout) {
         kind: 'cardio',
         activity: savedEx.activity,
         inputMode: savedEx.inputMode || 'free',
+        ...lookups,
         sets: (savedEx.sets || []).map((s) => {
-          const seg = { _uid: nextUid(), notes: s.notes || '', done: true };
+          const seg = { _uid: nextUid(), notes: s.notes || '', done };
           for (const k of SEGMENT_KEYS) seg[k] = s[k] ?? null;
           return seg;
         }),
@@ -2494,11 +2532,11 @@ export function openWorkoutForEditing(workout) {
     const sets = (savedEx.sets || []).map((s) => {
       const set = {
         _uid: nextUid(),
-        type: s.type,
+        type: s.type || 'working',
         weight: s.weight,
         reps: s.reps,
         notes: s.notes || '',
-        done: true,
+        done,
         isPR: false,
         weightMode: s.weightMode || 'total',
         weightUnit: s.weightUnit || 'kg',
@@ -2516,27 +2554,108 @@ export function openWorkoutForEditing(workout) {
       category: savedEx.category || '',
       weightMode: sets[0]?.weightMode || 'total',
       weightUnit: sets[0]?.weightUnit || 'kg',
+      ...lookups,
       sets,
     };
   });
+}
 
-  const startedAt = toDate(workout.startTime || workout.date);
-  const reopened = {
+// ---------- the coach's planned workout ("אימון מומלץ") ----------
+//
+// Today's plannedWorkouts doc, fetched each time this screen mounts. Its
+// card shows on the "start a workout" screen — only while nothing is open,
+// and only while it's still a proposal. todayPlan is null when there's none.
+
+let todayPlan = null;
+let planCardEl = null; // the card, kept across renders so its draft survives
+
+async function loadTodayPlan(token) {
+  const key = todayKey();
+  let plan = null;
+  try {
+    plan = await getPlannedWorkout(key);
+  } catch (err) {
+    console.error('[plan] load failed', err);
+  }
+  if (isStale(token)) return;
+  const fresh = plan && plan.date === key ? plan : null;
+  // A new or changed proposal gets a new card; the same one keeps its draft.
+  if (!fresh || fresh.status !== 'proposed') {
+    planCardEl = null;
+  } else if (!planCardEl || todayPlan?.id !== fresh.id || planStamp(todayPlan) !== planStamp(fresh)) {
+    planCardEl = buildPlanCard(fresh);
+  }
+  todayPlan = fresh;
+  if (!session) render();
+}
+
+function buildPlanCard(plan) {
+  return createPlannedWorkoutCard(plan, {
+    getLibrary: () => library,
+    lastWeight: async (name) => {
+      const last = await getLastPerformance(name);
+      const working = (last?.sets || []).filter((s) => s.type !== 'warmup');
+      return working.length ? Math.max(...working.map((s) => Number(s.weight) || 0)) : null;
+    },
+    onStart: startFromPlan,
+    onSkip: skipPlan,
+    onFree: () => startWorkout(),
+  });
+}
+
+const planStamp = (p) => {
+  const t = p?.updatedAt;
+  return t?.toMillis ? t.toMillis() : String(t ?? '');
+};
+
+const planCardVisible = () => !!(planCardEl && todayPlan?.status === 'proposed' && todayPlan.date === todayKey());
+
+// "התחל אימון": the plan as edited, opened as a live workout with every set
+// still to do. The plan records what was actually started.
+async function startFromPlan(exercises, edited) {
+  if (!todayPlan || sessions.length >= MAX_SESSIONS) return;
+  const plan = todayPlan;
+  const real = new Date();
+  const created = {
     id: newSessionId(),
-    startedAt,
-    realStartedAt: new Date(),
-    hasTime: workoutHasTime(workout),
-    live: false,
-    editingWorkoutId: workout.id,
-    originalStartedAt: startedAt,
-    originalEndTime: workout.endTime ? toDate(workout.endTime) : startedAt,
-    exercises: exercises.map((ex) => ({ ...ex, previous: null, prevLoaded: false, history: null })),
+    startedAt: real,
+    realStartedAt: real,
+    hasTime: true,
+    live: true,
+    planId: plan.id,
+    planTitle: plan.title || '',
+    exercises: sessionExercisesFrom(exercises, { done: false }),
   };
   leaveSession();
-  sessions.push(reopened);
-  session = reopened;
+  sessions.push(created);
+  session = created;
+  plan.status = 'started';
   persistSession();
-  return true;
+  render();
+  window.scrollTo(0, 0);
+  rehydrateSession(created);
+  try {
+    await updatePlannedWorkout(plan.id, { status: 'started', startedExercises: exercises, edited });
+  } catch (err) {
+    // The workout is open either way; finishing it still marks the plan done.
+    console.error('[plan] status update failed', err);
+  }
+}
+
+// "לא היום".
+async function skipPlan() {
+  if (!todayPlan) return;
+  try {
+    await updatePlannedWorkout(todayPlan.id, { status: 'skipped' });
+  } catch (err) {
+    console.error('[plan] skip failed', err);
+    showToast('לא הצלחתי לעדכן — נסה שוב');
+    return;
+  }
+  todayPlan.status = 'skipped';
+  planCardEl = null;
+  render();
+  showToast('התוכנית של היום סומנה "לא היום"');
 }
 
 // Leaves a reopened workout without saving — the stored one stays as it was.
@@ -2628,6 +2747,15 @@ async function deleteCurrentWorkout() {
       console.error('deleteWorkout failed', err);
       showToast('המחיקה נכשלה — נסה שוב');
       return;
+    }
+  }
+  if (!isEdit && target.planId) {
+    // Started from today's plan by mistake, or to start over: offer it again.
+    updatePlannedWorkout(target.planId, { status: 'proposed' })
+      .catch((err) => console.error('[plan] reopen failed', err));
+    if (todayPlan?.id === target.planId) {
+      todayPlan.status = 'proposed';
+      planCardEl = buildPlanCard(todayPlan); // the coach's original, not the started edit
     }
   }
   closeSession(target);
@@ -2793,13 +2921,20 @@ async function finishWorkout() {
       const endMs = session.live && isSameDay(session.startedAt, new Date())
         ? Math.max(Date.now(), start + elapsedMs)
         : start + elapsedMs;
-      await createWorkout({
+      const planId = session.planId || null;
+      const workoutId = await createWorkout({
         date: session.startedAt,
         startTime: session.startedAt,
         endTime: new Date(endMs),
         noTime,
         exercises,
+        ...(planId ? { planId } : {}),
       });
+      if (planId) {
+        updatePlannedWorkout(planId, { status: 'done', workoutId })
+          .catch((err) => console.error('[plan] done update failed', err));
+        if (todayPlan?.id === planId) todayPlan.status = 'done';
+      }
     }
 
     // Only reached on success — a thrown error skips straight to catch,

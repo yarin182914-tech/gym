@@ -46,6 +46,7 @@ export async function devCreateWorkout(workout) {
     noTime: !!workout.noTime,
     notes: workout.notes ?? '',
     exercises: workout.exercises ?? [],
+    ...(workout.planId ? { planId: workout.planId } : {}),
   });
   save(state);
   return id;
@@ -200,6 +201,21 @@ export async function devListDailyActivity(max = 60) {
   return [...(state.dailyActivity || [])]
     .sort((a, b) => (a.date < b.date ? 1 : -1))
     .slice(0, max);
+}
+
+// Seeded by hand in dev (localStorage 'gym-dev-store' → plannedWorkouts:
+// [{ id: 'yyyy-mm-dd', date, title, ... }]), the way the coach writes them.
+export async function devGetPlannedWorkout(dateKey) {
+  const found = (load().plannedWorkouts || []).find((p) => p.id === dateKey);
+  return found ? { ...found } : null;
+}
+
+export async function devUpdatePlannedWorkout(dateKey, patch) {
+  const state = load();
+  const p = (state.plannedWorkouts || []).find((x) => x.id === dateKey);
+  if (!p) throw new Error('No such planned workout');
+  Object.assign(p, patch, { updatedAt: new Date().toISOString() });
+  save(state);
 }
 
 // ---------- site feedback (shared board — see firestore.js for why this

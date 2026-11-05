@@ -415,7 +415,7 @@ function buildWorkoutRow(w) {
     <div class="row history-row-head" data-toggle style="cursor:pointer;">
       <span class="history-badge history-badge--${type.kind}">${icon(badgeIcon)}</span>
       <div class="history-row-text">
-        <strong>${esc(kindLabel(type))}</strong>
+        <strong>${esc(kindLabel(type))}</strong>${w.planId ? ' <span class="history-plan-tag">לפי תוכנית</span>' : ''}
         <div class="history-row-summary">${esc(kindSummary(type, durationMin))}</div>
       </div>
       <div class="history-row-when">
