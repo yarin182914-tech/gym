@@ -65,6 +65,12 @@ let calorieDefault = DEFAULT_CALORIE_TARGET;
 let selectedDay = todayKey();
 let trend = null; // the "מגמה" card's controller — its chart is destroyed on every re-render
 
+// The trend card's canvas chart doesn't follow CSS colour changes on its
+// own — redraw the screen when the theme switch flips while it's showing.
+window.addEventListener('gym-theme-change', () => {
+  if (container && trend) render();
+});
+
 const dayOf = (d) => dateInputValue(toDate(d));
 const activityOn = (day) => activities.find((a) => a.date === day);
 // The calorie target for a day: its logged burn, else the default.
