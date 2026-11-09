@@ -30,14 +30,17 @@ Plan: "ניווט".
 - Floating + button with a bottom sheet (reuse `js/ui/bottom-sheet.js`): meal, weigh-in, sleep, walk.
 - Keep every existing route URL working (redirect old hashes).
 
-## M3c ☐ Steps from the iPhone (Shortcuts) — `feature/m3c-steps-import`
+## M3c ☐ Steps from the iPhone + "חיבורים" page — `feature/m3c-steps-import`
 No plan chapter; asked by ירין 2026-11-09. A web app can't read Apple Health, so an iOS Shortcuts automation reads today's steps and opens the app with them.
 - New route `#/import?steps=N[&date=yyyy-mm-dd]`. `steps` an integer 0–100,000; `date` defaults to today (Israel), may be up to 7 days back, never in the future. Anything else → a short Hebrew error toast, nothing written.
 - Writes `users/{uid}/dailyActivity/{date}` with merge: `steps`, `stepsKcal` and `totalOutKcal` recomputed from the doc's existing `baseKcal` (default 1950) and `workoutKcal` (default 0), `source: 'shortcut'`, `loggedAt`. Never lowers steps already stored for that day (keep the larger), so a midday run can't undo the evening number. Same URL twice = same result.
 - Not signed in yet → keep the request in localStorage and apply it right after sign-in.
 - After saving: toast "נשמרו 12,450 צעדים" and go to `#/today`, where the steps habit (autoSource) updates by itself.
 - Document `source: 'shortcut'` and the route in DATA.md. Numbers (max steps, days back) in `js/lib/rules.js`.
-- Done when: opening the URL on the preview sets today's steps, the steps habit and the burn update, repeating it changes nothing, and a lower number doesn't overwrite a higher one. Later (M11): the shortcut posts to the server instead, silently.
+- **"חיבורים" page** (new route `#/connections`, opened from the profile menu; later part of "התכנית שלי"): one card per connection, each with status (מחובר / לא מחובר / last sync time), a one-tap action and short illustrated Hebrew steps. M3c builds the page and the first card; each later milestone adds its own card:
+  - **צעדים מהאייפון (M3c):** an "הוספת הקיצור" button opening a ready-made iCloud shortcut link (ירין publishes it once; the URL lives in `js/lib/rules.js`), then 4 numbered steps to create the daily automation (Shortcuts → Automation → Time of Day 21:00 → Run Immediately → the shortcut), a status line showing the last import time from `dailyActivity.source == 'shortcut'`, and a hint if nothing arrived in 2 days.
+  - Placeholders (grey, "בקרוב") for: Google Calendar (M7), push notifications (M9), Claude connector (M11), cloud storage / Drive via the Claude connector (M12), Garmin (later).
+- Done when: opening the URL on the preview sets today's steps, the steps habit and the burn update, repeating it changes nothing, a lower number doesn't overwrite a higher one, and the חיבורים page shows the shortcut card with its last-sync time. Later (M11): the shortcut posts to the server instead, silently.
 
 ## M3b ☐ Workout types (functional, CrossFit, Pilates…) — `feature/m3b-workout-types`
 Plan: "סוגי אימון: פונקציונלי, קרוספיט, פילאטיס ועוד". Independent of M1–M3; can be pulled earlier.
@@ -83,6 +86,7 @@ Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון ע�
 - Request the extra `calendar.events` scope at Google sign-in (incremental consent). Create/update/delete an event when a task with a time is saved/moved/done/cancelled; store the event id on the task; mark events with a private extended property `{ gymi: true, taskId }`.
 - Only touch events linked to a task. Works while the app is open; failures queue and retry on next open.
 
+- Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
 ## M8 ☐ Settings — "התכנית שלי" — `feature/m8-my-plan`
 Plan: "מסך ההגדרות: "התכנית שלי"".
 - Sections: goals, sleep, habits, training, nutrition, body, routine, rewards, notifications, assistant. Change history (`users/{uid}/planHistory`). Assistant suggestion cards (approve/decline).
@@ -92,12 +96,14 @@ Plan: "מסך ההגדרות: "התכנית שלי"".
 Plan: "שלב 3: התראות פוש", "שרת קטן" in "מענה טכני".
 - Web Push (VAPID) subscription stored per device; Vercel serverless function to send; scheduled check every 15 min from GitHub Actions. Rules: only when something is missing, max 4/day, quiet hours, quiet Saturday, merge multiple reminders.
 
+- Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
 ## M10 ☐ Signup and profile — `feature/m10-onboarding`
 Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). Questionnaire on first login (level 1 only is required; ends with "set goals now / later / never" → `lifePlan.planDepth`); personal BMR (Mifflin-St Jeor) replaces the hard-coded 1950; targets from the goal; remove `weddingDate`.
 
 ## M11 ☐ Claude connector (MCP) — `feature/m11-mcp`
 Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "what changed since last check".
 
+- Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
 ## M12 ☐ "קלוד" instructions page — `feature/m12-claude-page`
 Plan: "שלב 6", and the "ליזום, לא לחייב" rules in "שאלון חיים ותכנית אב": Claude reads `planDepth` and never assumes more; offers to go deeper at natural moments, max once a month; stops after two declines until asked; full-plan users get full initiative.
 
