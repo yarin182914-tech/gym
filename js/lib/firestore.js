@@ -12,6 +12,7 @@ import {
   devSetBodyWeight, devListBodyWeights, devDeleteBodyWeight,
   devSetDailyActivity, devListDailyActivity,
   devGetPlannedWorkout, devUpdatePlannedWorkout,
+  devSetSleep, devListSleep, devDeleteSleep,
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
 } from './dev-store.js';
 
@@ -345,6 +346,37 @@ export async function listDailyActivity(max = 60) {
   const ref = collection(db, 'users', uid, 'dailyActivity');
   const q = query(ref, orderBy('date', 'desc'), limit(max));
   const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------- sleep ----------
+// One document per night, keyed by its MORNING's local date (yyyy-mm-dd);
+// saving the night again replaces it. See docs/DATA.md and js/lib/sleep.js.
+// isNew: stamp createdAt (kept as it was on later edits).
+
+export async function setSleep(dateKey, { bedtime, wakeTime, durationMin, source = 'manual' }, { isNew = false } = {}) {
+  if (!useCloud) return devSetSleep(dateKey, { bedtime, wakeTime, durationMin, source }, { isNew });
+  await setDoc(doc(db, 'users', uidOrThrow(), 'sleep', dateKey), {
+    date: dateKey,
+    bedtime,
+    wakeTime,
+    durationMin,
+    source,
+    updatedAt: serverTimestamp(),
+    ...(isNew ? { createdAt: serverTimestamp() } : {}),
+  }, { merge: true });
+}
+
+export async function deleteSleep(dateKey) {
+  if (!useCloud) return devDeleteSleep(dateKey);
+  await deleteDoc(doc(db, 'users', uidOrThrow(), 'sleep', dateKey));
+}
+
+// Newest night first.
+export async function listSleep(max = 60) {
+  if (!useCloud) return devListSleep(max);
+  const ref = collection(db, 'users', uidOrThrow(), 'sleep');
+  const snap = await getDocs(query(ref, orderBy('date', 'desc'), limit(max)));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 

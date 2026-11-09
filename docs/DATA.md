@@ -20,6 +20,7 @@ public repo.
 | `users/{uid}/dailyActivity` | `yyyy-mm-dd` | Calories out, one per day — also the day's calorie target |
 | `users/{uid}` (the doc itself) | — | Settings, e.g. the default calorie target |
 | `users/{uid}/plannedWorkouts` | `yyyy-mm-dd` | The coach's proposed workout, one per day |
+| `users/{uid}/sleep` | `yyyy-mm-dd` (the **morning**) | One night's sleep |
 | `siteFeedback` (top level) | auto | App feedback board — don't write here |
 
 ---
@@ -138,6 +139,18 @@ the app trusts it as-is.
 
 All integers, all set in the app's "יעדים" sheet (tap the line under the
 calorie ring on the nutrition screen), which writes them with `merge`.
+
+Sleep settings (set in the sleep card's ⚙ sheet; see "Sleep" below for how
+they're applied):
+
+| Field | Type | Notes |
+|---|---|---|
+| `sleepBedtimeTarget` | string | `'hh:mm'`, asleep by this → on time. `'22:30'` when missing. |
+| `sleepBedtimeLatest` | string | `'hh:mm'`, asleep by this → close (partial). `'23:00'` when missing. |
+| `sleepWakeTime` | string | `'hh:mm'`, the usual wake time — only prefills the clock, never judged. `'06:30'` when missing. |
+| `sleepMinHours` | number | Minimum hours asleep. `8` when missing. |
+| `sleepFlexibleNights` | number[] | **Weekdays of the EVENING** a night starts (`0` Sunday … `6` Saturday) on which only the duration counts. `[4, 5]` = Thursday and Friday nights when missing. |
+| `sleepBedtimeByWeekday` | map | Optional, **evening weekday** → `'hh:mm'` target for that night, e.g. `{ "6": "23:00" }`; the latest bedtime keeps the usual gap after it. |
 
 The doc has other fields (`displayName`, `createdAt`…) — update only the
 field you mean to change (`set` with `merge: true`, or `update`), never
@@ -311,6 +324,46 @@ distance and speed/pace give the third; pace = 3600 / speed):
     }
   ]
 }
+```
+
+---
+
+## Sleep — `users/{uid}/sleep/{yyyy-mm-dd}`
+
+One document per night. **The doc id is the MORNING's local date** — the
+night of Thursday into Friday is `…/sleep/<Friday>`. Writing the night again
+replaces it (`set` with `merge`, keeping `createdAt`).
+
+**Two different days, on purpose:** the record is keyed by the morning,
+but the rules follow the **evening** the night starts on.
+`sleepFlexibleNights` and `sleepBedtimeByWeekday` (user settings, above)
+are evening weekdays: with `[4, 5]`, the flexible nights are the ones
+*starting* Thursday and Friday evening — stored under Friday's and
+Saturday's dates.
+
+| Field | Type | Notes |
+|---|---|---|
+| `date` | string | Same `yyyy-mm-dd` as the doc id (the morning) |
+| `bedtime` | Timestamp | Fell asleep. Usually the evening before; past midnight it's on the morning's date (00:30 → the morning itself). |
+| `wakeTime` | Timestamp | Woke up — always on the morning's date, a lie-in past 12:00 included. |
+| `durationMin` | number | `wakeTime − bedtime`, whole minutes. |
+| `source` | string | `manual` (logged in the app) · `coach` (written from outside) |
+| `createdAt` | Timestamp | First saved |
+| `updatedAt` | Timestamp | Last saved |
+
+How a night is judged (js/lib/sleep.js, numbers in js/lib/rules.js):
+- **Bedtime** (skipped on a flexible night): by `sleepBedtimeTarget` →
+  full; by `sleepBedtimeLatest` → close; later → miss.
+- **Duration**: `sleepMinHours` or more → full; up to 30 min short →
+  close; under 6 hours → always miss.
+- The wake time itself is never judged — after a late night, sleeping in
+  to reach the minimum is the point.
+
+```json
+// users/{uid}/sleep/2026-11-13  — Thursday night, into Friday the 13th (a flexible night)
+{ "date": "2026-11-13", "bedtime": "Timestamp(2026-11-13 00:40 Asia/Jerusalem)",
+  "wakeTime": "Timestamp(2026-11-13 08:50 Asia/Jerusalem)", "durationMin": 490,
+  "source": "coach", "createdAt": "serverTimestamp()", "updatedAt": "serverTimestamp()" }
 ```
 
 ---
