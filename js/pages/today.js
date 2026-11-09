@@ -14,7 +14,7 @@ import {
   EXAMPLE_HABITS, normalizeHabit, habitContext, entryFor, isDone, isDue, isOpenToday,
   weekCount, habitStreak, levelFor,
 } from '../lib/habits.js';
-import { dateKey } from '../lib/sleep.js';
+import { dateKey, shiftDays, parseKey } from '../lib/sleep.js';
 import { HABITS } from '../lib/rules.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { createSleepCard } from '../ui/sleep-card.js';
@@ -39,8 +39,13 @@ let sleepLoggedToday = false;
 let openId = null; // the habit whose buttons are showing
 let pressTimer = null;
 let swallowClick = false; // the click that ends a long press
+// The day the habit cards show and mark: null = today. Picking an earlier
+// day (up to HABITS.backfillDays back) marks a habit you forgot to log.
+let habitDay = null;
 
 const todayKey = () => dateKey(new Date());
+const habitKey = () => habitDay ?? todayKey();
+const WEEKDAY_SHORT = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const sortHabits = (list) => [...list].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'he'));
 const activeHabits = () => habits.filter((h) => h.active);
 const logFailed = (what) => (err) => {
@@ -97,6 +102,7 @@ export function unmountToday() {
   openId = null;
   pressTimer = null;
   swallowClick = false;
+  habitDay = null;
 }
 
 // The three example habits, once per user (habitsSeeded on the user doc
@@ -202,7 +208,8 @@ function nextStep(key) {
 function renderHabits() {
   const section = container?.querySelector('[data-today-habits]');
   if (!section) return;
-  const key = todayKey();
+  const key = habitKey();
+  const isToday = key === todayKey();
   const active = activeHabits();
   const dueNow = active.filter((h) => isDue(h, key));
   const notToday = active.filter((h) => !isDue(h, key));
@@ -226,17 +233,48 @@ function renderHabits() {
       ${dueNow.length ? `<span class="today-section-count num">${doneCount}/${dueNow.length}</span>` : ''}
       <button type="button" class="btn-mini-dashed today-add" data-habit-add>${icon('plus', { className: 'icon--sm' })} הרגל</button>
     </div>
+    ${habits.length ? dayStrip(key) : ''}
+    ${isToday ? '' : `<p class="today-backfill-note">מסמנים ל${esc(dayName(key))}</p>`}
     ${habits.length ? '' : '<p class="text-muted">אין עדיין הרגלים. הוסיפו אחד — משהו קטן שאפשר לעשות כל יום.</p>'}
     <div class="habit-list">${dueNow.map(card).join('')}</div>
-    ${group('לא היום', notToday)}
+    ${group(isToday ? 'לא היום' : 'לא באותו יום', notToday)}
     ${group('מושהים', paused)}
     ${habits.length ? '<p class="today-hint">לחיצה לסימון · לחיצה ארוכה מבטלת</p>' : ''}`;
+}
+
+// "היום", "אתמול", then weekday letters, newest first — tap to mark that day.
+function dayName(key) {
+  const today = todayKey();
+  if (key === today) return 'היום';
+  if (key === shiftDays(today, -1)) return 'אתמול';
+  const d = parseKey(key);
+  return `יום ${WEEKDAY_SHORT[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}`;
+}
+
+function dayStrip(selected) {
+  const today = todayKey();
+  const days = [];
+  for (let i = 0; i <= HABITS.backfillDays; i += 1) days.push(shiftDays(today, -i));
+  return `
+    <div class="habit-days" role="tablist" aria-label="איזה יום לסמן">
+      ${days.map((k, i) => {
+        const d = parseKey(k);
+        const label = i === 0 ? 'היום' : i === 1 ? 'אתמול' : `${WEEKDAY_SHORT[d.getDay()]} ${d.getDate()}`;
+        return `<button type="button" role="tab" class="habit-day${k === selected ? ' active' : ''}" data-habit-day="${k}" aria-selected="${k === selected}">${label}</button>`;
+      }).join('')}
+    </div>`;
 }
 
 // Bound once per render() on the section, which renderHabits() refills.
 function bindHabitEvents(section) {
   section.addEventListener('click', (e) => {
     if (e.target.closest('[data-habit-add]')) return addHabit();
+    const dayBtn = e.target.closest('[data-habit-day]');
+    if (dayBtn) {
+      habitDay = dayBtn.dataset.habitDay === todayKey() ? null : dayBtn.dataset.habitDay;
+      openId = null;
+      return renderHabits();
+    }
     const cardEl = e.target.closest('[data-habit]');
     const habit = cardEl && habits.find((h) => h.id === cardEl.dataset.habit);
     if (!habit) return;
@@ -250,7 +288,7 @@ function bindHabitEvents(section) {
     }
     if (!habit.active) return editHabit(habit);
     // A yes/no habit with no short level has nothing to choose: one tap.
-    if (habit.measure === 'yesno' && habit.short === null && !entryFor(habit, todayKey(), ctx)) {
+    if (habit.measure === 'yesno' && habit.short === null && !entryFor(habit, habitKey(), ctx)) {
       return applyMark(habit, { level: 'full', value: null });
     }
     openId = openId === habit.id ? null : habit.id;
@@ -295,7 +333,7 @@ function onMarkButton(habit, kind) {
 
 function undo(habitId) {
   const habit = habits.find((h) => h.id === habitId);
-  const entry = habit && entryFor(habit, todayKey(), ctx);
+  const entry = habit && entryFor(habit, habitKey(), ctx);
   if (!entry) return;
   if (entry.auto) {
     showToast('נספר אוטומטית מהצעדים של היום');
@@ -309,7 +347,7 @@ function undo(habitId) {
 // mark: { level, value } or null to clear today's mark. The screen changes
 // first; the write follows in the background.
 function applyMark(habit, mark) {
-  const key = todayKey();
+  const key = habitKey();
   const stored = mark ? { level: mark.level, value: mark.value ?? null, source: 'manual' } : null;
   let day = logs.find((l) => l.date === key);
   if (!day) {
@@ -328,7 +366,7 @@ function applyMark(habit, mark) {
 // "מקוצר": type how much was done, starting from the short target; the
 // level follows from the number.
 function openValueSheet(habit) {
-  const current = entryFor(habit, todayKey(), ctx);
+  const current = entryFor(habit, habitKey(), ctx);
   let value = current?.value ?? habit.short ?? null;
   openBottomSheet({
     ariaLabel: habit.name,

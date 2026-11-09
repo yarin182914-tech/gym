@@ -39,6 +39,8 @@ export const HABITS = {
   // How many days of logs the "היום" screen loads — also how far back a
   // streak can see.
   logDaysToLoad: 120,
+  // How many days back a forgotten habit can still be marked on "היום".
+  backfillDays: 7,
   // Holding a habit card this long undoes its mark.
   longPressMs: 550,
   // The "next step" card: the morning (log sleep) ends at this hour, the
