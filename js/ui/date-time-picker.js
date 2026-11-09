@@ -135,8 +135,9 @@ export function mountDateField(host, { value, max = keyOffset(0), onChange, aria
 }
 
 // value: 'hh:mm', or '' for no time. Opening an empty field starts it at
-// the current time; "ללא שעה" clears it again.
-export function mountTimeField(host, { value = '', onChange, ariaLabel = 'שעה' }) {
+// the current time; "ללא שעה" clears it again. clearable: false for a
+// time that's always needed (e.g. bedtime), which drops that button.
+export function mountTimeField(host, { value = '', onChange, ariaLabel = 'שעה', clearable = true }) {
   const parts = buildField(host, { ariaLabel });
   let current = value;
   let wheels = [];
@@ -173,7 +174,7 @@ export function mountTimeField(host, { value = '', onChange, ariaLabel = 'שעה
         <div class="time-wheel" data-wheel="m"></div>
       </div>
       <div class="picker-actions">
-        <button type="button" class="btn btn-secondary" data-clear>ללא שעה</button>
+        ${clearable ? '<button type="button" class="btn btn-secondary" data-clear>ללא שעה</button>' : ''}
         <button type="button" class="btn btn-primary" data-done>סיום</button>
       </div>`;
     setOpen(parts, true); // visible first — a hidden wheel can't scroll to its value
@@ -185,7 +186,7 @@ export function mountTimeField(host, { value = '', onChange, ariaLabel = 'שעה
         min: 0, max: 59, value: m, format: pad, loop: true, onCommit: (v) => { m = v; set(`${pad(h)}:${pad(m)}`); },
       }),
     ];
-    parts.panel.querySelector('[data-clear]').addEventListener('click', () => {
+    parts.panel.querySelector('[data-clear]')?.addEventListener('click', () => {
       set('');
       closePanel();
     });

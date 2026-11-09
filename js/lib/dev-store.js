@@ -203,6 +203,36 @@ export async function devListDailyActivity(max = 60) {
     .slice(0, max);
 }
 
+export async function devSetSleep(dateKey, data, { isNew = false } = {}) {
+  const state = load();
+  state.sleep = state.sleep || [];
+  const existing = state.sleep.find((s) => s.id === dateKey);
+  const now = new Date().toISOString();
+  const entry = {
+    ...(existing || {}),
+    id: dateKey,
+    date: dateKey,
+    bedtime: data.bedtime.toISOString(),
+    wakeTime: data.wakeTime.toISOString(),
+    durationMin: data.durationMin,
+    source: data.source,
+    updatedAt: now,
+    ...(isNew || !existing ? { createdAt: now } : {}),
+  };
+  state.sleep = state.sleep.filter((s) => s.id !== dateKey).concat(entry);
+  save(state);
+}
+
+export async function devDeleteSleep(dateKey) {
+  const state = load();
+  state.sleep = (state.sleep || []).filter((s) => s.id !== dateKey);
+  save(state);
+}
+
+export async function devListSleep(max = 60) {
+  return [...(load().sleep || [])].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, max);
+}
+
 // Seeded by hand in dev (localStorage 'gym-dev-store' → plannedWorkouts:
 // [{ id: 'yyyy-mm-dd', date, title, ... }]), the way the coach writes them.
 export async function devGetPlannedWorkout(dateKey) {

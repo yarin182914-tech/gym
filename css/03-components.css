@@ -2569,3 +2569,183 @@ th {
   font-weight: var(--weight-semibold);
   vertical-align: 2px;
 }
+
+/* Sleep card (top of nutrition until M2's "היום"). Grades use theme
+   tokens only: full = --success, close = --gold, miss = grey (never red —
+   no punishment UI), a flexible night = outlined. */
+.sleep-card {
+  position: relative; /* anchors any floating picker panel */
+}
+
+.sleep-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.sleep-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.sleep-sub {
+  flex: 1;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.sleep-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--gold);
+  font-weight: var(--weight-bold);
+}
+
+.sleep-settings-btn {
+  width: 32px;
+  height: 32px;
+}
+
+.sleep-clocks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+}
+
+.sleep-clocks .sheet-field-label {
+  margin-top: 4px;
+}
+
+.sleep-save-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.sleep-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sleep-ring {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  transform: rotate(-90deg);
+}
+
+.sleep-ring-track {
+  fill: none;
+  stroke: var(--surface-raised);
+  stroke-width: 5;
+}
+
+.sleep-ring-fill {
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.sleep-ring--full .sleep-ring-fill { stroke: var(--success); }
+.sleep-ring--close .sleep-ring-fill { stroke: var(--gold); }
+
+.sleep-summary-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.sleep-times {
+  font-size: 1.1rem;
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.sleep-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.sleep-chip {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: var(--weight-semibold);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+}
+
+.sleep-chip--full {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
+}
+
+.sleep-chip--close {
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+  color: var(--gold);
+}
+
+.sleep-chip--flex {
+  border: 1px solid var(--border);
+  background: none;
+}
+
+.sleep-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.sleep-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sleep-day--last {
+  background: var(--surface-raised);
+}
+
+.sleep-day-label {
+  font-size: 0.7rem;
+}
+
+.sleep-day-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1.5px dashed var(--border);
+}
+
+.sleep-day--full .sleep-day-dot { background: var(--success); border: 0; }
+.sleep-day--close .sleep-day-dot { background: var(--gold); border: 0; }
+.sleep-day--miss .sleep-day-dot { background: var(--text-muted); border: 0; opacity: 0.5; }
+/* A flexible night: a ring around whatever its dot is. */
+.sleep-day--flexible .sleep-day-dot { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--text-muted); }
+
+.sleep-day-dur {
+  font-size: 0.65rem;
+}

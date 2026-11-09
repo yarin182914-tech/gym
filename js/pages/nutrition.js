@@ -1,7 +1,7 @@
 import { renderPlateDial } from '../lib/plate-dial.js';
 import {
   addNutritionEntry, listNutritionEntries, updateNutritionEntry, deleteNutritionEntry, listBodyWeights,
-  setDailyActivity, listDailyActivity, getUserSettings, updateUserSettings,
+  setDailyActivity, listDailyActivity, getUserSettings, updateUserSettings, listSleep,
 } from '../lib/firestore.js';
 import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
@@ -14,6 +14,7 @@ import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { mountNumericField } from '../ui/numeric-input.js';
 import { createBodyWeightCard } from '../ui/body-weight-card.js';
+import { createSleepCard } from '../ui/sleep-card.js';
 import { mountNutritionTrend } from '../ui/nutrition-trend.js';
 import { mountDateField, friendlyDate } from '../ui/date-time-picker.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
@@ -64,6 +65,7 @@ let aiStatus = null; // null | 'loading' | 'unavailable' | 'error' | 'reviewing'
 let reviewItems = null; // mutable copy of analyzeFoodPhoto()'s items while aiStatus === 'reviewing'
 let gramsFieldCtrls = []; // mountNumericField controllers, one per reviewItems row
 let bodyWeightCard = null; // created once per visit, re-attached by every render()
+let sleepCard = null; // likewise — last night's sleep, at the top until M2's "היום" screen
 let activities = []; // dailyActivity docs, newest day first
 let goals = { ...DEFAULT_GOALS };
 // The day the ring, the macro bars and the meal list show ('yyyy-mm-dd').
@@ -101,7 +103,7 @@ export async function mountNutrition(rootEl) {
   const token = beginMount();
   container = rootEl;
   renderLoading(container, 'טוען נתוני תזונה...');
-  const [loaded, weights, acts, settings] = await Promise.all([
+  const [loaded, weights, acts, settings, nights] = await Promise.all([
     listNutritionEntries(MEALS_TO_LOAD),
     // A failed weigh-in load shouldn't take the meals down with it.
     listBodyWeights(400).catch((err) => {
@@ -116,12 +118,17 @@ export async function mountNutrition(rootEl) {
       console.error('[nutrition] settings load failed', err);
       return {};
     }),
+    listSleep(60).catch((err) => {
+      console.error('[sleep] load failed', err);
+      return [];
+    }),
   ]);
   if (isStale(token)) return;
   entries = loaded;
   activities = acts;
   goals = goalsFrom(settings);
   bodyWeightCard = createBodyWeightCard(weights);
+  sleepCard = createSleepCard(nights, settings);
   render();
 }
 
@@ -134,6 +141,7 @@ export function unmountNutrition() {
   reviewItems = null;
   gramsFieldCtrls = [];
   bodyWeightCard = null;
+  sleepCard = null;
   activities = [];
   selectedDay = todayKey();
   trend?.destroy();
@@ -340,6 +348,7 @@ function render() {
   trend?.destroy();
 
   container.innerHTML = `
+    <div id="sleep-slot"></div>
     <div id="body-weight-slot"></div>
 
     <div class="nut-day-bar">
@@ -382,6 +391,7 @@ function render() {
     <div data-nut-trend></div>
   `;
 
+  container.querySelector('#sleep-slot').replaceWith(sleepCard);
   container.querySelector('#body-weight-slot').replaceWith(bodyWeightCard);
 
   mountDateField(container.querySelector('[data-day-field]'), {
