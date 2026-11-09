@@ -7,6 +7,7 @@ import { mountHistory, unmountHistory } from './pages/history.js';
 import { mountDashboard, unmountDashboard } from './pages/dashboard.js';
 import { mountNutrition, unmountNutrition } from './pages/nutrition.js';
 import { mountPlan } from './pages/plan.js';
+import { mountToday, unmountToday } from './pages/today.js';
 import { mountFeedback, unmountFeedback } from './pages/feedback.js';
 import { captureInstallPrompt, notifyAppEntered } from './ui/install-banner.js';
 import { mountAppBar } from './ui/app-bar.js';
@@ -30,6 +31,7 @@ captureInstallPrompt();
 
 let routerStarted = false;
 
+registerRoute('today', () => mountToday(appRoot), unmountToday);
 registerRoute('session', () => mountActiveSession(appRoot), unmountActiveSession);
 registerRoute('history', () => mountHistory(appRoot), unmountHistory);
 registerRoute('dashboard', () => mountDashboard(appRoot), unmountDashboard);

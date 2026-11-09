@@ -25,3 +25,22 @@ export const SLEEP = {
     sleepBedtimeByWeekday: {},
   },
 };
+
+export const HABITS = {
+  // Points per day — awarded from M4 (rewards); kept here so the habit
+  // card and the ledger agree on them.
+  points: { full: 10, short: 5 },
+  // Meeting an N-per-week target; over-target days earn the usual points only.
+  weeklyBonus: 20,
+  // Weeks run Sunday → Saturday (0 = Sunday), Israel style.
+  weekStartsOn: 0,
+  // How many days of logs the "היום" screen loads — also how far back a
+  // streak can see.
+  logDaysToLoad: 120,
+  // Holding a habit card this long undoes its mark.
+  longPressMs: 550,
+  // The "next step" card: the morning (log sleep) ends at this hour, the
+  // evening (mark habits) starts at this one.
+  morningUntilHour: 12,
+  eveningFromHour: 18,
+};

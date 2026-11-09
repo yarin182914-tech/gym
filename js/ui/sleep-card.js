@@ -3,7 +3,7 @@
 // a ring of hours against the minimum, the streak and an edit button.
 // Underneath, this week's seven nights — tap one to log or fix it.
 //
-// Lives at the top of the nutrition screen for now (moves to "היום" in M2).
+// Lives on the "היום" screen (js/pages/today.js), under the next step.
 // Owns its element, like the body-weight card: the screen re-attaches it on
 // every render. The rules themselves are in js/lib/sleep.js.
 
@@ -27,8 +27,9 @@ const todayKey = () => dateKey(new Date());
 const ON_TIME_TEXT = { full: 'נרדמת בזמן', close: 'קרוב לזמן', miss: 'מאוחר' };
 const DURATION_TEXT = { full: 'שעות מלאות', close: 'כמעט', miss: 'קצר' };
 
-// nights: sleep docs (any order); userDoc: users/{uid} (sleep settings).
-export function createSleepCard(nights, userDoc) {
+// nights: sleep docs (any order); userDoc: users/{uid} (sleep settings);
+// onChange(nights) after a night is saved or deleted.
+export function createSleepCard(nights, userDoc, { onChange } = {}) {
   let settings = sleepSettings(userDoc);
   let list = [...nights];
   const el = document.createElement('div');
@@ -54,6 +55,7 @@ export function createSleepCard(nights, userDoc) {
       return false;
     }
     list = list.filter((n) => n.date !== key).concat({ id: key, ...night, source: 'manual' });
+    onChange?.(list);
     render();
     return true;
   }
@@ -211,6 +213,7 @@ export function createSleepCard(nights, userDoc) {
             return;
           }
           list = list.filter((n) => n.date !== key);
+          onChange?.(list);
           sheetApi.close();
           render();
         });

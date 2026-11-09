@@ -1,4 +1,4 @@
-const DEFAULT_ROUTE = 'session';
+const DEFAULT_ROUTE = 'today';
 
 const routes = {};
 let active = null; // { name, unmount }

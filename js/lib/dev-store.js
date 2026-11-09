@@ -233,6 +233,46 @@ export async function devListSleep(max = 60) {
   return [...(load().sleep || [])].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, max);
 }
 
+export function devNewHabitId() {
+  return uid();
+}
+
+export async function devSetHabit(habitId, data, { isNew = false } = {}) {
+  const state = load();
+  state.habits = state.habits || [];
+  const existing = state.habits.find((h) => h.id === habitId);
+  const now = new Date().toISOString();
+  const entry = { ...(existing || {}), ...data, id: habitId, updatedAt: now, ...(isNew || !existing ? { createdAt: now } : {}) };
+  state.habits = state.habits.filter((h) => h.id !== habitId).concat(entry);
+  save(state);
+}
+
+export async function devDeleteHabit(habitId) {
+  const state = load();
+  state.habits = (state.habits || []).filter((h) => h.id !== habitId);
+  save(state);
+}
+
+export async function devListHabits() {
+  return [...(load().habits || [])];
+}
+
+// mark: { level, value, source } or null to clear the habit's day.
+export async function devSetHabitMark(dateKey, habitId, mark) {
+  const state = load();
+  state.habitLogs = state.habitLogs || [];
+  const day = state.habitLogs.find((l) => l.id === dateKey) || { id: dateKey, date: dateKey, habits: {} };
+  const habits = { ...day.habits };
+  if (mark) habits[habitId] = mark;
+  else delete habits[habitId];
+  state.habitLogs = state.habitLogs.filter((l) => l.id !== dateKey).concat({ ...day, habits, updatedAt: new Date().toISOString() });
+  save(state);
+}
+
+export async function devListHabitLogs(max = 120) {
+  return [...(load().habitLogs || [])].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, max);
+}
+
 // Seeded by hand in dev (localStorage 'gym-dev-store' → plannedWorkouts:
 // [{ id: 'yyyy-mm-dd', date, title, ... }]), the way the coach writes them.
 export async function devGetPlannedWorkout(dateKey) {
