@@ -16,7 +16,7 @@ Plan: "שלב 1", "שינה מול כללי המשתמש", rewards table rows fo
 - Evaluation function (pure, unit-testable): given a night + settings → `{ onTime: full|close|miss, duration: full|close|miss }` using the plan's thresholds (close = within 30 min; under 6h always miss).
 - Done when: you can log last night from the card, edit it, see this week's 7 nights, and DATA.md documents the collection.
 
-## M2 ☐ Habits (basic) + "היום" screen — `feature/m2-today-habits`
+## M2 ☑ Habits (basic) + "היום" screen — `feature/m2-today-habits`
 Plan: "מסך הבית ("היום")", "הגדרת הרגל" (ניקוד ורצף, רישום מהיר).
 - Data: `users/{uid}/habits/{auto}` (name, icon, area, schedule: daily | N per week | fixed weekdays, measure: yes/no | quantity | steps | limit, `full` and `short` targets, active/paused, order) and `users/{uid}/habitLogs/{yyyy-mm-dd}` (map habitId → `{ level: full|short|none, value? }`).
 - Simple add/edit habit form (the full 6-step wizard comes in M5).
@@ -30,12 +30,26 @@ Plan: "ניווט".
 - Floating + button with a bottom sheet (reuse `js/ui/bottom-sheet.js`): meal, weigh-in, sleep, walk.
 - Keep every existing route URL working (redirect old hashes).
 
+## M3c ☐ Steps from the iPhone + "חיבורים" page — `feature/m3c-steps-import`
+No plan chapter; asked by ירין 2026-11-09. A web app can't read Apple Health, so an iOS Shortcuts automation reads today's steps and opens the app with them.
+- New route `#/import?steps=N[&date=yyyy-mm-dd]`. `steps` an integer 0–100,000; `date` defaults to today (Israel), may be up to 7 days back, never in the future. Anything else → a short Hebrew error toast, nothing written.
+- Writes `users/{uid}/dailyActivity/{date}` with merge: `steps`, `stepsKcal` and `totalOutKcal` recomputed from the doc's existing `baseKcal` (default 1950) and `workoutKcal` (default 0), `source: 'shortcut'`, `loggedAt`. Never lowers steps already stored for that day (keep the larger), so a midday run can't undo the evening number. Same URL twice = same result.
+- Not signed in yet → keep the request in localStorage and apply it right after sign-in.
+- After saving: toast "נשמרו 12,450 צעדים" and go to `#/today`, where the steps habit (autoSource) updates by itself.
+- Document `source: 'shortcut'` and the route in DATA.md. Numbers (max steps, days back) in `js/lib/rules.js`.
+- **"חיבורים" page** (new route `#/connections`, opened from the profile menu; later part of "התכנית שלי"): one card per connection, each with status (מחובר / לא מחובר / last sync time), a one-tap action and short illustrated Hebrew steps. M3c builds the page and the first card; each later milestone adds its own card:
+  - **צעדים מהאייפון (M3c):** an "הוספת הקיצור" button opening a ready-made iCloud shortcut link (ירין publishes it once; the URL lives in `js/lib/rules.js`), then 4 numbered steps to create the daily automation (Shortcuts → Automation → Time of Day 21:00 → Run Immediately → the shortcut), a status line showing the last import time from `dailyActivity.source == 'shortcut'`, and a hint if nothing arrived in 2 days.
+  - **Steps in the phone's own language:** every how-to on this page has two versions, matching the iPhone's language: Hebrew iOS labels and English iOS labels (the button and menu names exactly as the phone shows them, e.g. Shortcuts/קיצורים, Automation/אוטומציה). A swipeable/segmented switch "האייפון שלי בעברית | My iPhone is in English" at the top of each how-to; the default follows `navigator.language`, the choice is remembered (localStorage). The surrounding app copy stays Hebrew. All Hebrew iOS label strings must be checked on a real Hebrew iPhone before merge; the strings live in one file (`js/lib/ios-labels.js`).
+  - Placeholders (grey, "בקרוב") for: Google Calendar (M7), push notifications (M9), Claude connector (M11), cloud storage / Drive via the Claude connector (M12), Garmin (later).
+- Done when: opening the URL on the preview sets today's steps, the steps habit and the burn update, repeating it changes nothing, a lower number doesn't overwrite a higher one, and the חיבורים page shows the shortcut card with its last-sync time. Later (M11): the shortcut posts to the server instead, silently.
+
 ## M3b ☐ Workout types (functional, CrossFit, Pilates…) — `feature/m3b-workout-types`
 Plan: "סוגי אימון: פונקציונלי, קרוספיט, פילאטיס ועוד". Independent of M1–M3; can be pulled earlier.
 - New exercise kind `session` next to `strength` and `cardio` inside the existing `workouts` doc (old workouts untouched): `{ kind: 'session', typeId, name, durationSec, rpe (1–10), avgHr?, place?, fields: {…type-specific}, notes }`. A workout can mix kinds (e.g. CrossFit with a strength part).
 - Built-in type definitions in code (functional, crossfit, pilates, yoga, swim, studio, sport, ski) with their fields per the plan; user-defined types in `users/{uid}/workoutTypes/{auto}` built from a field palette (duration, distance, rounds, reps, weight, result time, level, picklist, text).
 - Quick log: pick type → fields prefilled from the last workout of the same type.
 - Burn: kcal = MET(type, rpe) × bodyweight kg × hours, MET table in `js/lib/rules.js`; feeds the existing calories-out calculation.
+- **No double counting:** outdoor walks/runs (`inputMode: 'free'`) are already in the phone's steps, so they add 0 workout kcal (history and streaks only). Treadmill, bike and session types do count.
 - PRs: same-name CrossFit WOD (faster time / more rounds+reps); functional: more rounds in the same format. History labels by type; progress chart per type.
 - Document the new kind in `docs/DATA.md` so the coach can log Pilates/CrossFit from chat.
 
@@ -45,6 +59,7 @@ Plan: "שלב 2: תכנית התגמול" (all subsections except "לאורך ז
 - Daily cap, partial ("close") scoring, no negative points.
 - Moments: +10 float and ring fill on log, day-close summary card, perfect-day confetti (small library from cdnjs or hand-rolled), badge toast, level-up full screen. Vibration on Android; iOS fallback = sound + animation.
 - Progress screen: 7-day grid per area, streaks, badge shelf, level road with the real reward at the end.
+- Progress screen covers **everything tracked**, not just workouts (asked by ירין 2026-11-09): one row per area (sleep, each habit, bad habits once M5 exists, meals: count vs 2 and on-target days, protein, calorie deficit, workouts vs weekly goal, weigh-ins / 7-day average) with a week view (7 dots) and a month view (calendar heat-grid), tap a row for its detail chart. The user picks which rows show and their order ("מה אני עוקב אחריו", saved on the user doc); missed = grey, never red. Workout history stays as its own list inside אימון.
 
 ## M5 ☐ Habit wizard + bad habits — `feature/m5-wizard`
 Plan: "הגדרת הרגל: אשף של 6 שאלות", "הרגלים רעים: אשף גמילה".
@@ -73,6 +88,7 @@ Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון ע�
 - Request the extra `calendar.events` scope at Google sign-in (incremental consent). Create/update/delete an event when a task with a time is saved/moved/done/cancelled; store the event id on the task; mark events with a private extended property `{ gymi: true, taskId }`.
 - Only touch events linked to a task. Works while the app is open; failures queue and retry on next open.
 
+- Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
 ## M8 ☐ Settings — "התכנית שלי" — `feature/m8-my-plan`
 Plan: "מסך ההגדרות: "התכנית שלי"".
 - Sections: goals, sleep, habits, training, nutrition, body, routine, rewards, notifications, assistant. Change history (`users/{uid}/planHistory`). Assistant suggestion cards (approve/decline).
@@ -82,12 +98,14 @@ Plan: "מסך ההגדרות: "התכנית שלי"".
 Plan: "שלב 3: התראות פוש", "שרת קטן" in "מענה טכני".
 - Web Push (VAPID) subscription stored per device; Vercel serverless function to send; scheduled check every 15 min from GitHub Actions. Rules: only when something is missing, max 4/day, quiet hours, quiet Saturday, merge multiple reminders.
 
+- Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
 ## M10 ☐ Signup and profile — `feature/m10-onboarding`
 Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). Questionnaire on first login (level 1 only is required; ends with "set goals now / later / never" → `lifePlan.planDepth`); personal BMR (Mifflin-St Jeor) replaces the hard-coded 1950; targets from the goal; remove `weddingDate`.
 
 ## M11 ☐ Claude connector (MCP) — `feature/m11-mcp`
 Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "what changed since last check".
 
+- Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
 ## M12 ☐ "קלוד" instructions page — `feature/m12-claude-page`
 Plan: "שלב 6", and the "ליזום, לא לחייב" rules in "שאלון חיים ותכנית אב": Claude reads `planDepth` and never assumes more; offers to go deeper at natural moments, max once a month; stops after two declines until asked; full-plan users get full initiative.
 
