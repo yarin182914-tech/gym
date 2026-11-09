@@ -1,6 +1,6 @@
 import {
   collection, doc, setDoc, addDoc, getDoc, getDocs, updateDoc, deleteDoc,
-  query, orderBy, limit, serverTimestamp,
+  query, orderBy, limit, serverTimestamp, deleteField,
 } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js';
 import { db, useCloud } from '../firebase-config.js';
 import { currentUid } from '../auth.js';
@@ -13,6 +13,7 @@ import {
   devSetDailyActivity, devListDailyActivity,
   devGetPlannedWorkout, devUpdatePlannedWorkout,
   devSetSleep, devListSleep, devDeleteSleep,
+  devNewHabitId, devSetHabit, devDeleteHabit, devListHabits, devSetHabitMark, devListHabitLogs,
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
 } from './dev-store.js';
 
@@ -376,6 +377,66 @@ export async function deleteSleep(dateKey) {
 export async function listSleep(max = 60) {
   if (!useCloud) return devListSleep(max);
   const ref = collection(db, 'users', uidOrThrow(), 'sleep');
+  const snap = await getDocs(query(ref, orderBy('date', 'desc'), limit(max)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------- habits ----------
+// The habits themselves (users/{uid}/habits/{auto}) and one log doc per
+// local day (users/{uid}/habitLogs/{yyyy-mm-dd}, map habitId → mark). See
+// docs/DATA.md and js/lib/habits.js.
+//
+// These writes are NOT meant to be awaited by the UI: Firestore applies
+// them to the local cache (and every later read) at once, but the promise
+// only settles when the server has them — offline, that's whenever the
+// connection comes back. Callers update the screen right away and only
+// .catch() the promise.
+
+// An id for a new habit, so the screen can show it before the write lands.
+export function newHabitId() {
+  if (!useCloud) return devNewHabitId();
+  return doc(collection(db, 'users', uidOrThrow(), 'habits')).id;
+}
+
+// isNew: stamp createdAt (kept as it was on later edits).
+export function setHabit(habitId, data, { isNew = false } = {}) {
+  if (!useCloud) return devSetHabit(habitId, data, { isNew });
+  return setDoc(doc(db, 'users', uidOrThrow(), 'habits', habitId), {
+    ...data,
+    updatedAt: serverTimestamp(),
+    ...(isNew ? { createdAt: serverTimestamp() } : {}),
+  }, { merge: true });
+}
+
+// Its marks stay in habitLogs — harmless, and never shown without the habit.
+export function deleteHabit(habitId) {
+  if (!useCloud) return devDeleteHabit(habitId);
+  return deleteDoc(doc(db, 'users', uidOrThrow(), 'habits', habitId));
+}
+
+export async function listHabits() {
+  if (!useCloud) return devListHabits();
+  const snap = await getDocs(collection(db, 'users', uidOrThrow(), 'habits'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// One habit's mark for one day — { level, value, source }, or null to clear
+// it. Touches only that habit's key, so other habits' marks that day (the
+// coach's included) are left alone. The whole mark is always written, so
+// nothing from an earlier mark (an old value) survives the merge.
+export function setHabitMark(dateKey, habitId, mark) {
+  if (!useCloud) return devSetHabitMark(dateKey, habitId, mark);
+  return setDoc(doc(db, 'users', uidOrThrow(), 'habitLogs', dateKey), {
+    date: dateKey,
+    habits: { [habitId]: mark ?? deleteField() },
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+// Newest day first.
+export async function listHabitLogs(max = 120) {
+  if (!useCloud) return devListHabitLogs(max);
+  const ref = collection(db, 'users', uidOrThrow(), 'habitLogs');
   const snap = await getDocs(query(ref, orderBy('date', 'desc'), limit(max)));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }

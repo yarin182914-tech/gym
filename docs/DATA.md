@@ -21,6 +21,8 @@ public repo.
 | `users/{uid}` (the doc itself) | — | Settings, e.g. the default calorie target |
 | `users/{uid}/plannedWorkouts` | `yyyy-mm-dd` | The coach's proposed workout, one per day |
 | `users/{uid}/sleep` | `yyyy-mm-dd` (the **morning**) | One night's sleep |
+| `users/{uid}/habits` | auto | The user's habits (definitions) |
+| `users/{uid}/habitLogs` | `yyyy-mm-dd` | Which habits were done that day |
 | `siteFeedback` (top level) | auto | App feedback board — don't write here |
 
 ---
@@ -151,6 +153,12 @@ they're applied):
 | `sleepMinHours` | number | Minimum hours asleep. `8` when missing. |
 | `sleepFlexibleNights` | number[] | **Weekdays of the EVENING** a night starts (`0` Sunday … `6` Saturday) on which only the duration counts. `[4, 5]` = Thursday and Friday nights when missing. |
 | `sleepBedtimeByWeekday` | map | Optional, **evening weekday** → `'hh:mm'` target for that night, e.g. `{ "6": "23:00" }`; the latest bedtime keeps the usual gap after it. |
+
+Habits:
+
+| Field | Type | Notes |
+|---|---|---|
+| `habitsSeeded` | boolean | `true` once the app has created the three example habits (or found the user already had habits). Stops the examples coming back after they're deleted. Don't change it. |
 
 The doc has other fields (`displayName`, `createdAt`…) — update only the
 field you mean to change (`set` with `merge: true`, or `update`), never
@@ -364,6 +372,110 @@ How a night is judged (js/lib/sleep.js, numbers in js/lib/rules.js):
 { "date": "2026-11-13", "bedtime": "Timestamp(2026-11-13 00:40 Asia/Jerusalem)",
   "wakeTime": "Timestamp(2026-11-13 08:50 Asia/Jerusalem)", "durationMin": 490,
   "source": "coach", "createdAt": "serverTimestamp()", "updatedAt": "serverTimestamp()" }
+```
+
+---
+
+## Habits — `users/{uid}/habits/{auto}`
+
+One document per habit — what it is and what counts as done. Shown on the
+"היום" screen, where it's marked. A new user gets three example habits
+(`source: 'example'`) they can edit or delete.
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | Hebrew, short — `"קריאה"` |
+| `icon` | string | A Lucide icon name the app knows (`book-open`, `footprints`, `phone-off`, `droplet`, `brain`, `heart`, `languages`, `apple`, `leaf`, `moon`, `sun`, `dumbbell`, `pencil`, `sparkles`, `check`). Unknown → a check mark. |
+| `area` | string | `body` (גוף) · `personal` (אישי) · `relationship` (זוגיות) · `career` (קריירה) |
+| `schedule` | map | `{ "type": "daily" }` · `{ "type": "weekly", "perWeek": 3 }` (any 3 days a week) · `{ "type": "days", "days": [1, 3] }` (fixed weekdays, `0` Sunday … `6` Saturday) |
+| `measure` | string | `yesno` · `quantity` (at least N) · `limit` (at most N) · `steps` (a routine checklist — stored, not editable in the app until the habit wizard) |
+| `unit` | string | `"דקות"`, `"עמודים"`, `"פעמים"`, `"צעדים"`… |
+| `full` | number \| null | The ideal. `quantity`: at least this; `limit`: at most this; `yesno`: just describes it (e.g. `30` minutes). |
+| `short` | number \| null | The minimum that still counts ("מקוצר"). `quantity`: less than `full`; `limit`: more than `full`. `null` = no short level — on a `yesno` habit one tap marks it done. |
+| `steps` | string[] | Only for `measure: 'steps'` — the routine's steps. |
+| `autoSource` | string \| null | `"dailyActivity.steps"` — the day's level comes from `steps` in that day's `dailyActivity` doc (see below); `null` — marked by hand. |
+| `active` | boolean | `false` = paused (kept, not counted). |
+| `order` | number | Position on the screen, smallest first. |
+| `source` | string | `manual` (added in the app) · `example` (the starter habits) · `coach` (written from outside) |
+| `createdAt` | Timestamp | First saved |
+| `updatedAt` | Timestamp | Last saved |
+
+**`autoSource: "dailyActivity.steps"`** — steps are logged once, in
+`dailyActivity/{date}.steps`, and the habit reads them: steps ≥ `full` →
+full, ≥ `short` → short, less → none (shown grey). `0` or no doc = not known
+yet, nothing shown. **Don't also write the steps into `habitLogs`** — a
+mark there is a manual override and wins over the steps (the user's
+"מלא" tap, say); deleting the mark brings the automatic count back.
+
+```json
+// users/{uid}/habits/<auto id>
+{ "name": "צעדים", "icon": "footprints", "area": "body",
+  "schedule": { "type": "daily" }, "measure": "quantity", "unit": "צעדים",
+  "full": 8000, "short": 5000, "autoSource": "dailyActivity.steps",
+  "active": true, "order": 1, "source": "example",
+  "createdAt": "serverTimestamp()", "updatedAt": "serverTimestamp()" }
+```
+
+---
+
+## Habit logs — `users/{uid}/habitLogs/{yyyy-mm-dd}`
+
+One document per local day, holding **every habit's mark for that day** in
+one map. A habit with no key that day isn't marked (on an N-per-week habit
+that's not a miss — only the week's total counts).
+
+| Field | Type | Notes |
+|---|---|---|
+| `date` | string | Same `yyyy-mm-dd` as the doc id |
+| `habits` | map | habit doc id → mark (below) |
+| `updatedAt` | Timestamp | Last saved |
+
+A mark:
+
+| Field | Type | Notes |
+|---|---|---|
+| `level` | string | `full` · `short` · `none` (logged, but below the short level — shown grey, never red) |
+| `value` | number \| null | The number, when one was given (`7` minutes read); `null` after a plain מלא / מקוצר tap |
+| `source` | string | `manual` (marked in the app) · `coach` (written from outside) |
+
+Streaks are computed from these docs, never stored: daily habits in days,
+fixed-weekday habits over their own days (other days are skipped), and
+N-per-week habits in weeks (Sunday–Saturday) that reached N.
+
+**Writing one mark — touch only that habit's key.** Other habits'
+marks for the same day must survive. Always write the whole mark (`level`,
+`value`, `source`) so nothing from an earlier mark lingers:
+
+```js
+// Node, firebase-admin. Works whether or not the day's doc exists yet.
+const day = db.doc(`users/${uid}/habitLogs/2026-11-09`);
+await day.set({
+  date: '2026-11-09',
+  habits: { [habitId]: { level: 'full', value: 20, source: 'coach' } },
+  updatedAt: FieldValue.serverTimestamp(),
+}, { merge: true });
+
+// Or, only if the day's doc already exists (update() fails otherwise):
+await day.update({ [`habits.${habitId}`]: { level: 'full', value: 20, source: 'coach' } });
+```
+
+- In `set(..., { merge: true })` the habit id goes **inside a nested
+  `habits` map**. A key spelled `"habits.<id>"` in `set()` is stored as a
+  literal field with a dot in its name — the app never sees it. The dotted
+  path only means "this key inside the map" in `update()`.
+- **Never** `set()` the day without `merge` — that wipes every other
+  habit's mark for the day.
+- To clear a mark: `update({ ['habits.' + habitId]: FieldValue.delete() })`.
+- Python (`google-cloud-firestore`): the same, with
+  `day.set({...}, merge=True)` and `day.update({f"habits.{habit_id}": {...}})`.
+
+```json
+// users/{uid}/habitLogs/2026-11-09 — reading done in full by tapping, 6,200 steps came from dailyActivity (no key)
+{ "date": "2026-11-09",
+  "habits": {
+    "Xk2…readingId": { "level": "full", "value": null, "source": "manual" },
+    "Pq7…phoneId":   { "level": "short", "value": null, "source": "coach" } },
+  "updatedAt": "serverTimestamp()" }
 ```
 
 ---
