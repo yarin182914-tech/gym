@@ -8,7 +8,7 @@ Status legend: ☐ not started · ◐ in progress · ☑ merged
 
 ---
 
-## M1 ☐ Sleep log — `feature/m1-sleep`
+## M1 ☑ Sleep log — `feature/m1-sleep`
 Plan: "שלב 1", "שינה מול כללי המשתמש", rewards table rows for sleep.
 - Data: `users/{uid}/sleep/{yyyy-mm-dd}` keyed by the **morning** date: `bedtime`, `wakeTime` (Timestamps), `durationMin` (number), `source`, `createdAt`.
 - Sleep settings on the user doc: bedtime target per weekday, wake time, minimum hours, flexible nights (e.g. Thu/Fri: only duration counts).
@@ -57,6 +57,16 @@ Plan: "דף המשימות", "מניעת דחיינות".
 - Data: `users/{uid}/tasks/{auto}`: title, type (daily | recurring | one-off), recurrence, area, owner (me | assistant | shared), complexity (S/M/L), important (bool), dueDate, timing (exact | day | this week | let Claude decide), scheduledAt, status, postponeCount, firstStep, createdAt, `calendarEventId` (null until M7), `source`.
 - Views: today, Eisenhower matrix, week/all with filters. Quick capture via + (free text → inbox).
 - Procrastination ladder computed from `createdAt`/`postponeCount`: 1 week → orange "מחכה שבוע", 2 weeks → "why stuck?" quick answers, 3 weeks → forced decision (schedule / someday / delete). Max 3 important tasks per day. Top 3 tasks shown on Today.
+
+## M6b ☐ Decisions — "להחליט" — `feature/m6b-decisions`
+Plan: "קבלת החלטות: "להחליט"". Built for Maya: the problem is the time indecision burns, so everything is built around a time budget.
+- **Fully offline and self-contained:** all steps, timers, scoring and math run in client code on the Firestore local cache. No network, no Claude, no server needed. Claude may read open decisions later, but nothing depends on it.
+- Data: `users/{uid}/decisions/{auto}` (question, track small|medium|large, options, criteria + weights, goodEnough threshold, budgetSec, decideBy, startedAt, decidedAt, choice, reason, feeling, reviewAt, outcome) and `users/{uid}/decisionRules/{auto}` (personal rules, e.g. "restaurant: first good-looking option").
+- Triage: two questions (reversible? matters in a year?) → track; user can override.
+- Small: visible 2-minute timer → coin flip + "how did it feel?". Medium: 2–4 options, ≤3 weighted criteria, good-enough bar, 10-10-10, computed suggestion; budget 10 min / decide by tomorrow. Large: WRAP steps, premortem, small experiment, decideBy date (default 1 week), "החלטתי" button on every step.
+- Scoring (all in `js/lib/rules.js`): on time small 5 / medium 15 / large 40; late 2 / 5 / 10; no re-open +5; used a rule +3; new rule +10; review logged 3; "decides on time" streak with badges at 5/20/50. Never points for being "right", never a penalty. Points go to the ledger once M4 exists; until then store them on the decision.
+- Open decisions list with the procrastination ladder from M6 (1 week no date → orange "תקבעי תאריך החלטה"; 2 weeks → "what's missing?"). Nearest decision on Today. Review reminder after 1 month (medium) / 3 months (large).
+- Done when: a small decision can be made start-to-finish in airplane mode within 2 minutes, a medium one is scored on/late correctly at the boundary (unit test), and DATA.md documents both collections.
 
 ## M7 ☐ Google Calendar sync from the app — `feature/m7-calendar`
 Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון עם היומן".
