@@ -23,8 +23,14 @@ for f in $(find js -name '*.js' | sort); do
   fi
 done
 
+# The static nav in index.html must keep the same icons as js/ui/icon.js.
+if ! node tools/test-nav-icons.mjs >"$TMP/nav.log" 2>&1; then
+  cat "$TMP/nav.log"
+  fail=1
+fi
+
 if [ "$fail" -eq 0 ]; then
-  echo "OK — $count modules parse cleanly."
+  echo "OK — $count modules parse cleanly, nav icons match."
 else
   echo "FAILED — fix the errors above."
 fi
