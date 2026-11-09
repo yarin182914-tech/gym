@@ -3,7 +3,9 @@
 // a ring of hours against the minimum, the streak and an edit button.
 // Underneath, this week's seven nights — tap one to log or fix it.
 //
-// Lives on the "היום" screen (js/pages/today.js), under the next step.
+// Lives on the "היום" screen (js/pages/today.js), under the next step, and
+// at the top of the "שינה" screen (js/pages/sleep.js), whose 30-night list
+// opens a night through el.openNight(key).
 // Owns its element, like the body-weight card: the screen re-attaches it on
 // every render. The rules themselves are in js/lib/sleep.js.
 
@@ -28,8 +30,9 @@ const ON_TIME_TEXT = { full: 'נרדמת בזמן', close: 'קרוב לזמן', 
 const DURATION_TEXT = { full: 'שעות מלאות', close: 'כמעט', miss: 'קצר' };
 
 // nights: sleep docs (any order); userDoc: users/{uid} (sleep settings);
-// onChange(nights) after a night is saved or deleted.
-export function createSleepCard(nights, userDoc, { onChange } = {}) {
+// onChange(nights) after a night is saved or deleted; onSettingsChange
+// (settings) after the sleep settings are saved.
+export function createSleepCard(nights, userDoc, { onChange, onSettingsChange } = {}) {
   let settings = sleepSettings(userDoc);
   let list = [...nights];
   const el = document.createElement('div');
@@ -281,6 +284,7 @@ export function createSleepCard(nights, userDoc, { onChange } = {}) {
             return;
           }
           settings = sleepSettings({ ...settings, ...patch });
+          onSettingsChange?.(settings);
           sheetApi.close();
           render();
         });
@@ -288,6 +292,7 @@ export function createSleepCard(nights, userDoc, { onChange } = {}) {
     });
   }
 
+  el.openNight = openNightSheet;
   render();
   return el;
 }

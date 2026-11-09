@@ -19,6 +19,7 @@ import { mountDateField, friendlyDate } from '../ui/date-time-picker.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
 import { showToast } from '../ui/toast.js';
+import { handleQuickActions } from '../ui/quick-add.js';
 
 // The daily goals, all editable in the "יעדים" sheet and kept on the user
 // doc (users/{uid}) under these same names. A day's calorie target is what
@@ -59,6 +60,7 @@ function defaultMealType() {
 let container = null;
 let entries = [];
 let formOpen = false;
+let stopQuickActions = null; // while mounted: takes the + button's meal and weigh-in
 let form = null;
 let aiStatus = null; // null | 'loading' | 'unavailable' | 'error' | 'reviewing'
 let reviewItems = null; // mutable copy of analyzeFoodPhoto()'s items while aiStatus === 'reviewing'
@@ -123,9 +125,12 @@ export async function mountNutrition(rootEl) {
   goals = goalsFrom(settings);
   bodyWeightCard = createBodyWeightCard(weights);
   render();
+  stopQuickActions = handleQuickActions('nutrition', onQuickAction);
 }
 
 export function unmountNutrition() {
+  stopQuickActions?.();
+  stopQuickActions = null;
   container = null;
   entries = [];
   formOpen = false;
@@ -427,17 +432,39 @@ function render() {
   if (formOpen) {
     wireForm();
   } else {
-    container.querySelector('#open-form-btn').addEventListener('click', () => {
-      form = {
-        description: '', calories: 0, proteinG: 0, carbsG: 0, fatG: 0,
-        mealType: defaultMealType(), mealTypeIsOther: false,
-        // A meal added while browsing an earlier day goes to that day.
-        date: isToday ? new Date() : parseDateInputValue(selectedDay), source: 'manual',
-      };
-      aiStatus = null;
-      formOpen = true;
-      render();
-    });
+    container.querySelector('#open-form-btn').addEventListener('click', openMealForm);
+  }
+}
+
+function openMealForm() {
+  form = {
+    description: '', calories: 0, proteinG: 0, carbsG: 0, fatG: 0,
+    mealType: defaultMealType(), mealTypeIsOther: false,
+    // A meal added while browsing an earlier day goes to that day.
+    date: selectedDay === todayKey() ? new Date() : parseDateInputValue(selectedDay), source: 'manual',
+  };
+  aiStatus = null;
+  formOpen = true;
+  render();
+}
+
+// The + button: "ארוחה" opens the add-meal form for today (or brings back
+// the one already open); "שקילה" brings up the morning weigh-in card,
+// ready to type.
+function onQuickAction(action) {
+  if (!container) return;
+  if (action === 'meal') {
+    if (!formOpen) {
+      selectedDay = todayKey();
+      openMealForm();
+    }
+    container.querySelector('[data-meal-form]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else if (action === 'weigh') {
+    const edit = bodyWeightCard.querySelector('[data-bw-edit]');
+    if (edit) edit.click(); // today's is in — open it for a fix
+    else bodyWeightCard.querySelector('.numeric-field-input')?.focus({ preventScroll: true });
+    // After the focus, whose own jump would cut a smooth scroll short.
+    bodyWeightCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
 
@@ -468,7 +495,7 @@ function renderForm() {
         : '';
 
   return `
-    <div class="card">
+    <div class="card" data-meal-form>
       <h3 style="color:var(--text); margin-bottom:10px;">הוספת ארוחה</h3>
       <div class="row" style="gap:8px; margin-bottom:8px;">
         <button class="btn btn-secondary" id="photo-camera-btn" style="flex:1;">${icon('camera', { className: 'icon--sm' })} צילום תמונה</button>
@@ -754,7 +781,7 @@ function reviewRow(item, i) {
 function renderReviewCard() {
   const totals = reviewTotals();
   return `
-    <div class="card">
+    <div class="card" data-meal-form>
       <h3 style="color:var(--text); margin-bottom:6px;">בדיקת הזיהוי</h3>
       <p class="text-muted" style="font-size:0.85rem; margin-bottom:12px;">אפשר לתקן כמויות לפני השמירה.</p>
       <div id="review-list">${reviewItems.map(reviewRow).join('')}</div>

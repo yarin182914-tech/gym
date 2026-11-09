@@ -9,6 +9,9 @@ import { mountNutrition, unmountNutrition } from './pages/nutrition.js';
 import { mountPlan } from './pages/plan.js';
 import { mountToday, unmountToday } from './pages/today.js';
 import { mountFeedback, unmountFeedback } from './pages/feedback.js';
+import { mountTasks } from './pages/tasks.js';
+import { mountSleep, unmountSleep } from './pages/sleep.js';
+import { mountQuickAdd } from './ui/quick-add.js';
 import { captureInstallPrompt, notifyAppEntered } from './ui/install-banner.js';
 import { mountAppBar } from './ui/app-bar.js';
 
@@ -31,11 +34,16 @@ captureInstallPrompt();
 
 let routerStarted = false;
 
+// The tabs are today, tasks, session, nutrition and sleep. History,
+// dashboard, plan and feedback have no tab of their own (see the nav's
+// data-routes in index.html) but keep their old URLs.
 registerRoute('today', () => mountToday(appRoot), unmountToday);
+registerRoute('tasks', () => mountTasks(appRoot));
 registerRoute('session', () => mountActiveSession(appRoot), unmountActiveSession);
 registerRoute('history', () => mountHistory(appRoot), unmountHistory);
 registerRoute('dashboard', () => mountDashboard(appRoot), unmountDashboard);
 registerRoute('nutrition', () => mountNutrition(appRoot), unmountNutrition);
+registerRoute('sleep', () => mountSleep(appRoot), unmountSleep);
 registerRoute('plan', () => mountPlan(appRoot));
 registerRoute('feedback', () => mountFeedback(appRoot), unmountFeedback);
 
@@ -45,6 +53,7 @@ async function enterApp() {
   nav.classList.remove('hidden');
   notifyAppEntered();
   mountAppBar(appRoot);
+  mountQuickAdd();
   await ensureUserDoc();
   if (!routerStarted) {
     startRouter();

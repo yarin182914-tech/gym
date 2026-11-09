@@ -13,6 +13,8 @@ import { openExerciseEditSheet } from '../ui/exercise-edit-sheet.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
 import { mountDateField, mountTimeField } from '../ui/date-time-picker.js';
 import { createPlannedWorkoutCard } from '../ui/planned-workout-card.js';
+import { workoutSwitch } from '../ui/workout-switch.js';
+import { handleQuickActions } from '../ui/quick-add.js';
 import { todayKey } from '../lib/body-weight.js';
 import { renderProgressChart, buildWeightSeries } from '../lib/charts.js';
 import {
@@ -62,6 +64,7 @@ const SESSIONS_STORAGE_KEY = 'gym-active-sessions-v2';
 const LEGACY_SESSION_STORAGE_KEY = 'gym-active-session-v1';
 let picker = { open: false, query: '', category: null };
 let lastTimeModal = null; // { name, previous }
+let stopQuickActions = null; // while mounted: takes the + button's "הליכה"
 let recentExerciseNames = []; // fetched lazily each time the picker opens
 
 // exercise uid -> { root, setsListEl, setsEls: Map<setUid, rowCtrl>, modeGroupEl, unitGroupEl }
@@ -105,6 +108,21 @@ export async function mountActiveSession(rootEl) {
   // A segment timer that was running when the page went away picks up
   // where the clock says it should be.
   if (session?.timer) ensureTimerRunning();
+
+  // The + button's "הליכה".
+  stopQuickActions = handleQuickActions('session', (action) => {
+    if (action === 'walk') startQuickWalk();
+  });
+}
+
+// A new workout, started now, with a walk ready to fill in — the same
+// cardio exercise the picker adds, so it counts in the burn and history
+// like any other. Beside a workout already open, not instead of it.
+function startQuickWalk() {
+  const before = session;
+  startWorkout();
+  if (session === before) return; // MAX_SESSIONS — startWorkout said so
+  addExerciseToSession(CARDIO_LIBRARY.find((c) => c.activity === 'walk'));
 }
 
 // Only the exercise picker needs the library, so it loads in the
@@ -137,6 +155,8 @@ export function unmountActiveSession() {
   for (const refs of exerciseRefs.values()) {
     for (const ctrl of refs.setsEls.values()) ctrl.closeWheel();
   }
+  stopQuickActions?.();
+  stopQuickActions = null;
   container = null;
 }
 
@@ -323,6 +343,7 @@ function render() {
 
   if (!session) {
     container.innerHTML = `
+      ${workoutSwitch('session')}
       ${planCardVisible() ? '<div id="plan-slot"></div>' : ''}
       <div class="card" style="text-align:center;">
         <h2>מוכן להתחיל?</h2>
@@ -341,6 +362,7 @@ function render() {
   const whenText = `${isSameDay(session.startedAt, new Date()) ? 'היום' : formatDateHe(session.startedAt)}${session.hasTime ? ` · ${formatTimeHe(session.startedAt)}` : ''}`;
 
   container.innerHTML = `
+    ${workoutSwitch('session')}
     ${renderSessionTabs()}
     <div class="session-head">
       <button type="button" class="session-when" id="session-when-btn" aria-label="שינוי תאריך ושעה">

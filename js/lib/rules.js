@@ -12,6 +12,8 @@ export const SLEEP = {
   // morning the night is logged under; earlier is past midnight, on the
   // morning's own date. Only the bedtime — waking is always that morning.
   eveningFromHour: 12,
+  // Nights listed on the "שינה" screen, this morning's included.
+  historyNights: 30,
   // Settings for a user who hasn't set their own (users/{uid} fields).
   defaults: {
     sleepBedtimeTarget: '22:30',
