@@ -61,7 +61,11 @@ export function mergeSteps(existing, steps) {
   const stored = Number(existing?.steps) || 0;
   if (steps <= stored) return null;
   const baseKcal = Number.isFinite(existing?.baseKcal) ? existing.baseKcal : ACTIVITY.baseKcal;
-  const workoutKcal = Number.isFinite(existing?.workoutKcal) ? existing.workoutKcal : 0;
+  // An older doc may carry only totalOutKcal: recover its workout part
+  // from the old total so the strength workout isn't lost.
+  const workoutKcal = Number.isFinite(existing?.workoutKcal) ? existing.workoutKcal
+    : Number.isFinite(existing?.totalOutKcal)
+      ? Math.max(0, existing.totalOutKcal - baseKcal - stepsKcal(stored)) : 0;
   const sk = stepsKcal(steps);
   return {
     steps,

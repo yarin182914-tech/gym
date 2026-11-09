@@ -64,6 +64,8 @@ check('keeps the day\'s base and workout', mergeSteps(coachDay, 9000), {
   steps: 9000, stepsKcal: kcal(9000), baseKcal: 1800, workoutKcal: 310,
   totalOutKcal: 1800 + kcal(9000) + 310, source: 'shortcut',
 });
+check('legacy doc with only totalOutKcal keeps its workout part',
+  mergeSteps({ steps: 5000, totalOutKcal: ACTIVITY.baseKcal + 5000 * ACTIVITY.kcalPerStep + 300 }, 10000).workoutKcal, 300);
 check('a lower number never overwrites', mergeSteps({ steps: 12000 }, 6000), null);
 check('the same number writes nothing', mergeSteps({ steps: 12000 }, 12000), null);
 check('zero on a new day writes nothing', mergeSteps(null, 0), null);
