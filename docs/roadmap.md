@@ -76,19 +76,20 @@ Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון ע�
 ## M8 ☐ Settings — "התכנית שלי" — `feature/m8-my-plan`
 Plan: "מסך ההגדרות: "התכנית שלי"".
 - Sections: goals, sleep, habits, training, nutrition, body, routine, rewards, notifications, assistant. Change history (`users/{uid}/planHistory`). Assistant suggestion cards (approve/decline).
+- Life plan (plan: "שאלון חיים ותכנית אב"): `users/{uid}/lifePlan` (planDepth basic|goals|full, areas, goals with horizon 3m|1y|3-5y and A/B/C, reviewRhythm, lastOfferedAt, declinedCount). Level 2 (goals) and level 3 (full plan) forms, every question skippable, "later" keeps partial answers, deepen one area at a time. Per-area recommendation templates in code (`js/lib/plan-templates.js`) that create a habit/task in one tap — work offline, no Claude needed.
 
 ## M9 ☐ Push notifications — `feature/m9-push`
 Plan: "שלב 3: התראות פוש", "שרת קטן" in "מענה טכני".
 - Web Push (VAPID) subscription stored per device; Vercel serverless function to send; scheduled check every 15 min from GitHub Actions. Rules: only when something is missing, max 4/day, quiet hours, quiet Saturday, merge multiple reminders.
 
 ## M10 ☐ Signup and profile — `feature/m10-onboarding`
-Plan: "שלב 4". Questionnaire on first login; personal BMR (Mifflin-St Jeor) replaces the hard-coded 1950; targets from the goal; remove `weddingDate`.
+Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). Questionnaire on first login (level 1 only is required; ends with "set goals now / later / never" → `lifePlan.planDepth`); personal BMR (Mifflin-St Jeor) replaces the hard-coded 1950; targets from the goal; remove `weddingDate`.
 
 ## M11 ☐ Claude connector (MCP) — `feature/m11-mcp`
 Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "what changed since last check".
 
 ## M12 ☐ "קלוד" instructions page — `feature/m12-claude-page`
-Plan: "שלב 6".
+Plan: "שלב 6", and the "ליזום, לא לחייב" rules in "שאלון חיים ותכנית אב": Claude reads `planDepth` and never assumes more; offers to go deeper at natural moments, max once a month; stops after two declines until asked; full-plan users get full initiative.
 
 ## Later
 "לאורך זמן" (graduating habits, seasons, monthly recalibration, vacation mode), Garmin (שלב 7), pilot (שלב 8).
