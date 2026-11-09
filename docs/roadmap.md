@@ -59,6 +59,7 @@ Plan: "שלב 2: תכנית התגמול" (all subsections except "לאורך ז
 - Daily cap, partial ("close") scoring, no negative points.
 - Moments: +10 float and ring fill on log, day-close summary card, perfect-day confetti (small library from cdnjs or hand-rolled), badge toast, level-up full screen. Vibration on Android; iOS fallback = sound + animation.
 - Progress screen: 7-day grid per area, streaks, badge shelf, level road with the real reward at the end.
+- Progress screen covers **everything tracked**, not just workouts (asked by ירין 2026-11-09): one row per area (sleep, each habit, bad habits once M5 exists, meals: count vs 2 and on-target days, protein, calorie deficit, workouts vs weekly goal, weigh-ins / 7-day average) with a week view (7 dots) and a month view (calendar heat-grid), tap a row for its detail chart. The user picks which rows show and their order ("מה אני עוקב אחריו", saved on the user doc); missed = grey, never red. Workout history stays as its own list inside אימון.
 
 ## M5 ☐ Habit wizard + bad habits — `feature/m5-wizard`
 Plan: "הגדרת הרגל: אשף של 6 שאלות", "הרגלים רעים: אשף גמילה".
