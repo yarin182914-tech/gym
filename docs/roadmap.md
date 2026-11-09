@@ -24,13 +24,13 @@ Plan: "מסך הבית ("היום")", "הגדרת הרגל" (ניקוד ורצף
 - Streaks: daily habits in days; N-per-week habits count in weeks.
 - Done when: Today shows sleep + habits, marking works offline and syncs, streaks are correct across a week boundary.
 
-## M3 ☐ Navigation restructure — `feature/m3-nav`
+## M3 ☑ Navigation restructure — `feature/m3-nav`
 Plan: "ניווט".
 - Bottom nav: היום · משימות (placeholder until M6) · אימון · תזונה · שינה. History moves inside אימון. Progress/dashboard opens from the level bar. Settings ("התכנית שלי") opens from the profile icon.
 - Floating + button with a bottom sheet (reuse `js/ui/bottom-sheet.js`): meal, weigh-in, sleep, walk.
 - Keep every existing route URL working (redirect old hashes).
 
-## M3c ☐ Steps from the iPhone + "חיבורים" page — `feature/m3c-steps-import`
+## M3c ◐ Steps from the iPhone + "חיבורים" page — `feature/m3c-steps-import`
 No plan chapter; asked by ירין 2026-11-09. A web app can't read Apple Health, so an iOS Shortcuts automation reads today's steps and opens the app with them.
 - New route `#/import?steps=N[&date=yyyy-mm-dd]`. `steps` an integer 0–100,000; `date` defaults to today (Israel), may be up to 7 days back, never in the future. Anything else → a short Hebrew error toast, nothing written.
 - Writes `users/{uid}/dailyActivity/{date}` with merge: `steps`, `stepsKcal` and `totalOutKcal` recomputed from the doc's existing `baseKcal` (default 1950) and `workoutKcal` (default 0), `source: 'shortcut'`, `loggedAt`. Never lowers steps already stored for that day (keep the larger), so a midday run can't undo the evening number. Same URL twice = same result.

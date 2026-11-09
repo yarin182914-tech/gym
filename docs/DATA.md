@@ -116,10 +116,35 @@ the nutrition screen and the target line on its trend chart. Days with no
 | `totalOutKcal` | number | `baseKcal + stepsKcal + workoutKcal` — what the app shows |
 | `note` | string | Usually `""` |
 | `loggedAt` | Timestamp | When it was saved (server timestamp) |
-| `source` | string | `coach` (written from outside) · `manual` (typed in the app) |
+| `source` | string | `coach` (written from outside) · `manual` (typed in the app) · `shortcut` (steps from the iPhone, see below) |
 
 All the kcal fields are integers. Keep `totalOutKcal` equal to the sum —
-the app trusts it as-is.
+the app trusts it as-is. `baseKcal` and the `0.04` per step live in
+`ACTIVITY` in `js/lib/rules.js`.
+
+**Steps from the iPhone (`source: "shortcut"`).** An iOS Shortcut reads
+the day's steps from Apple Health and opens the app at
+
+```
+https://gym-yarin9.vercel.app/#/import?steps=12450&date=2026-11-09
+```
+
+- `steps`: a whole number `0`–`100000` (thousands separators allowed).
+- `date`: `yyyy-mm-dd`, the phone's date when the shortcut runs. Optional
+  (defaults to today in `Asia/Jerusalem`), but the shortcut always sends
+  it, so a run that lands after midnight still counts for the right day.
+  Up to 7 days back, never in the future.
+- Anything else → a toast, nothing written.
+
+The app **merges** into the day's doc (`set` with merge), keeping `note`
+and the doc's own `baseKcal` / `workoutKcal` (defaults `1950` / `0`), and
+recomputes `stepsKcal` and `totalOutKcal`. **Steps never go down**: a
+number at or below what's stored writes nothing, so a midday run can't
+undo the evening's count and the same URL twice changes nothing. Signed
+out, the request waits in the browser (`localStorage`) and runs after
+sign-in. The "חיבורים" screen shows the newest `loggedAt` among
+`shortcut` days as the last sync. Limits: `STEPS_IMPORT` in
+`js/lib/rules.js`.
 
 ```json
 // users/{uid}/dailyActivity/2026-11-04
