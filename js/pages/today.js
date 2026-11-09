@@ -26,7 +26,7 @@ import { showToast } from '../ui/toast.js';
 import { icon } from '../ui/icon.js';
 import { esc } from '../core/dom.js';
 
-const LEVEL_TEXT = { full: 'מלא', short: 'מקוצר', none: 'פחות מהמקוצר — לא נורא' };
+const LEVEL_TEXT = { full: 'מלא', short: 'מקוצר', none: 'פחות מהמקוצר, לא נורא' };
 
 let container = null;
 let sleepCard = null; // created once per visit, re-attached by render()
@@ -278,8 +278,13 @@ function bindHabitEvents(section) {
 }
 
 function onMarkButton(habit, kind) {
-  if (kind === 'full' || kind === 'short') applyMark(habit, { level: kind, value: null });
-  else if (kind === 'other') openValueSheet(habit);
+  if (kind === 'full' || kind === 'none') applyMark(habit, { level: kind, value: null });
+  // "מקוצר" asks how much (minutes, steps…) when the habit has numeric
+  // targets; the level then follows from the number.
+  else if (kind === 'short') {
+    if (habit.full !== null && habit.short !== null) openValueSheet(habit);
+    else applyMark(habit, { level: 'short', value: null });
+  }
   else if (kind === 'undo') undo(habit.id);
 }
 
@@ -315,15 +320,16 @@ function applyMark(habit, mark) {
   setHabitMark(key, habit.id, stored).catch(logFailed('habit mark'));
 }
 
-// "אחר": type the number; the level follows from the targets.
+// "מקוצר": type how much was done, starting from the short target; the
+// level follows from the number.
 function openValueSheet(habit) {
   const current = entryFor(habit, todayKey(), ctx);
-  let value = current?.value ?? null;
+  let value = current?.value ?? habit.short ?? null;
   openBottomSheet({
     ariaLabel: habit.name,
     render(body, sheetApi) {
       body.innerHTML = `
-        <h3 style="margin:0 0 4px; color:var(--text);">${esc(habit.name)}</h3>
+        <h3 style="margin:0 0 4px; color:var(--text);">${esc(habit.name)} · כמה בפועל?</h3>
         <p class="text-muted" style="margin:0 0 12px; font-size:0.85rem;">${esc(targetText(habit))}</p>
         <div data-v-field></div>
         <p class="text-muted" data-v-preview style="margin:10px 0 0; font-size:0.85rem;"></p>

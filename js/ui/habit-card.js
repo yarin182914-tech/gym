@@ -1,6 +1,6 @@
 // One habit on the "היום" screen, as markup: icon, name, today's target,
-// streak and today's mark. Tapping opens its row of buttons (מלא / מקוצר /
-// אחר / ביטול סימון); the screen (js/pages/today.js) owns the events.
+// streak and today's mark. Tapping opens its row of buttons (מלא / מקוצר,
+// which asks how much / לא בוצע / ביטול סימון); the screen (js/pages/today.js) owns the events.
 // Nothing missed is ever red — an unmarked or missed day is just grey.
 
 import { takesValue } from '../lib/habits.js';
@@ -26,7 +26,7 @@ export function scheduleText(habit) {
   return 'כל יום';
 }
 
-const MARK_TEXT = { full: 'מלא', short: 'מקוצר', none: 'לא הפעם' };
+const MARK_TEXT = { full: 'מלא', short: 'מקוצר', none: 'לא בוצע' };
 
 // view: { entry, streak: {count, unit}, week (done this week, N-per-week
 // only), due, open (buttons showing) }.
@@ -67,7 +67,7 @@ export function habitCardHtml(habit, view) {
       <div class="habit-actions">
         <button type="button" class="btn habit-btn habit-btn--full${entry?.level === 'full' && !entry.auto ? ' active' : ''}" data-mark="full">מלא</button>
         ${habit.short !== null ? `<button type="button" class="btn habit-btn${entry?.level === 'short' && !entry.auto ? ' active' : ''}" data-mark="short">מקוצר</button>` : ''}
-        ${takesValue(habit) ? '<button type="button" class="btn habit-btn" data-mark="other">אחר</button>' : ''}
+        <button type="button" class="btn habit-btn${entry?.level === 'none' && !entry.auto ? ' active' : ''}" data-mark="none">לא בוצע</button>
         ${entry && !entry.auto ? `<button type="button" class="btn habit-btn habit-btn--undo" data-mark="undo" aria-label="ביטול סימון">${icon('undo-2', { className: 'icon--sm' })}</button>` : ''}
       </div>` : ''}
     </div>`;
