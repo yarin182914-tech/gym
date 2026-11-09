@@ -16,7 +16,7 @@ Plan: "שלב 1", "שינה מול כללי המשתמש", rewards table rows fo
 - Evaluation function (pure, unit-testable): given a night + settings → `{ onTime: full|close|miss, duration: full|close|miss }` using the plan's thresholds (close = within 30 min; under 6h always miss).
 - Done when: you can log last night from the card, edit it, see this week's 7 nights, and DATA.md documents the collection.
 
-## M2 ☐ Habits (basic) + "היום" screen — `feature/m2-today-habits`
+## M2 ☑ Habits (basic) + "היום" screen — `feature/m2-today-habits`
 Plan: "מסך הבית ("היום")", "הגדרת הרגל" (ניקוד ורצף, רישום מהיר).
 - Data: `users/{uid}/habits/{auto}` (name, icon, area, schedule: daily | N per week | fixed weekdays, measure: yes/no | quantity | steps | limit, `full` and `short` targets, active/paused, order) and `users/{uid}/habitLogs/{yyyy-mm-dd}` (map habitId → `{ level: full|short|none, value? }`).
 - Simple add/edit habit form (the full 6-step wizard comes in M5).
@@ -30,12 +30,22 @@ Plan: "ניווט".
 - Floating + button with a bottom sheet (reuse `js/ui/bottom-sheet.js`): meal, weigh-in, sleep, walk.
 - Keep every existing route URL working (redirect old hashes).
 
+## M3c ☐ Steps from the iPhone (Shortcuts) — `feature/m3c-steps-import`
+No plan chapter; asked by ירין 2026-11-09. A web app can't read Apple Health, so an iOS Shortcuts automation reads today's steps and opens the app with them.
+- New route `#/import?steps=N[&date=yyyy-mm-dd]`. `steps` an integer 0–100,000; `date` defaults to today (Israel), may be up to 7 days back, never in the future. Anything else → a short Hebrew error toast, nothing written.
+- Writes `users/{uid}/dailyActivity/{date}` with merge: `steps`, `stepsKcal` and `totalOutKcal` recomputed from the doc's existing `baseKcal` (default 1950) and `workoutKcal` (default 0), `source: 'shortcut'`, `loggedAt`. Never lowers steps already stored for that day (keep the larger), so a midday run can't undo the evening number. Same URL twice = same result.
+- Not signed in yet → keep the request in localStorage and apply it right after sign-in.
+- After saving: toast "נשמרו 12,450 צעדים" and go to `#/today`, where the steps habit (autoSource) updates by itself.
+- Document `source: 'shortcut'` and the route in DATA.md. Numbers (max steps, days back) in `js/lib/rules.js`.
+- Done when: opening the URL on the preview sets today's steps, the steps habit and the burn update, repeating it changes nothing, and a lower number doesn't overwrite a higher one. Later (M11): the shortcut posts to the server instead, silently.
+
 ## M3b ☐ Workout types (functional, CrossFit, Pilates…) — `feature/m3b-workout-types`
 Plan: "סוגי אימון: פונקציונלי, קרוספיט, פילאטיס ועוד". Independent of M1–M3; can be pulled earlier.
 - New exercise kind `session` next to `strength` and `cardio` inside the existing `workouts` doc (old workouts untouched): `{ kind: 'session', typeId, name, durationSec, rpe (1–10), avgHr?, place?, fields: {…type-specific}, notes }`. A workout can mix kinds (e.g. CrossFit with a strength part).
 - Built-in type definitions in code (functional, crossfit, pilates, yoga, swim, studio, sport, ski) with their fields per the plan; user-defined types in `users/{uid}/workoutTypes/{auto}` built from a field palette (duration, distance, rounds, reps, weight, result time, level, picklist, text).
 - Quick log: pick type → fields prefilled from the last workout of the same type.
 - Burn: kcal = MET(type, rpe) × bodyweight kg × hours, MET table in `js/lib/rules.js`; feeds the existing calories-out calculation.
+- **No double counting:** outdoor walks/runs (`inputMode: 'free'`) are already in the phone's steps, so they add 0 workout kcal (history and streaks only). Treadmill, bike and session types do count.
 - PRs: same-name CrossFit WOD (faster time / more rounds+reps); functional: more rounds in the same format. History labels by type; progress chart per type.
 - Document the new kind in `docs/DATA.md` so the coach can log Pilates/CrossFit from chat.
 
