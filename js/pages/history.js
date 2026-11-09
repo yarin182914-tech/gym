@@ -13,6 +13,7 @@ import { openWorkoutForEditing } from './active-session.js';
 import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 import { cardioActivity, summarizeSegments, formatSummary, formatKm } from '../lib/cardio.js';
 import { mountBodyWeightHistory } from '../ui/body-weight-history.js';
+import { workoutSwitch } from '../ui/workout-switch.js';
 
 let container = null;
 let workouts = [];
@@ -119,12 +120,13 @@ function render() {
   rowRefs = new Map();
   monthRefs = new Map();
   if (historyView === 'weight') {
-    container.innerHTML = `${viewToggle()}<div data-bw-history></div>`;
+    container.innerHTML = `${workoutSwitch('history')}${viewToggle()}<div data-bw-history></div>`;
     wireViewToggle();
     mountBodyWeightHistory(container.querySelector('[data-bw-history]'), weights);
     return;
   }
   container.innerHTML = `
+    ${workoutSwitch('history')}
     ${viewToggle()}
     <div class="card">
       <div class="row" style="margin-bottom:10px;">

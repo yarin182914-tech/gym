@@ -25,6 +25,7 @@ import { mountNumericField } from '../ui/numeric-input.js';
 import { showToast } from '../ui/toast.js';
 import { icon } from '../ui/icon.js';
 import { esc } from '../core/dom.js';
+import { navigate } from '../lib/router.js';
 
 const LEVEL_TEXT = { full: 'מלא', short: 'מקוצר', none: 'פחות מהמקוצר, לא נורא' };
 
@@ -145,6 +146,7 @@ function renderTop() {
   const total = items.length + 1;
   const done = items.filter((h) => isDone(entryFor(h, key, ctx))).length + (sleepLoggedToday ? 1 : 0);
   host.innerHTML = levelBar(done, total) + nextStep(key);
+  host.querySelector('[data-level]').addEventListener('click', () => navigate('dashboard'));
   host.querySelector('[data-next]')?.addEventListener('click', (e) => {
     const target = e.currentTarget.dataset.next === 'sleep' ? sleepCard : container.querySelector('[data-today-habits]');
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -152,24 +154,27 @@ function renderTop() {
 }
 
 // Level and points arrive with M4 — until then the ring is today's items.
+// The whole bar is a button to the progress screen (spans, not divs,
+// inside it).
 function levelBar(done, total) {
   const r = 20;
   const c = 2 * Math.PI * r;
   return `
-    <div class="card today-level">
-      <div class="today-ring" role="img" aria-label="${done} מתוך ${total} סומנו היום">
-        <svg viewBox="0 0 48 48" aria-hidden="true">
+    <button type="button" class="card today-level" data-level aria-label="רמה 1 · ${done} מתוך ${total} סומנו היום · התקדמות">
+      <span class="today-ring" aria-hidden="true">
+        <svg viewBox="0 0 48 48">
           <circle class="today-ring-track" cx="24" cy="24" r="${r}"></circle>
           <circle class="today-ring-fill" cx="24" cy="24" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - done / total)}"></circle>
         </svg>
         <span class="today-ring-text num">${done}/${total}</span>
-      </div>
-      <div class="today-level-text">
-        <div class="today-level-name">רמה 1</div>
-        <div class="today-level-bar"><span style="width:0%"></span></div>
-        <div class="today-level-sub">נקודות ורמות — בקרוב</div>
-      </div>
-    </div>`;
+      </span>
+      <span class="today-level-text" aria-hidden="true">
+        <span class="today-level-name">רמה 1</span>
+        <span class="today-level-bar"><span style="width:0%"></span></span>
+        <span class="today-level-sub">נקודות ורמות — בקרוב</span>
+      </span>
+      ${icon('chevron-left', { className: 'icon--sm' })}
+    </button>`;
 }
 
 // One card that changes with the hour and the state: the morning asks for

@@ -36,8 +36,10 @@ export function startRouter() {
 
     if (active?.unmount) active.unmount();
 
+    // A tab lights up for every screen in its data-routes (history is part
+    // of אימון), so a screen with no tab of its own leaves them all off.
     document.querySelectorAll('.bottom-nav a').forEach((a) => {
-      const isActive = a.dataset.route === name;
+      const isActive = (a.dataset.routes || '').split(' ').includes(name);
       a.classList.toggle('active', isActive);
       // Conveys the current screen to assistive tech; the class only changes
       // colour and weight, which is not announced.

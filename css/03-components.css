@@ -3093,6 +3093,262 @@ th {
   font-size: var(--text-xs);
 }
 
+/* ===== Navigation (M3): placeholder tab, אימון · היסטוריה, sleep log,
+   the + button ===== */
+
+/* "בקרוב" — a tab whose screen isn't built yet (משימות until M6). */
+.soon-card {
+  text-align: center;
+  padding: var(--space-6) var(--space-4);
+}
+
+.soon-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--accent-dim);
+  color: var(--gold);
+}
+
+/* The two halves of the אימון tab, as links on a segmented switch. */
+.workout-switch {
+  display: flex;
+  margin-bottom: var(--space-3);
+}
+
+.workout-switch a {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: var(--switch-h);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.workout-switch a.active {
+  background: var(--accent);
+  color: var(--gold-text);
+}
+
+/* The app bar's back arrow, before the title on screens with no tab. */
+.app-bar-lead {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.app-bar-btn[hidden] {
+  display: none;
+}
+
+/* Beside the theme switch there is little room: the arrow tucks into the
+   bar's padding and the title steps down a size. */
+.app-bar-lead [data-back] {
+  width: 32px;
+  margin-inline-start: -8px;
+}
+
+.app-bar-lead:has([data-back]:not([hidden])) .app-bar-title {
+  font-size: 1.1rem;
+}
+
+/* The level bar on היום opens the progress screen. */
+button.today-level {
+  width: 100%;
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+button.today-level .today-ring,
+button.today-level .today-level-text > span {
+  display: block;
+}
+
+button.today-level > .icon {
+  flex: none;
+  color: var(--text-muted);
+}
+
+/* ----- sleep screen: the last 30 nights ----- */
+.sleep-log-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.sleep-log-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.sleep-log-sub {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.sleep-log {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sleep-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.sleep-row-date {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sleep-row-name {
+  font-weight: var(--weight-semibold);
+}
+
+.sleep-row-sub {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.sleep-row-times {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.sleep-row-dur {
+  min-width: 3.2em;
+  font-weight: var(--weight-bold);
+  text-align: end;
+}
+
+/* A night not logged: grey, with a way to log it — never a gap, never red. */
+.sleep-row--empty {
+  background: transparent;
+  border-style: dashed;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+
+.sleep-row--empty .sleep-row-name {
+  font-weight: var(--weight-regular);
+}
+
+.sleep-row-log {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+/* ----- the + button (js/ui/quick-add.js) ----- */
+/* A card scrolled to (by the + button or the next-step card) stops under
+   the sticky app bar, not behind it. */
+#app .card {
+  scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 52px + var(--space-2));
+}
+
+:root {
+  --fab-size: 52px;
+}
+
+/* Room under the last thing on every screen, so a form's save button at
+   the bottom can always scroll clear of the + button. */
+#app {
+  padding-bottom: calc(var(--space-6) + var(--fab-size) + var(--space-4));
+}
+
+.fab {
+  position: fixed;
+  inset-inline-end: var(--space-4);
+  bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-4));
+  z-index: 55; /* above .bottom-nav (50), under the install banner (60) and every overlay */
+  width: var(--fab-size);
+  height: var(--fab-size);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: var(--shadow-md);
+  transition: transform 0.1s ease;
+}
+
+.fab:active {
+  transform: scale(0.94);
+}
+
+.fab .icon {
+  width: 26px;
+  height: 26px;
+}
+
+/* Out of the way whenever it could cover something: a sheet or dialog is
+   open, a form is being typed into (the phone keyboard is up), the meal
+   form is open, or the install banner sits where it would. */
+body:has(.sheet-overlay, .modal-overlay, .install-banner, [data-meal-form]) .fab,
+body:has(input:focus, textarea:focus, select:focus) .fab,
+#app.hidden ~ .fab {
+  display: none;
+}
+
+.quick-add-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.quick-add-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: var(--space-4) var(--space-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.quick-add-item .icon {
+  color: var(--gold);
+}
+
+/* Desktop: the nav is a 200px sidebar on that same side — clear it. */
+@media (min-width: 900px) {
+  .fab {
+    inset-inline-end: calc(200px + var(--space-6));
+    bottom: var(--space-6);
+  }
+}
+
 /* Day picker above the habit cards: mark a day you forgot (M2 follow-up). */
 .habit-days {
   display: flex;
