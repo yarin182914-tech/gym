@@ -196,6 +196,18 @@ export async function devSetDailyActivity(dateKey, data) {
   save(state);
 }
 
+export async function devGetDailyActivity(dateKey) {
+  return (load().dailyActivity || []).find((a) => a.id === dateKey) || null;
+}
+
+export async function devMergeDailyActivity(dateKey, data) {
+  const state = load();
+  const existing = (state.dailyActivity || []).find((a) => a.id === dateKey);
+  state.dailyActivity = (state.dailyActivity || []).filter((a) => a.id !== dateKey);
+  state.dailyActivity.push({ ...existing, ...data, id: dateKey, date: dateKey, loggedAt: new Date().toISOString() });
+  save(state);
+}
+
 export async function devListDailyActivity(max = 60) {
   const state = load();
   return [...(state.dailyActivity || [])]

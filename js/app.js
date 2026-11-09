@@ -11,6 +11,8 @@ import { mountToday, unmountToday } from './pages/today.js';
 import { mountFeedback, unmountFeedback } from './pages/feedback.js';
 import { mountTasks } from './pages/tasks.js';
 import { mountSleep, unmountSleep } from './pages/sleep.js';
+import { mountImport, stashImportFromUrl, hasPendingImport } from './pages/import.js';
+import { mountConnections, unmountConnections } from './pages/connections.js';
 import { mountQuickAdd } from './ui/quick-add.js';
 import { captureInstallPrompt, notifyAppEntered } from './ui/install-banner.js';
 import { mountAppBar } from './ui/app-bar.js';
@@ -31,6 +33,9 @@ if ('serviceWorker' in navigator) {
 }
 
 captureInstallPrompt();
+// A steps import (#/import?steps=…) opened while signed out waits here
+// for the sign-in.
+stashImportFromUrl();
 
 let routerStarted = false;
 
@@ -46,6 +51,8 @@ registerRoute('nutrition', () => mountNutrition(appRoot), unmountNutrition);
 registerRoute('sleep', () => mountSleep(appRoot), unmountSleep);
 registerRoute('plan', () => mountPlan(appRoot));
 registerRoute('feedback', () => mountFeedback(appRoot), unmountFeedback);
+registerRoute('connections', () => mountConnections(appRoot), unmountConnections);
+registerRoute('import', () => mountImport(appRoot));
 
 async function enterApp() {
   authScreen.classList.add('hidden');
@@ -55,6 +62,8 @@ async function enterApp() {
   mountAppBar(appRoot);
   mountQuickAdd();
   await ensureUserDoc();
+  // A stashed steps import runs first, whatever screen the hash says.
+  if (hasPendingImport() && !/^#\/import(\?|$)/.test(location.hash)) location.replace('#/import');
   if (!routerStarted) {
     startRouter();
     routerStarted = true;

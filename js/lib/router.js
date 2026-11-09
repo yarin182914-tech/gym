@@ -19,8 +19,14 @@ export function registerRoute(name, mount, unmount) {
 
 function currentRouteName() {
   const hash = location.hash.replace(/^#\//, '');
-  const name = hash.split('/')[0];
+  const name = hash.split(/[/?]/)[0];
   return routes[name] ? name : DEFAULT_ROUTE;
+}
+
+// The current hash's query, e.g. #/import?steps=8000 → steps=8000.
+export function routeParams() {
+  const q = location.hash.indexOf('?');
+  return new URLSearchParams(q === -1 ? '' : location.hash.slice(q + 1));
 }
 
 export function navigate(name) {
