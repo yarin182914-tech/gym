@@ -9,7 +9,8 @@
 import { listDailyActivity } from '../lib/firestore.js';
 import { STEPS_IMPORT } from '../lib/rules.js';
 import { israelDateKey } from '../lib/steps-import.js';
-import { IOS_LABELS, IOS_LANGS } from '../lib/ios-labels.js';
+import { IOS_LABELS, IOS_LANGS, IOS_SEARCH } from '../lib/ios-labels.js';
+import { showToast } from '../ui/toast.js';
 import { formatDayMonthHe, formatTimeHe, toDate } from '../lib/format.js';
 import { beginMount, isStale } from '../core/page.js';
 import { esc } from '../core/dom.js';
@@ -88,7 +89,9 @@ function render() {
     } catch { /* the choice just won't be remembered */ }
     patchToggleGroup(group, lang);
     container.querySelector('[data-howto]').innerHTML = howTo();
+    container.querySelector('[data-build]').innerHTML = buildSteps();
   });
+  container.addEventListener('click', onCopy);
   renderStatus();
 }
 
@@ -120,12 +123,62 @@ function stepsCard() {
         ],
       })}
       ${action}
+      <details class="connection-build"${STEPS_IMPORT.shortcutUrl ? '' : ' open'}>
+        <summary>${icon('pencil', { className: 'icon--sm' })} בניית הקיצור, צעד אחר צעד</summary>
+        <div data-build>${buildSteps()}</div>
+      </details>
       <div data-howto>${howTo()}</div>
     </section>`;
 }
 
 // The iPhone's own label, shown as it appears on the phone.
 const chip = (text) => `<b class="ios-label" dir="auto">${esc(text)}</b>`;
+
+// The address the shortcut opens, up to where the steps number goes.
+const importBase = () => `${location.origin}/#/import?steps=`;
+
+async function onCopy(e) {
+  const btn = e.target.closest('[data-copy]');
+  if (!btn) return;
+  const text = btn.dataset.copy === 'base' ? importBase() : '&date=';
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(`${icon('check', { className: 'icon--sm' })} הועתק`);
+  } catch {
+    showToast('לא הצלחתי להעתיק, אפשר לסמן ולהעתיק ידנית');
+  }
+}
+
+// Making the shortcut by hand, one action at a time. Every action is found
+// by typing a short word in the actions search box.
+function buildSteps() {
+  const L = IOS_LABELS[lang];
+  const S = IOS_SEARCH[lang];
+  const find = (key) => `מחפשים ${chip(S[key])} ומוסיפים את ${chip(L[key])}.`;
+  const copyBtn = (what, label) => `<button type="button" class="btn btn-secondary connection-copy" data-copy="${what}">${icon('copy', { className: 'icon--sm' })} ${label}</button>`;
+  const steps = [
+    `פותחים את ${chip(L.shortcutsApp)}, לוחצים ${chip('+')} למעלה. לוחצים על השם שבראש המסך, ${chip(L.rename)}, וכותבים ${chip(STEPS_IMPORT.shortcutName)}.`,
+    `${find('findHealth')} בתוכה: לוחצים על הסוג ובוחרים ${chip(L.steps)}, מוודאים ש${chip(L.startDate)} הוא ${chip(L.today)}, ובשורה ${chip(L.groupBy)} בוחרים ${chip(L.day)}.`,
+    `${find('getDetails')} לוחצים על השדה הכחול ובוחרים ${chip(L.value)}.`,
+    find('roundNumber'),
+    `${find('formatDate')} התאריך: ${chip(L.currentDate)}. הפורמט: ${chip(L.custom)}, ובשדה שנפתח כותבים <span class="connection-code" dir="ltr">yyyy-MM-dd</span>.`,
+    `${find('text')} בתוך תיבת הטקסט, לפי הסדר:
+      <ol class="connection-substeps">
+        <li>מדביקים את הכתובת: ${copyBtn('base', 'העתקת הכתובת')}</li>
+        <li>מעל המקלדת לוחצים על המשתנה של המספר המעוגל.</li>
+        <li>מדביקים <span class="connection-code" dir="ltr">&amp;date=</span> ${copyBtn('date', 'העתקה')}</li>
+        <li>לוחצים על המשתנה של התאריך המעוצב.</li>
+      </ol>
+      בסוף זה נראה כך, עם שני משתנים כחולים במקום המספרים: <span class="connection-code connection-code--wrap" dir="ltr">…/#/import?steps=12450&amp;date=2026-11-09</span>`,
+    `${find('openUrls')} היא לוקחת לבד את הטקסט מהשלב הקודם.`,
+    `לוחצים ▶ למטה כדי להריץ פעם אחת. מאשרים גישה לבריאות (${chip(L.allow)}). Safari ייפתח: מתחברים עם גוגל, ומופיעה הודעה עם מספר הצעדים.`,
+  ];
+  return `
+    <p class="text-muted connection-note">בונים פעם אחת, בערך 5 דקות. אחר כך מגדירים לו אוטומציה יומית (למטה).</p>
+    <ol class="connection-steps connection-steps--build">
+      ${steps.map((text, i) => `<li><span class="connection-step-num">${i + 1}</span><span>${text}</span></li>`).join('')}
+    </ol>`;
+}
 
 function howTo() {
   const L = IOS_LABELS[lang];
@@ -136,7 +189,7 @@ function howTo() {
     ['check', `בוחרים את הקיצור ${chip(STEPS_IMPORT.shortcutName)} ולוחצים ${chip(L.done)}.`],
   ];
   return `
-    <p class="connection-note">אחרי הלחיצה, באייפון לוחצים ${chip(L.addShortcut)}. ואז אוטומציה יומית:</p>
+    <p class="connection-note">${STEPS_IMPORT.shortcutUrl ? `אחרי הלחיצה, באייפון לוחצים ${chip(L.addShortcut)}. ואז` : 'כשהקיצור מוכן,'} אוטומציה יומית:</p>
     <ol class="connection-steps">
       ${steps.map(([name, text], i) => `<li><span class="connection-step-num">${i + 1}</span>${icon(name, { className: 'icon--sm' })}<span>${text}</span></li>`).join('')}
     </ol>

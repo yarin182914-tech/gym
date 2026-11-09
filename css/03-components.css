@@ -3564,3 +3564,73 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
   padding: 6px 8px;
   line-height: var(--leading-tight);
 }
+
+/* Building the shortcut by hand: a fold that opens by itself while there's
+   no ready-made iCloud link. */
+.connection-build {
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  padding: var(--space-2) var(--space-3);
+}
+
+.connection-build > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.connection-build[open] > summary {
+  margin-bottom: var(--space-2);
+}
+
+.connection-steps--build li {
+  align-items: flex-start;
+  background: var(--surface);
+  line-height: 1.6;
+}
+
+.connection-steps--build .ios-label {
+  white-space: normal;
+}
+
+.connection-steps .connection-substeps li {
+  display: list-item;
+  padding: 0;
+  background: none;
+}
+
+.connection-substeps {
+  margin: var(--space-1) 0;
+  padding-inline-start: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.connection-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-xs);
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--accent-dim);
+  color: var(--text);
+  unicode-bidi: isolate;
+  white-space: nowrap;
+}
+
+.connection-code--wrap {
+  white-space: normal;
+  word-break: break-all;
+}
+
+.connection-copy {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+  margin-inline-start: var(--space-1);
+  vertical-align: middle;
+}
