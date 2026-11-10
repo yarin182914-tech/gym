@@ -379,3 +379,35 @@ export async function devDeleteWorkoutType(typeDocId) {
   state.workoutTypes = (state.workoutTypes || []).filter((x) => x.id !== typeDocId);
   save(state);
 }
+
+export async function devListPlannedWorkouts(max = 60) {
+  return [...(load().plannedWorkouts || [])].sort((a, b) => (a.id < b.id ? 1 : -1)).slice(0, max);
+}
+
+// ---------- points ledger (M4) ----------
+
+export async function devListLedger() {
+  return [...(load().pointsLedger || [])];
+}
+
+// Upward only, like the real one: an entry keeps its higher points.
+export async function devWriteLedger(entries) {
+  const state = load();
+  const list = state.pointsLedger || [];
+  const now = new Date().toISOString();
+  for (const e of entries) {
+    const cur = list.find((x) => x.id === e.id);
+    if (cur) {
+      cur.points = Math.max(cur.points || 0, e.points);
+      cur.raw = Math.max(cur.raw || 0, e.raw);
+      Object.assign(cur, { grade: e.grade ?? null, reason: e.reason, updatedAt: now });
+    } else {
+      list.push({
+        id: e.id, date: e.date, source: e.source, rule: e.rule, ref: e.ref ?? null,
+        points: e.points, raw: e.raw, grade: e.grade ?? null, reason: e.reason, createdAt: now, updatedAt: now,
+      });
+    }
+  }
+  state.pointsLedger = list;
+  save(state);
+}

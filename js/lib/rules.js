@@ -123,3 +123,112 @@ export const WORKOUTS = {
 // Saves stop waiting for the server after this long; the write is already
 // in the phone's local copy and syncs by itself (js/lib/firestore.js).
 export const WRITE_WAIT_MS = 1500;
+
+// Nutrition goals for a user who hasn't set their own (users/{uid} fields,
+// set in the nutrition screen's "יעדים" sheet), and the eating plan's
+// meals a day (lunch and dinner).
+export const NUTRITION = {
+  defaults: {
+    calorieDeficit: 250,
+    calorieTarget: 2000,
+    proteinTarget: 120,
+    carbsTarget: 250,
+    fatTarget: 65,
+  },
+  maxMeals: 2,
+};
+
+// Points, levels and badges (M4) — the plan's values ("שלב 2: תכנית
+// התגמול"). Points are worked out from the data (js/lib/rewards.js) and
+// written to users/{uid}/pointsLedger; they never go down.
+export const REWARDS = {
+  // A day's points stop here — except the rules in `uncapped`, so a good
+  // day never loses its bonus.
+  dailyCap: 200,
+  uncapped: ['habit-week', 'workout-week', 'pr', 'perfect-day'],
+  points: {
+    sleepBedtime: { full: 20, close: 10 },
+    sleepDuration: { full: 15, close: 8 },
+    habit: HABITS.points,
+    habitWeek: HABITS.weeklyBonus,
+    calories: { full: 30, close: 15 },
+    protein: { full: 10, close: 5 },
+    mealCount: { full: 10, close: 5 },
+    mealLog: 5,
+    workout: 30,
+    pr: 20,
+    workoutWeek: 50,
+    weighIn: 5,
+    perfectDay: 30,
+  },
+  // Partial ("close") scoring.
+  bands: {
+    // Calories: at most the target → full; up to this much over → close.
+    caloriesCloseOver: 0.1,
+    // A deficit bigger than this scores nothing (no rewarding extremes).
+    maxDeficit: 1000,
+    // Protein: the target or more → full; this share of it or more → close.
+    proteinClose: 0.8,
+    // Meals: at most maxMeals → full; this many more → close.
+    mealsCloseExtra: 1,
+  },
+  // At most this many awards of a rule per day (a deleted meal keeps its
+  // points, so a new one mustn't add a third).
+  perDay: { 'meal-log': NUTRITION.maxMeals, workout: 1, 'weigh-in': 1 },
+  // Workout days a week for the weekly bonus (users/{uid}.weeklyWorkoutGoal).
+  weeklyWorkoutGoal: 3,
+  // A perfect day needs every one of these. Sleep: both parts (a flexible
+  // night's bedtime counts as 'free'). Habits: every daily / fixed-weekday
+  // habit due that day, done. A workout only on a day the coach planned
+  // one (and it wasn't marked "לא היום"); a rest day never blocks it.
+  perfectDay: {
+    needs: {
+      'sleep-bedtime': ['full', 'free'],
+      'sleep-duration': ['full'],
+      calories: ['full'],
+      protein: ['full'],
+      'meal-count': ['full'],
+    },
+    allHabitsDue: true,
+    workoutWhenPlanned: true,
+  },
+  // Catch-up: scoring runs from the last day checked (users/{uid}
+  // .rewardsCheckedThrough) — re-checking this many days before it, for
+  // late logs and late burns — up to today, at most catchUpMaxDays days.
+  rescoreDays: 7,
+  catchUpMaxDays: 31,
+  // A save is scored this long after it (several quick taps → one pass).
+  syncDelayMs: 300,
+  // The "+10" floats from where you tapped if it was this recent.
+  floatAnchorMs: 4000,
+  levels: [
+    { level: 1, name: 'צעד ראשון', min: 0, unlock: 'המסך הבסיסי ויום חסד אחד בשבוע' },
+    { level: 2, name: 'בתנועה', min: 500, unlock: 'ערכת צבעים חדשה' },
+    { level: 3, name: 'מתמיד', min: 1500, unlock: 'אנימציית חגיגה וצליל חדשים' },
+    { level: 4, name: 'בונה הרגלים', min: 3000, unlock: 'יום חסד שני בשבוע' },
+    { level: 5, name: 'מכונה', min: 6000, unlock: 'מסך מגמות: שינה, משקל והרגלים לאורך זמן' },
+    { level: 6, name: 'ברזל', min: 10000, unlock: 'הפרס האמיתי שבחרת', reward: true },
+    { level: 7, name: 'אגדה', min: 16000, unlock: 'פרס אמיתי גדול ותג זהב קבוע', reward: true },
+  ],
+  // Badges, derived from the ledger. kind: first (the first entry of the
+  // rule), streak (n days in a row), count (n entries, or n days with
+  // unit 'days'), month (n entries in one calendar month), comeback.
+  badges: [
+    { id: 'sleep-first', area: 'sleep', name: 'לילה ראשון בזמן', icon: 'moon', kind: 'first', rule: 'sleep-bedtime', grades: ['full'] },
+    { id: 'sleep-7', area: 'sleep', name: '7 לילות ברצף', icon: 'moon', kind: 'streak', rule: 'sleep-duration', n: 7 },
+    { id: 'sleep-30', area: 'sleep', name: '30 לילות', icon: 'moon', kind: 'count', rule: 'sleep-duration', n: 30 },
+    { id: 'sleep-8h-week', area: 'sleep', name: 'שבוע שלם של שינה מלאה', icon: 'moon', kind: 'streak', rule: 'sleep-duration', grades: ['full'], n: 7 },
+    { id: 'perfect-first', area: 'habits', name: 'יום מושלם ראשון', icon: 'sparkles', kind: 'first', rule: 'perfect-day' },
+    { id: 'perfect-3', area: 'habits', name: '3 ימים מושלמים ברצף', icon: 'sparkles', kind: 'streak', rule: 'perfect-day', n: 3 },
+    { id: 'perfect-week', area: 'habits', name: 'שבוע מושלם', icon: 'sparkles', kind: 'streak', rule: 'perfect-day', n: 7 },
+    { id: 'habits-100', area: 'habits', name: '100 סימונים', icon: 'check', kind: 'count', rule: 'habit', n: 100 },
+    { id: 'calories-7', area: 'nutrition', name: '7 ימים ביעד הקלורי', icon: 'target', kind: 'streak', rule: 'calories', grades: ['full'], n: 7 },
+    { id: 'protein-week', area: 'nutrition', name: 'שבוע חלבון מלא', icon: 'utensils', kind: 'streak', rule: 'protein', grades: ['full'], n: 7 },
+    { id: 'logged-30', area: 'nutrition', name: '30 ימים מתועדים', icon: 'utensils', kind: 'count', rule: 'meal-log', unit: 'days', n: 30 },
+    { id: 'week-goal-first', area: 'workouts', name: 'יעד שבועי ראשון', icon: 'dumbbell', kind: 'first', rule: 'workout-week' },
+    { id: 'workouts-12', area: 'workouts', name: '12 אימונים בחודש', icon: 'dumbbell', kind: 'month', rule: 'workout', n: 12 },
+    { id: 'pr-first', area: 'workouts', name: 'שיא אישי', icon: 'trophy', kind: 'first', rule: 'pr' },
+    { id: 'pr-5', area: 'workouts', name: '5 שיאים בחודש', icon: 'trophy', kind: 'month', rule: 'pr', n: 5 },
+    { id: 'comeback', area: 'general', name: 'קאמבק', icon: 'undo-2', kind: 'comeback', rule: 'calories', grades: ['full'] },
+  ],
+};

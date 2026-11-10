@@ -1,4 +1,13 @@
-import { listWorkouts, getExerciseHistory, listExerciseLibrary, listBodyWeights, CATEGORY_GROUPS } from '../lib/firestore.js';
+import {
+  listWorkouts, getExerciseHistory, listExerciseLibrary, listBodyWeights, listWorkoutTypes, CATEGORY_GROUPS,
+} from '../lib/firestore.js';
+import {
+  syncRewardsNow, rewardsState, rewardsContext, rewardsLedger, rewardsUserDoc,
+} from '../lib/rewards-sync.js';
+import { dateKey } from '../lib/sleep.js';
+import { mountProgressSummary } from '../ui/progress-summary.js';
+import { mountProgressRows } from '../ui/progress-rows.js';
+import { mountWorkoutTypeStats } from '../ui/workout-type-stats.js';
 import { renderProgressChart, heaviestSet } from '../lib/charts.js';
 import { esc } from '../core/dom.js';
 import { formatDayMonthHe as shortDate, unitLabel, round1 } from '../lib/format.js';
@@ -31,23 +40,43 @@ let viewMode = 'chart'; // 'chart' | 'table'
 let chartInstance = null;
 let picker = { open: false, query: '', category: null };
 
+// "התקדמות" (opened from the level bar), in three tabs: סיכום (level, the
+// road to the real reward, streaks, badges — js/ui/progress-summary.js),
+// מעקב (a row per tracked area — js/ui/progress-rows.js) and אימונים (body
+// weight, cardio, workout types and strength, below).
+let tab = 'summary'; // kept across visits
+let loaded = null; // { workouts, libraryEntries, weights, workoutTypes }
+let progressRows = null;
+let typeStats = null;
+
 // A canvas chart doesn't follow CSS colour changes on its own — redraw it
 // when the theme switch flips while this screen is showing.
 window.addEventListener('gym-theme-change', () => {
   if (container && chartInstance) render();
   bodyWeightTrend?.redraw();
   cardioStats?.redraw();
+  typeStats?.redraw();
+  progressRows?.redraw();
 });
 
-export function unmountDashboard() {
+function destroyTab() {
   if (chartInstance) chartInstance.destroy();
   chartInstance = null;
   bodyWeightTrend?.destroy();
   bodyWeightTrend = null;
   cardioStats?.destroy();
   cardioStats = null;
-  pageRoot = null;
+  typeStats?.destroy();
+  typeStats = null;
+  progressRows?.destroy();
+  progressRows = null;
   container = null;
+}
+
+export function unmountDashboard() {
+  destroyTab();
+  pageRoot = null;
+  loaded = null;
   allExerciseNames = [];
   categoryByName = new Map();
   libraryByName = new Map();
@@ -59,7 +88,7 @@ export async function mountDashboard(rootEl) {
   pageRoot = rootEl;
   renderLoading(rootEl, 'טוען נתוני התקדמות...');
 
-  const [workouts, libraryEntries, weights] = await Promise.all([
+  const [workouts, libraryEntries, weights, workoutTypes] = await Promise.all([
     listWorkouts(500),
     listExerciseLibrary(),
     // A failed weigh-in load shouldn't take the exercise progress with it.
@@ -67,15 +96,58 @@ export async function mountDashboard(rootEl) {
       console.error('[body-weight] load failed', err);
       return [];
     }),
+    listWorkoutTypes().catch(() => []),
+    // Today's points and data, fresh (js/lib/rewards-sync.js).
+    syncRewardsNow().catch((err) => console.error('[rewards] sync failed', err)),
   ]);
   if (isStale(token)) return;
+  loaded = { workouts, libraryEntries, weights, workoutTypes };
+  showTab();
+}
 
-  rootEl.innerHTML = '<div data-dash-weight></div><div data-dash-cardio></div><div data-dash-exercises></div>';
-  bodyWeightTrend?.destroy();
-  bodyWeightTrend = mountBodyWeightTrend(rootEl.querySelector('[data-dash-weight]'), weights);
-  cardioStats?.destroy();
-  cardioStats = mountCardioStats(rootEl.querySelector('[data-dash-cardio]'), workouts);
-  container = rootEl.querySelector('[data-dash-exercises]');
+function showTab() {
+  if (!pageRoot || !loaded) return;
+  destroyTab();
+  pageRoot.innerHTML = `
+    <div class="dash-tabs">
+      ${toggleGroup({
+        name: 'dtab',
+        active: tab,
+        label: 'התקדמות',
+        groupAttrs: 'data-dash-tabs',
+        options: [{ value: 'summary', label: 'סיכום' }, { value: 'rows', label: 'מעקב' }, { value: 'workouts', label: 'אימונים' }],
+      })}
+    </div>
+    <div data-dash-tab></div>`;
+  pageRoot.querySelectorAll('[data-dash-tabs] button').forEach((btn) => btn.addEventListener('click', () => {
+    tab = btn.dataset.dtab;
+    showTab();
+  }));
+  const host = pageRoot.querySelector('[data-dash-tab]');
+  const summary = rewardsState();
+  const ctx = rewardsContext();
+  const today = dateKey(new Date());
+  if (tab !== 'workouts' && (!summary || !ctx)) {
+    host.innerHTML = `<div class="card">${emptyState('הנקודות עוד נטענות — נסו שוב בעוד רגע.', { centered: true })}</div>`;
+    return;
+  }
+  if (tab === 'summary') {
+    mountProgressSummary(host, { summary, ledger: rewardsLedger(), ctx, userDoc: rewardsUserDoc(), today });
+  } else if (tab === 'rows') {
+    progressRows = mountProgressRows(host, { ctx, today, userDoc: rewardsUserDoc() });
+  } else {
+    mountWorkoutsTab(host);
+  }
+}
+
+// The workouts tab: body weight, cardio, workout types, then strength.
+function mountWorkoutsTab(host) {
+  const { workouts, libraryEntries, weights, workoutTypes } = loaded;
+  host.innerHTML = '<div data-dash-weight></div><div data-dash-cardio></div><div data-dash-types></div><div data-dash-exercises></div>';
+  bodyWeightTrend = mountBodyWeightTrend(host.querySelector('[data-dash-weight]'), weights);
+  cardioStats = mountCardioStats(host.querySelector('[data-dash-cardio]'), workouts);
+  typeStats = mountWorkoutTypeStats(host.querySelector('[data-dash-types]'), workouts, workoutTypes);
+  container = host.querySelector('[data-dash-exercises]');
 
   // Cardio and sessions have no weight to chart or rank — cardio has its
   // own card above.
@@ -102,7 +174,7 @@ export async function mountDashboard(rootEl) {
     selectedExercise = allExerciseNames[0];
   }
 
-  await render();
+  render();
 }
 
 async function loadSeries(exerciseName) {

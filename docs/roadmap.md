@@ -43,7 +43,7 @@ No plan chapter; asked by ירין 2026-11-09. A web app can't read Apple Health
   - Placeholders (grey, "בקרוב") for: Google Calendar (M7), push notifications (M9), Claude connector (M11), cloud storage / Drive via the Claude connector (M12), Garmin (later).
 - Done when: opening the URL on the preview sets today's steps, the steps habit and the burn update, repeating it changes nothing, a lower number doesn't overwrite a higher one, and the חיבורים page shows the shortcut card with its last-sync time. Later (M11): the shortcut posts to the server instead, silently.
 
-## M3b ◐ Workout types (functional, CrossFit, Pilates…) — `feature/m3b-workout-types`
+## M3b ☑ Workout types (functional, CrossFit, Pilates…) — `feature/m3b-workout-types`
 Plan: "סוגי אימון: פונקציונלי, קרוספיט, פילאטיס ועוד". Independent of M1–M3; can be pulled earlier.
 - New exercise kind `session` next to `strength` and `cardio` inside the existing `workouts` doc (old workouts untouched): `{ kind: 'session', typeId, name, durationSec, rpe (1–10), avgHr?, place?, fields: {…type-specific}, notes }`. A workout can mix kinds (e.g. CrossFit with a strength part).
 - Built-in type definitions in code (functional, crossfit, pilates, yoga, swim, studio, sport, ski) with their fields per the plan; user-defined types in `users/{uid}/workoutTypes/{auto}` built from a field palette (duration, distance, rounds, reps, weight, result time, level, picklist, text).
@@ -53,7 +53,7 @@ Plan: "סוגי אימון: פונקציונלי, קרוספיט, פילאטיס
 - PRs: same-name CrossFit WOD (faster time / more rounds+reps); functional: more rounds in the same format. History labels by type; progress chart per type.
 - Document the new kind in `docs/DATA.md` so the coach can log Pilates/CrossFit from chat.
 
-## M3d ☐ Fixes from the feedback board — `feature/m3d-feedback-fixes`
+## M3d ☑ Fixes from the feedback board — `feature/m3d-feedback-fixes`
 No plan chapter; ירין asked 2026-11-10 to solve every open item on the in-app feedback board (`siteFeedback`). Each fix also flips that item's status to `done` on the board (the app's own feedback screen, by ירין).
 - **Wrong PR on deadlift (bug, 7.11).** Cause: a new set copies the previous set's `type`, so after one warm-up set every following set is saved as `warmup` too, and PRs/"last time" skip warm-ups. Found in 14 exercises across 13 workouts (e.g. deadlift 4.11: 31.25 kg ×3 all `warmup`, so the PR still shows 30). Fix: `prefillForNewSet` turns `warmup` into `working` for the next set (a second warm-up is one tap); the same when prefilling from last time. Old data: do NOT rewrite in the app; the coach lists the affected sets and fixes them only after ירין says yes.
 - **Typing a new exercise name jumps the screen up (bug, 5.11).** Cause: every keystroke in the picker search calls the full `render()`. Fix: on input re-render only `#picker-results`; keep focus and scroll.
@@ -62,7 +62,7 @@ No plan chapter; ירין asked 2026-11-10 to solve every open item on the in-ap
 - **See that a workout is running in the background (9.11).** A web app can't show an iPhone Live Activity. Fix: (1) a sticky "אימון פעיל · 32:10" pill above the bottom nav on every screen, tap → back to the workout; (2) app-icon badge via `navigator.setAppBadge(1)` while a live workout is open (works for the home-screen app on iOS 16.4+ once notification permission exists, so it lights up fully after M9); cleared on finish/delete.
 - Done when: each item is reproduced before and checked after on the preview at 390px; a unit test covers the warm-up → working prefill; DATA.md documents `exerciseLibrary.note`.
 
-## M4 ☐ Points, levels and reward moments — `feature/m4-rewards`
+## M4 ◐ Points, levels and reward moments — `feature/m4-rewards`
 Plan: "שלב 2: תכנית התגמול" (all subsections except "לאורך זמן").
 - Data: `users/{uid}/pointsLedger/{auto}` — one entry per award: `{ date, source: sleep|habit|meal|workout|..., ref, points, reason }`. Level, totals, streaks and badges are **derived** from the ledger (never stored as the only copy).
 - Daily cap, partial ("close") scoring, no negative points.

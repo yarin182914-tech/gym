@@ -1,5 +1,5 @@
-// "היום" — the home screen, top to bottom: the level bar (a placeholder
-// until M4's points), the next step, last night's sleep, and today's
+// "היום" — the home screen, top to bottom: the level bar (points and level,
+// js/lib/rewards-sync.js), the next step, last night's sleep, and today's
 // habits, marked right here.
 //
 // Marks show at once and are written in the background (see the habits
@@ -15,7 +15,9 @@ import {
   weekCount, habitStreak, levelFor,
 } from '../lib/habits.js';
 import { dateKey, shiftDays, parseKey } from '../lib/sleep.js';
-import { HABITS } from '../lib/rules.js';
+import { HABITS, REWARDS } from '../lib/rules.js';
+import { rewardsState, rewardsLedger, rewardsUserDoc, markSeen } from '../lib/rewards-sync.js';
+import { daySummaryHtml } from '../ui/day-summary-card.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { createSleepCard } from '../ui/sleep-card.js';
 import { habitCardHtml, targetText } from '../ui/habit-card.js';
@@ -81,6 +83,7 @@ export async function mountToday(rootEl) {
     updateUserSettings({ habitsSeeded: true }).catch(logFailed('habitsSeeded'));
   }
 
+  window.addEventListener('gym-rewards', onRewards);
   sleepLoggedToday = nights.some((n) => n.date === todayKey());
   sleepCard = createSleepCard(nights, settings, {
     onChange(list) {
@@ -92,6 +95,7 @@ export async function mountToday(rootEl) {
 }
 
 export function unmountToday() {
+  window.removeEventListener('gym-rewards', onRewards);
   clearTimeout(pressTimer);
   container = null;
   sleepCard = null;
@@ -145,37 +149,59 @@ function renderTop() {
   const items = activeHabits().filter((h) => isDue(h, key) && (isDone(entryFor(h, key, ctx)) || isOpenToday(h, key, ctx)));
   const total = items.length + 1;
   const done = items.filter((h) => isDone(entryFor(h, key, ctx))).length + (sleepLoggedToday ? 1 : 0);
-  host.innerHTML = levelBar(done, total) + nextStep(key);
+  // Yesterday's points, once, after the day closed.
+  const yesterday = shiftDays(key, -1);
+  const showSummary = rewardsState() && rewardsUserDoc().rewardsSeen?.daySummary !== yesterday;
+  host.innerHTML = levelBar(done, total) + (showSummary ? daySummaryHtml(rewardsLedger(), yesterday) : '') + nextStep(key);
   host.querySelector('[data-level]').addEventListener('click', () => navigate('dashboard'));
+  host.querySelector('[data-day-summary-close]')?.addEventListener('click', () => {
+    markSeen({ daySummary: yesterday });
+    renderTop();
+  });
   host.querySelector('[data-next]')?.addEventListener('click', (e) => {
     const target = e.currentTarget.dataset.next === 'sleep' ? sleepCard : container.querySelector('[data-today-habits]');
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 }
 
-// Level and points arrive with M4 — until then the ring is today's items.
-// The whole bar is a button to the progress screen (spans, not divs,
-// inside it).
+// The ring is today's points against the daily cap; the bar, the way to
+// the next level (js/lib/rewards-sync.js). Before the first scoring pass
+// has answered, the ring shows today's items instead. The whole bar is a
+// button to the progress screen (spans, not divs, inside it).
 function levelBar(done, total) {
+  const state = rewardsState();
   const r = 20;
   const c = 2 * Math.PI * r;
+  const fill = state ? Math.min(1, state.today / REWARDS.dailyCap) : done / total;
+  const level = state?.level;
+  const fmt = (n) => n.toLocaleString('he-IL');
+  let sub = 'סופרים נקודות…';
+  if (state && state.total === 0) sub = 'ההרפתקה מתחילה — כל סימון שווה נקודות';
+  else if (state && level.next) sub = `${fmt(state.total)} נק׳ · עוד ${fmt(level.toNext)} לרמה ${level.next.level}`;
+  else if (state) sub = `${fmt(state.total)} נק׳ · הרמה הגבוהה ביותר`;
+  const ringText = state ? fmt(state.today) : `${done}/${total}`;
+  const label = state
+    ? `רמה ${level.level}, ${level.name} · ${state.today} נקודות היום · ${sub} · התקדמות`
+    : `${done} מתוך ${total} סומנו היום · התקדמות`;
   return `
-    <button type="button" class="card today-level" data-level aria-label="רמה 1 · ${done} מתוך ${total} סומנו היום · התקדמות">
+    <button type="button" class="card today-level" data-level aria-label="${esc(label)}">
       <span class="today-ring" aria-hidden="true">
         <svg viewBox="0 0 48 48">
           <circle class="today-ring-track" cx="24" cy="24" r="${r}"></circle>
-          <circle class="today-ring-fill" cx="24" cy="24" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - done / total)}"></circle>
+          <circle class="today-ring-fill" cx="24" cy="24" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - fill)}"></circle>
         </svg>
-        <span class="today-ring-text num">${done}/${total}</span>
+        <span class="today-ring-text num">${ringText}</span>
       </span>
       <span class="today-level-text" aria-hidden="true">
-        <span class="today-level-name">רמה 1</span>
-        <span class="today-level-bar"><span style="width:0%"></span></span>
-        <span class="today-level-sub">נקודות ורמות — בקרוב</span>
+        <span class="today-level-name">רמה ${level?.level ?? 1}${level ? ` · ${esc(level.name)}` : ''}</span>
+        <span class="today-level-bar"><span style="width:${Math.round((level?.progress ?? 0) * 100)}%"></span></span>
+        <span class="today-level-sub">${esc(sub)}</span>
       </span>
       ${icon('chevron-left', { className: 'icon--sm' })}
     </button>`;
 }
+
+const onRewards = () => renderTop();
 
 // One card that changes with the hour and the state: the morning asks for
 // last night, the evening for the habits.

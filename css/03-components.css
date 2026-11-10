@@ -3802,3 +3802,573 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
 .exercise-card-head .set-more-btn {
   min-width: 36px;
 }
+
+/* ---------- reward moments (js/ui/reward-moments.js) ---------- */
+
+.reward-float {
+  position: fixed;
+  z-index: 1200;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  font-size: 1.4rem;
+  color: var(--accent);
+  text-shadow: 0 1px 2px var(--bg);
+  animation: reward-float 1s ease-out forwards;
+}
+
+@keyframes reward-float {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.8); }
+  20% { opacity: 1; transform: translate(-50%, -80%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -260%) scale(1); }
+}
+
+.today-ring--pop {
+  animation: reward-ring-pop 0.45s ease;
+}
+
+@keyframes reward-ring-pop {
+  50% { transform: scale(1.12); }
+}
+
+.reward-confetti {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1300;
+  pointer-events: none;
+}
+
+.reward-haptic {
+  position: fixed;
+  left: -9999px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.reward-levelup {
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.reward-levelup--open {
+  opacity: 1;
+}
+
+.reward-levelup-card {
+  width: min(340px, 100%);
+  padding: var(--space-6) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+  transform: scale(0.9);
+  transition: transform 0.3s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.reward-levelup--open .reward-levelup-card {
+  transform: scale(1);
+}
+
+.reward-levelup-eyebrow {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.reward-levelup-num {
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  font-size: 4.5rem;
+  line-height: 1.1;
+  color: var(--accent);
+}
+
+.reward-levelup-name {
+  margin: 0 0 var(--space-3);
+}
+
+.reward-levelup-unlock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 var(--space-2);
+}
+
+.reward-levelup-next {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reward-float { animation-duration: 0.01s; }
+  .today-ring--pop { animation: none; }
+  .reward-levelup, .reward-levelup-card { transition: none; }
+}
+
+/* ---------- day summary on "היום" (js/ui/day-summary-card.js) ---------- */
+
+.day-summary-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.day-summary-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.day-summary--perfect .day-summary-title {
+  color: var(--accent);
+}
+
+.day-summary-total {
+  font-weight: var(--weight-bold);
+  color: var(--accent);
+}
+
+.day-summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-sm);
+}
+
+.day-summary-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.day-summary-icon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+
+.day-summary-reason {
+  flex: 1;
+  min-width: 0;
+}
+
+.day-summary-points {
+  color: var(--text-muted);
+}
+
+/* ---------- progress screen (js/pages/dashboard.js tabs) ---------- */
+
+.dash-tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-3);
+}
+
+.progress-card-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+}
+
+.progress-level-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.progress-level-num {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: var(--radius-full);
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  font-size: 1.6rem;
+}
+
+.progress-level-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.progress-level-name {
+  margin: 0;
+}
+
+.progress-level-bar {
+  height: 8px;
+  margin: var(--space-3) 0 4px;
+}
+
+.progress-level-sub {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.level-road {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.level-road-step {
+  position: relative;
+  display: flex;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+}
+
+/* The road: a line from each step's dot down to the next. */
+.level-road-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 13px;
+  top: 28px;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+
+.level-road-step--done:not(:last-child)::before {
+  background: var(--accent);
+}
+
+.level-road-dot {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.level-road-step--done .level-road-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.level-road-step--current .level-road-dot {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.level-road-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 3px;
+}
+
+.level-road-name {
+  font-weight: var(--weight-bold);
+}
+
+.level-road-step--ahead .level-road-name {
+  color: var(--text-muted);
+}
+
+.level-road-unlock {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-sm);
+}
+
+.streak-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.streak-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.streak-icon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+
+.streak-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.streak-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  font-weight: var(--weight-bold);
+}
+
+.streak-item--off .streak-count {
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+.badge-shelf {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.badge-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+}
+
+.badge-name {
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+.badge--earned {
+  color: var(--text);
+  opacity: 1;
+}
+
+.badge--earned .badge-icon {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.progress-rows-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.progress-row-days {
+  display: grid;
+  grid-template-columns: repeat(7, 14px);
+  gap: 5px;
+  justify-content: end;
+  margin-bottom: 4px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.progress-row {
+  border-bottom: 1px solid var(--border);
+}
+
+.progress-row:last-of-type {
+  border-bottom: none;
+}
+
+.progress-row-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.progress-row-icon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+
+.progress-row-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.progress-row-name {
+  font-weight: var(--weight-bold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-row-sub {
+  font-size: var(--text-sm);
+}
+
+.progress-week {
+  display: grid;
+  grid-template-columns: repeat(7, 14px);
+  gap: 5px;
+  flex: none;
+}
+
+/* A day: accent at the target, half accent close, grey for a miss (never
+   red), an outline when nothing was due or logged. */
+.progress-cell {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: 1.5px solid var(--border);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  vertical-align: middle;
+}
+
+.progress-cell--full {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.progress-cell--close {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.progress-cell--miss {
+  background: var(--surface-raised);
+  border-color: var(--surface-raised);
+}
+
+.progress-cell--rest,
+.progress-cell--future {
+  border-style: dashed;
+  opacity: 0.5;
+}
+
+.progress-cell--blank {
+  border: none;
+}
+
+.progress-cell--today {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text-muted);
+}
+
+.progress-month {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  padding: 0 0 var(--space-3);
+}
+
+.progress-month .progress-cell {
+  width: 100%;
+  height: 30px;
+  border-radius: var(--radius-sm);
+}
+
+.progress-month-head {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.progress-row-chart:has(canvas) {
+  height: 170px;
+  padding-bottom: var(--space-3);
+}
+
+.progress-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+}
+
+.progress-legend .progress-cell {
+  margin-inline-start: 6px;
+}
+
+.track-list {
+  margin-bottom: var(--space-2);
+}
+
+.track-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.track-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.track-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.track-goal {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.progress-row-empty {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+}
