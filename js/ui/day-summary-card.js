@@ -7,7 +7,7 @@ import { esc } from '../core/dom.js';
 import { icon } from './icon.js';
 
 const SOURCE_ORDER = ['sleep', 'habit', 'meal', 'nutrition', 'weight', 'workout', 'bonus'];
-const SOURCE_ICON = { sleep: 'moon', habit: 'check', meal: 'utensils', nutrition: 'target', weight: 'weight', workout: 'dumbbell', bonus: 'sparkles' };
+const SOURCE_ICON = { sleep: 'moon', habit: 'check', meal: 'utensils', nutrition: 'target', weight: 'weight', workout: 'dumbbell', bonus: 'sparkles', task: 'list-checks' };
 
 // The card's markup for that day's entries, or '' with none.
 export function daySummaryHtml(ledger, dayKey) {

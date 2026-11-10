@@ -31,11 +31,13 @@ import { icon } from '../ui/icon.js';
 import { esc } from '../core/dom.js';
 import { navigate } from '../lib/router.js';
 import { handleQuickActions } from '../ui/quick-add.js';
+import { mountTodayTasks } from '../ui/today-tasks.js';
 
 const LEVEL_TEXT = { full: 'מלא', short: 'מקוצר', none: 'פחות מהמקוצר, לא נורא' };
 
 let container = null;
 let sleepCard = null; // created once per visit, re-attached by render()
+let tasksHost = null; // "משימות להיום" (M6), the same
 let habits = []; // normalized, active and paused, in order
 let logs = []; // habitLogs docs
 let activities = []; // dailyActivity docs, for auto-counted steps
@@ -105,6 +107,10 @@ export async function mountToday(rootEl) {
       renderTop();
     },
   });
+  tasksHost = document.createElement('section');
+  tasksHost.className = 'today-habits today-tasks';
+  tasksHost.setAttribute('aria-label', 'משימות להיום');
+  mountTodayTasks(tasksHost);
   render();
   // The + button's "הרגל": today's habits, ready to mark (or a new one when
   // there are none).
@@ -125,6 +131,7 @@ export function unmountToday() {
   clearTimeout(pressTimer);
   container = null;
   sleepCard = null;
+  tasksHost = null;
   habits = [];
   logs = [];
   activities = [];
@@ -152,9 +159,11 @@ function render() {
   container.innerHTML = `
     <div data-today-top></div>
     <div id="sleep-slot"></div>
+    <div id="tasks-slot"></div>
     <section class="today-habits" data-today-habits aria-label="הרגלים"></section>
     <section class="today-habits today-bad" data-today-bad aria-label="להיגמל"></section>`;
   container.querySelector('#sleep-slot').replaceWith(sleepCard);
+  container.querySelector('#tasks-slot').replaceWith(tasksHost);
   const section = container.querySelector('[data-today-habits]');
   bindHabitEvents(section);
   bindBadEvents(container.querySelector('[data-today-bad]'));

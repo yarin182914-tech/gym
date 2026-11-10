@@ -7,6 +7,7 @@
 //   צעדים  → תזונה, today's activity sheet
 //   שינה   → שינה, last night's sheet
 //   הרגל   → היום, the habits (a new one when there are none)
+//   משימה  → משימות, one line into the inbox
 //
 // A screen takes its actions with handleQuickActions(route, fn) once it has
 // loaded. An action asked for while its screen is showing runs at once;
@@ -30,7 +31,8 @@ const ITEMS = [
   { route: 'nutrition', action: 'weigh', icon: 'weight', label: 'שקילה' },
   { route: 'nutrition', action: 'steps', icon: 'footprints', label: 'צעדים' },
   { route: 'sleep', action: 'sleep', icon: 'moon', label: 'שינה' },
-  { route: 'today', action: 'habit', icon: 'list-checks', label: 'הרגל' },
+  { route: 'today', action: 'habit', icon: 'check', label: 'הרגל' },
+  { route: 'tasks', action: 'task', icon: 'list-checks', label: 'משימה' },
 ];
 
 const handlers = {}; // route -> fn(action), while that screen is mounted

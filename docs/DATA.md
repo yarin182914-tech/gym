@@ -24,6 +24,7 @@ public repo.
 | `users/{uid}/sleep` | `yyyy-mm-dd` (the **morning**) | One night's sleep |
 | `users/{uid}/habits` | auto | The user's habits (definitions) |
 | `users/{uid}/habitLogs` | `yyyy-mm-dd` | Which habits were done that day |
+| `users/{uid}/tasks` | auto | Tasks: one-off, daily and repeating ("משימות") |
 | `users/{uid}/pointsLedger` | `{date}_{rule}[_{ref}]` | Points, one entry per award — app only, never written from outside |
 | `siteFeedback` (top level) | auto | App feedback board — don't write here |
 
@@ -970,6 +971,74 @@ list. Added by the user ("+ הוספת המלצה") or by the coach.
   "link": "https://jamesclear.com/atomic-habits",
   "reason": "מתאים לבנייה של שגרת הבוקר", "source": "coach",
   "createdAt": "serverTimestamp()" }
+```
+
+---
+
+## Tasks — `users/{uid}/tasks/{auto}`
+
+One document per task on the "משימות" screen; the most pressing open ones
+also show on "היום". Three kinds: a one-off (`once`) is done once; a daily
+one (`daily`) and a repeating one (`recurring`, weekly or monthly) are
+"do and tick" on the days they fall on, with no levels and no streak.
+
+| Field | Type | Notes |
+|---|---|---|
+| `title` | string | Hebrew, one line — `"לתקן את הקרש"` |
+| `type` | string | `once` · `daily` · `recurring` |
+| `recurrence` | map \| null | `daily`: `{ "days": [0, 1, 2, 3, 4, 5, 6] }` (weekdays, `0` Sunday … `6` Saturday; missing = every day). `recurring`: `{ "every": "week", "day": 5 }` (weekday) or `{ "every": "month", "day": 1 }` (date, `1`–`28`). `null` on a one-off. |
+| `area` | string \| null | `body` · `personal` · `relationship` · `career` (as on habits), or `null` |
+| `owner` | string | `me` · `assistant` · `shared` (e.g. with Maya) |
+| `complexity` | string | `S` (up to 15 min) · `M` (up to an hour) · `L` (more). Sets the points. |
+| `important` | boolean | Marked important. At most 3 important tasks a day (the form warns). |
+| `urgent` | boolean | Marked urgent by hand. A task is also urgent when its `dueDate` (or its day) is within 2 days — computed, never stored. |
+| `timing` | string \| null | One-offs only: `exact` (a day and a time) · `day` (a day, no time) · `week` (this week) · `claude` ("שקלוד יקבע" — waits for the evening check to propose a slot) · `null` (not decided yet, e.g. the inbox) |
+| `scheduledAt` | Timestamp \| null | `exact`: that day and time. `day`: that day at local noon. `week`: the Sunday of that week at local noon. Otherwise `null`. |
+| `dueDate` | Timestamp \| null | Deadline, local noon. Done on or before it earns the on-time bonus. |
+| `status` | string | `inbox` (a one-line quick capture, fields not filled in yet) · `open` · `done` (one-offs only) · `someday` ("מתישהו": off the lists, no ladder) |
+| `doneAt` | Timestamp \| null | One-offs: when it was ticked. Unticking sets `status: 'open'`, `doneAt: null`. |
+| `doneDates` | string[] | Daily / repeating: the `yyyy-mm-dd` days it was done, newest first, the last 120 days. `[]` on a one-off. |
+| `postponeCount` | number | Times it was moved to another day ("מחר" or a new date). 3 → the "why stuck?" question. |
+| `firstStep` | string | The first 5 minutes, e.g. `"למצוא את הברגים"`. `""` = none. |
+| `stuckReason` | string \| null | The answer to "למה היא תקועה?": `unclear` · `big` · `unpleasant` · `stressful` · `notImportant` |
+| `startedAt` | Timestamp \| null | "התחלתי 10 דקות" on a stuck task (a one-time start bonus) |
+| `calendarEventId` | string \| null | The Google Calendar event linked to the task (M7). `null` until then. |
+| `source` | string | `manual` (the form) · `quick` (the + button's one line) · `coach` (written from outside) |
+| `createdAt` | Timestamp | First saved — the procrastination ladder counts from it |
+| `updatedAt` | Timestamp | Last saved |
+
+**The procrastination ladder** — computed from `createdAt`, never stored:
+an open one-off with no time (`timing` `null` or `claude`, or a day not
+yet picked) shows orange "מחכה שבוע" after 7 days, "למה היא תקועה?" after
+14 (or after `postponeCount` reaches 3), and a forced choice after 21:
+schedule this week / someday / delete.
+
+**Points** (pointsLedger rules `task` and `task-start`): S 5 · M 15 · L 30,
+×2 when important, +5 when done by the due date; a daily task 5; starting
+a stuck task 5, once. A late task keeps its points — no penalty. All in
+`TASKS`, `js/lib/rules.js`.
+
+**From outside the app (the evening check):** to fill in an inbox task,
+update its fields and set `status: 'open'`; to schedule one, set `timing`
+and `scheduledAt` as above; to add one, write the whole document with
+`source: 'coach'`. To mark one done, a one-off gets `status: 'done'` and
+`doneAt`; a repeating one gets the day added to `doneDates`.
+
+```json
+// users/{uid}/tasks/<auto id>
+{ "title": "לתקן את הקרש", "type": "once", "recurrence": null,
+  "area": "personal", "owner": "me", "complexity": "M",
+  "important": false, "urgent": false,
+  "timing": "exact", "scheduledAt": "<Timestamp 2026-11-17 18:00 Israel>",
+  "dueDate": "<Timestamp 2026-11-20 12:00 Israel>",
+  "status": "open", "doneAt": null, "doneDates": [], "postponeCount": 0,
+  "firstStep": "למצוא את הברגים", "stuckReason": null, "startedAt": null,
+  "calendarEventId": null, "source": "coach",
+  "createdAt": "serverTimestamp()", "updatedAt": "serverTimestamp()" }
+
+// a weekly one: every Friday
+{ "title": "לנקות את מכונת הקפה", "type": "recurring",
+  "recurrence": { "every": "week", "day": 5 }, "complexity": "S", "...": "..." }
 ```
 
 ---
