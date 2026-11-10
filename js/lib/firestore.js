@@ -1,6 +1,6 @@
 import {
   collection, doc, setDoc, addDoc, getDoc, getDocs, updateDoc, deleteDoc,
-  query, orderBy, limit, serverTimestamp, deleteField,
+  query, orderBy, limit, where, serverTimestamp, deleteField,
 } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js';
 import { db, useCloud } from '../firebase-config.js';
 import { currentUid } from '../auth.js';
@@ -15,7 +15,10 @@ import {
   devSetSleep, devListSleep, devDeleteSleep,
   devNewHabitId, devSetHabit, devDeleteHabit, devListHabits, devSetHabitMark, devListHabitLogs,
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
+  devListWorkoutTypes, devAddWorkoutType, devUpdateWorkoutType, devDeleteWorkoutType,
 } from './dev-store.js';
+import { lastPerformanceIn, exerciseHistoryIn, workoutDayKey } from './workout-types.js';
+import { bodyKgOn as bodyKgFrom, dayWorkoutKcal, workoutKcalPatch } from './workout-kcal.js';
 
 function uidOrThrow() {
   const uid = currentUid();
@@ -67,35 +70,75 @@ export async function createWorkout(workout) {
       noTime: !!workout.noTime,
       notes: workout.notes ?? '',
       exercises: workout.exercises ?? [],
+      // Burn worked out at save (js/lib/workout-kcal.js).
+      ...(Number.isFinite(workout.kcal) ? { kcal: workout.kcal } : {}),
       // Started from the coach's plan for that day (plannedWorkouts doc id).
       ...(workout.planId ? { planId: workout.planId } : {}),
     });
     return docRef.id;
   } finally {
     invalidateWorkouts();
+    syncWorkoutKcal([workout.startTime || workout.date ? workoutDayKey(workout) : null]);
   }
 }
 
 // `patch` is any subset of the workout's fields — used when a finished
 // workout is reopened from History and saved again.
 export async function updateWorkout(workoutId, patch) {
+  const before = await dayOfWorkout(workoutId);
   try {
     if (!useCloud) return await devUpdateWorkout(workoutId, patch);
     const uid = uidOrThrow();
     await updateDoc(doc(db, 'users', uid, 'workouts', workoutId), patch);
   } finally {
     invalidateWorkouts();
+    // A date change moves the burn from one day to the other.
+    syncWorkoutKcal([before, patch.startTime || patch.date ? workoutDayKey(patch) : null]);
   }
 }
 
 export async function deleteWorkout(workoutId) {
+  const before = await dayOfWorkout(workoutId);
   try {
     if (!useCloud) return await devDeleteWorkout(workoutId);
     const uid = uidOrThrow();
     await deleteDoc(doc(db, 'users', uid, 'workouts', workoutId));
   } finally {
     invalidateWorkouts();
+    syncWorkoutKcal([before]);
   }
+}
+
+// The day a saved workout counts for, from the cached list — null if it
+// isn't there (or the list can't be read).
+async function dayOfWorkout(workoutId) {
+  try {
+    const w = (await allWorkouts()).find((x) => x.id === workoutId);
+    return w ? workoutDayKey(w) : null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------- workout burn → dailyActivity.workoutKcal ----------
+// The app is the only writer of workoutKcal: after every workout save,
+// edit or delete, each day touched gets the sum of its workouts' kcal
+// (js/lib/workout-kcal.js), keeping the doc's steps, base and note. Not
+// awaited by the screens — offline, the write waits in Firestore's queue.
+export function syncWorkoutKcal(dateKeys) {
+  const keys = [...new Set((dateKeys || []).filter(Boolean))];
+  return Promise.all(keys.map(async (key) => {
+    try {
+      const [workouts, weights, existing] = await Promise.all([
+        allWorkouts(), weighInUpTo(key), getDailyActivity(key),
+      ]);
+      const patch = workoutKcalPatch(key, existing, dayWorkoutKcal(workouts, key, weights));
+      if (patch?.set) await setDailyActivity(key, patch.set);
+      else if (patch?.merge) await mergeDailyActivity(key, patch.merge, { stamp: false });
+    } catch (err) {
+      console.error('[workout-kcal] day sync failed', key, err);
+    }
+  }));
 }
 
 // Every workout read in the app goes through one cached fetch.
@@ -144,27 +187,47 @@ export async function listWorkouts(max = 100) {
 // Session screen can show a "previous" value per set.
 // excludeWorkoutId: a workout reopened for editing must not count as its
 // own "last time" or history.
+// Sessions (no sets) are skipped — js/lib/workout-types.js.
 export async function getLastPerformance(exerciseName, excludeWorkoutId = null) {
-  const workouts = await allWorkouts();
-  for (const w of workouts) {
-    if (w.id === excludeWorkoutId) continue;
-    const ex = (w.exercises || []).find((e) => e.name === exerciseName);
-    if (ex) return { workoutDate: w.date, sets: ex.sets };
-  }
-  return null;
+  return lastPerformanceIn(await allWorkouts(), exerciseName, excludeWorkoutId);
 }
 
 // All sets ever logged for an exercise, oldest first — used for progress
 // charts and personal-record calculation.
 export async function getExerciseHistory(exerciseName, excludeWorkoutId = null) {
-  const workouts = await allWorkouts();
-  const points = [];
-  for (const w of workouts) {
-    if (w.id === excludeWorkoutId) continue;
-    const ex = (w.exercises || []).find((e) => e.name === exerciseName);
-    if (ex) points.push({ date: w.date, sets: ex.sets });
-  }
-  return points.reverse();
+  return exerciseHistoryIn(await allWorkouts(), exerciseName, excludeWorkoutId);
+}
+
+// ---------- workout types of the user's own ----------
+// users/{uid}/workoutTypes/{auto}: { name, fields: [{ id, kind, label,
+// options? }], order, createdAt } — see js/lib/workout-types.js.
+
+export async function listWorkoutTypes() {
+  if (!useCloud) return devListWorkoutTypes();
+  const snap = await getDocs(collection(db, 'users', uidOrThrow(), 'workoutTypes'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+export async function addWorkoutType(type) {
+  if (!useCloud) return devAddWorkoutType(type);
+  const ref = await addDoc(collection(db, 'users', uidOrThrow(), 'workoutTypes'), {
+    ...type,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateWorkoutType(typeDocId, patch) {
+  if (!useCloud) return devUpdateWorkoutType(typeDocId, patch);
+  await updateDoc(doc(db, 'users', uidOrThrow(), 'workoutTypes', typeDocId), patch);
+}
+
+// Workouts already logged with it keep their values; History shows them
+// under the saved name.
+export async function deleteWorkoutType(typeDocId) {
+  if (!useCloud) return devDeleteWorkoutType(typeDocId);
+  await deleteDoc(doc(db, 'users', uidOrThrow(), 'workoutTypes', typeDocId));
 }
 
 // ---------- exercise library ----------
@@ -316,6 +379,20 @@ export async function deleteBodyWeight(dateKey) {
   await deleteDoc(doc(db, 'users', uidOrThrow(), 'bodyWeight', dateKey));
 }
 
+// The weight a workout's burn is worked out with: the latest weigh-in on or
+// before its day, or the default (js/lib/workout-kcal.js#bodyKgOn).
+export async function bodyKgOn(dateKey) {
+  return bodyKgFrom(await weighInUpTo(dateKey), dateKey);
+}
+
+// The latest weigh-in on or before the day, as a list of at most one.
+async function weighInUpTo(dateKey) {
+  if (!useCloud) return (await devListBodyWeights(1000)).filter((w) => w.date <= dateKey).slice(0, 1);
+  const ref = collection(db, 'users', uidOrThrow(), 'bodyWeight');
+  const snap = await getDocs(query(ref, where('date', '<=', dateKey), orderBy('date', 'desc'), limit(1)));
+  return snap.docs.map((d) => d.data());
+}
+
 // Newest day first.
 export async function listBodyWeights(max = 400) {
   if (!useCloud) return devListBodyWeights(max);
@@ -347,14 +424,16 @@ export async function getDailyActivity(dateKey) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-// Updates only the given fields and keeps the rest (note, a coach's
-// workoutKcal…) — the steps import (js/lib/steps-import.js#mergeSteps).
-export async function mergeDailyActivity(dateKey, data) {
-  if (!useCloud) return devMergeDailyActivity(dateKey, data);
+// Updates only the given fields and keeps the rest (note, workoutKcal…) —
+// the steps import (js/lib/steps-import.js#mergeSteps) and the workout
+// burn. stamp: false leaves loggedAt alone, so a workout save doesn't pass
+// for the iPhone's last sync on the "חיבורים" screen.
+export async function mergeDailyActivity(dateKey, data, { stamp = true } = {}) {
+  if (!useCloud) return devMergeDailyActivity(dateKey, data, { stamp });
   await setDoc(doc(db, 'users', uidOrThrow(), 'dailyActivity', dateKey), {
     ...data,
     date: dateKey,
-    loggedAt: serverTimestamp(),
+    ...(stamp ? { loggedAt: serverTimestamp() } : {}),
   }, { merge: true });
 }
 

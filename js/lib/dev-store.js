@@ -46,6 +46,7 @@ export async function devCreateWorkout(workout) {
     noTime: !!workout.noTime,
     notes: workout.notes ?? '',
     exercises: workout.exercises ?? [],
+    ...(Number.isFinite(workout.kcal) ? { kcal: workout.kcal } : {}),
     ...(workout.planId ? { planId: workout.planId } : {}),
   });
   save(state);
@@ -200,11 +201,17 @@ export async function devGetDailyActivity(dateKey) {
   return (load().dailyActivity || []).find((a) => a.id === dateKey) || null;
 }
 
-export async function devMergeDailyActivity(dateKey, data) {
+export async function devMergeDailyActivity(dateKey, data, { stamp = true } = {}) {
   const state = load();
   const existing = (state.dailyActivity || []).find((a) => a.id === dateKey);
   state.dailyActivity = (state.dailyActivity || []).filter((a) => a.id !== dateKey);
-  state.dailyActivity.push({ ...existing, ...data, id: dateKey, date: dateKey, loggedAt: new Date().toISOString() });
+  state.dailyActivity.push({
+    ...existing,
+    ...data,
+    id: dateKey,
+    date: dateKey,
+    ...(stamp ? { loggedAt: new Date().toISOString() } : {}),
+  });
   save(state);
 }
 
@@ -345,3 +352,30 @@ export async function devDeleteFeedback(feedbackId) {
   save(state);
 }
 
+
+export async function devListWorkoutTypes() {
+  return [...(load().workoutTypes || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+export async function devAddWorkoutType(type) {
+  const state = load();
+  const id = uid();
+  state.workoutTypes = [...(state.workoutTypes || []), { ...type, id, createdAt: new Date().toISOString() }];
+  save(state);
+  return id;
+}
+
+export async function devUpdateWorkoutType(typeDocId, patch) {
+  const state = load();
+  const t = (state.workoutTypes || []).find((x) => x.id === typeDocId);
+  if (t) {
+    Object.assign(t, patch);
+    save(state);
+  }
+}
+
+export async function devDeleteWorkoutType(typeDocId) {
+  const state = load();
+  state.workoutTypes = (state.workoutTypes || []).filter((x) => x.id !== typeDocId);
+  save(state);
+}

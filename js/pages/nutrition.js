@@ -1,7 +1,7 @@
 import { renderPlateDial } from '../lib/plate-dial.js';
 import {
   addNutritionEntry, listNutritionEntries, updateNutritionEntry, deleteNutritionEntry, listBodyWeights,
-  setDailyActivity, listDailyActivity, getUserSettings, updateUserSettings,
+  setDailyActivity, getDailyActivity, listDailyActivity, getUserSettings, updateUserSettings,
 } from '../lib/firestore.js';
 import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
@@ -223,7 +223,10 @@ function energyCard(kcalIn, mealCount) {
 function openActivitySheet() {
   const day = selectedDay;
   const existing = activities.find((a) => a.date === day);
-  const draft = { steps: existing?.steps ?? '', workoutKcal: existing?.workoutKcal ?? '' };
+  const draft = { steps: existing?.steps ?? '' };
+  // The workout part is worked out from the day's workouts (the app is its
+  // only writer — docs/DATA.md), so it's shown, not typed.
+  const workoutKcal = existing?.workoutKcal || 0;
   openBottomSheet({
     ariaLabel: 'פעילות יומית',
     render(body, sheetApi) {
@@ -233,7 +236,7 @@ function openActivitySheet() {
         <div class="sheet-field-label">צעדים</div>
         <input type="number" inputmode="numeric" min="0" dir="ltr" class="search-bar num" data-act-steps value="${esc(draft.steps)}" placeholder="0" style="margin-bottom:10px;">
         <div class="sheet-field-label">אימון (קל')</div>
-        <input type="number" inputmode="numeric" min="0" dir="ltr" class="search-bar num" data-act-workout value="${esc(draft.workoutKcal)}" placeholder="0" style="margin-bottom:14px;">
+        <div class="activity-workout-kcal"><span class="num">${fmt(workoutKcal)}</span><span class="text-muted">מחושב מהאימונים</span></div>
         <div class="sheet-actions">
           <button type="button" class="btn btn-secondary" data-act-cancel>ביטול</button>
           <button type="button" class="btn btn-primary" data-act-save>שמירה</button>
@@ -241,9 +244,12 @@ function openActivitySheet() {
       body.querySelector('[data-act-cancel]').addEventListener('click', () => sheetApi.close());
       body.querySelector('[data-act-save]').addEventListener('click', async () => {
         const num = (sel) => Math.max(0, Number(body.querySelector(sel).value) || 0);
+        // Read the day again: a workout saved since this screen loaded may
+        // have updated its burn, and this save mustn't put the old one back.
+        const fresh = await getDailyActivity(day).catch(() => null);
         const data = buildActivity(day, {
           steps: num('[data-act-steps]'),
-          workoutKcal: num('[data-act-workout]'),
+          workoutKcal: fresh?.workoutKcal ?? workoutKcal,
           baseKcal: existing?.baseKcal ?? BASE_KCAL,
           note: existing?.note || '',
         });
