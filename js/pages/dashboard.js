@@ -10,6 +10,7 @@ import { icon } from '../ui/icon.js';
 import { openExerciseEditSheet } from '../ui/exercise-edit-sheet.js';
 import { mountBodyWeightTrend } from '../ui/body-weight-trend.js';
 import { mountCardioStats } from '../ui/cardio-stats.js';
+import { strengthNamesIn } from '../lib/workout-types.js';
 
 let pageRoot = null;
 // The exercise-progress part of the screen, which render() rebuilds; the
@@ -76,18 +77,9 @@ export async function mountDashboard(rootEl) {
   cardioStats = mountCardioStats(rootEl.querySelector('[data-dash-cardio]'), workouts);
   container = rootEl.querySelector('[data-dash-exercises]');
 
-  const namesInRecencyOrder = [];
-  const seen = new Set();
-  categoryByName = new Map();
-  for (const w of workouts) {
-    for (const ex of w.exercises || []) {
-      // Cardio has no weight to chart or rank — it has its own card above.
-      if (ex.kind === 'cardio') continue;
-      if (!seen.has(ex.name)) { seen.add(ex.name); namesInRecencyOrder.push(ex.name); }
-      if (ex.category) categoryByName.set(ex.name, ex.category);
-    }
-  }
-  allExerciseNames = namesInRecencyOrder;
+  // Cardio and sessions have no weight to chart or rank — cardio has its
+  // own card above.
+  ({ names: allExerciseNames, categoryByName } = strengthNamesIn(workouts));
 
   libraryByName = new Map();
   libraryEntries.forEach((e) => libraryByName.set(e.name, { id: e.id, name: e.name, category: e.category }));

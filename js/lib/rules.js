@@ -78,6 +78,48 @@ export const STEPS_IMPORT = {
   automationTime: '21:00',
 };
 
+// Workout burn (M3b) — kcal = MET × body kg × hours, summed per day into
+// dailyActivity.workoutKcal by the app (see docs/DATA.md). METs are the
+// usual Compendium-of-Physical-Activities values.
+export const WORKOUTS = {
+  // Used when there's no weigh-in on or before the workout's day.
+  defaultBodyKg: 70,
+  // A session logged without an effort counts as this one.
+  defaultRpe: 5,
+  // A session's MET is its type's value at effort 5, scaled by effort:
+  // base + perPoint × rpe — effort 5 = ×1, effort 10 = ×1.4, effort 1 = ×0.68.
+  rpeFactor: { base: 0.6, perPoint: 0.08 },
+  sessionMet: {
+    functional: 6,
+    crossfit: 7.5,
+    pilates: 3,
+    yoga: 2.5,
+    swim: 7,
+    studio: 7,
+    sport: 6,
+    ski: 5.3,
+  },
+  // A type of the user's own.
+  customMet: 5,
+  // Strength: ~250 kcal/hour at 70 kg. Its time is the workout's length
+  // minus its cardio and sessions; a workout logged without a time of day
+  // has no real length, so it counts minutes per set instead.
+  strengthMet: 3.5,
+  strengthMinPerSet: 2.5,
+  strengthMaxMin: 180,
+  // Treadmill walk/run with a speed uses the ACSM equations; without one,
+  // the segment's effort picks a MET here.
+  cardioMet: {
+    walk: { easy: 3, moderate: 3.5, fast: 4.5 },
+    run: { easy: 8, moderate: 9.8, hard: 11.5 },
+    bike: 7,
+    stairs: 9,
+  },
+  // Outdoor walks and runs are already in the phone's step count
+  // (dailyActivity.steps), so they add nothing here — history and streaks only.
+  freeWalkRunKcal: 0,
+};
+
 // Saves stop waiting for the server after this long; the write is already
 // in the phone's local copy and syncs by itself (js/lib/firestore.js).
 export const WRITE_WAIT_MS = 1500;

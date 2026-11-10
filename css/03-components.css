@@ -810,7 +810,10 @@ th {
   min-width: 0;
   height: 1.15rem;
   margin: 0;
-  padding: 0;
+  /* A few px on the right: the text is right-aligned, and with no padding
+     iOS Safari draws the typing caret just outside the box, so it vanished
+     in every number field (feedback 10.11). */
+  padding: 0 3px 0 0;
   line-height: 1;
   border: none;
   background: transparent;
@@ -3635,6 +3638,89 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
   vertical-align: middle;
 }
 
+/* ---------- workout types: a session's form (js/ui/session-form.js) ---------- */
+
+.session-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 var(--space-3);
+  align-items: end;
+}
+
+.session-form .sheet-field-label {
+  margin: 10px 0 4px;
+}
+
+.session-field--wide {
+  grid-column: 1 / -1;
+}
+
+.session-form-pills {
+  margin-bottom: 0;
+}
+
+.session-form-hint {
+  margin-top: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.session-stations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.session-station {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px auto auto;
+  gap: 6px;
+  align-items: end;
+}
+
+/* History: one row per value — label, then the value. */
+.session-detail-row {
+  justify-content: space-between;
+}
+
+/* ---------- "סוג משלך" builder (js/ui/workout-type-sheet.js) ---------- */
+
+.wt-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wt-field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.wt-field-kind {
+  flex: none;
+  font-size: var(--text-sm);
+}
+
+/* Nutrition's activity sheet: the workout burn, worked out, not typed. */
+.activity-workout-kcal {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: 14px;
+  font-size: var(--text-sm);
+}
+
+.activity-workout-kcal .num {
+  font-size: 1rem;
+  font-weight: var(--weight-bold);
+}
 
 /* This workout's note on an exercise (which machine…): a quiet one-line
    field at the top of the open card; last time's note right under it. */
@@ -3681,6 +3767,7 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
 .exercise-note-field input {
   flex: 1;
   min-width: 0;
+  padding: 0 3px;
   border: none;
   background: none;
   color: var(--text);

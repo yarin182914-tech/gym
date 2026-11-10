@@ -3,6 +3,7 @@ import { formatWeight, setTypeLabel } from '../lib/format.js';
 import {
   hasInputModes, segmentMetrics, effortLabel, formatClock, formatKm, formatSpeed, summarizeSegments, formatSummary,
 } from '../lib/cardio.js';
+import { sessionDetails } from '../lib/workout-types.js';
 
 // The set-by-set breakdown of one exercise. Used by History's expanded rows and
 // by the "last time" popup in an active session — those were separate copies
@@ -87,5 +88,20 @@ export function cardioTable(ex) {
           <span class="sets-list-type num">${esc(segmentText(s))}</span>
         </div>`;
       }).join('')}
+    </div>`;
+}
+
+// A session (js/lib/workout-types.js): one row per value entered — the
+// common ones (time, effort, heart rate, place), then the type's own.
+export function sessionTable(ex, type) {
+  const rows = sessionDetails(ex, type);
+  if (rows.length === 0) return '<div class="sets-list-view"><div class="sets-list-row"><span class="sets-list-type">—</span></div></div>';
+  return `
+    <div class="sets-list-view">
+      ${rows.map((r) => `
+        <div class="sets-list-row session-detail-row">
+          <span class="sets-list-type">${esc(r.label)}</span>
+          <span class="sets-list-weight">${esc(r.text)}</span>
+        </div>`).join('')}
     </div>`;
 }

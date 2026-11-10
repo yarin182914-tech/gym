@@ -13,12 +13,16 @@ import { esc } from '../core/dom.js';
 import { formatWeight } from '../lib/format.js';
 import { summarizeSegments, formatSummary } from '../lib/cardio.js';
 import { CATEGORY_GROUPS } from '../lib/firestore.js';
+import { exerciseKind, planExercisesOut, resolveType, sessionSummary } from '../lib/workout-types.js';
 import { icon } from './icon.js';
 import { openBottomSheet } from './bottom-sheet.js';
 import { mountNumericField } from './numeric-input.js';
 import { showToast } from './toast.js';
 
-const isCardio = (ex) => ex.kind === 'cardio';
+const isCardio = (ex) => exerciseKind(ex) === 'cardio';
+// A session (Pilates, CrossFit…) has no sets: shown as one line, edited
+// once the workout is open.
+const isSession = (ex) => exerciseKind(ex) === 'session';
 
 // A strength set as the app saves it (see buildSavedSets in active-session).
 function plainSet(set, fallback = {}) {
@@ -52,6 +56,9 @@ export function createPlannedWorkoutCard(plan, { getLibrary, lastWeight, onStart
   };
 
   function setsMarkup(ex, i) {
+    if (isSession(ex)) {
+      return `<span class="plan-set plan-set--static">${esc(sessionSummary(ex, resolveType(ex.typeId, [], ex.name)) || ex.name)}</span>`;
+    }
     if (isCardio(ex)) {
       return (ex.sets || []).map((s) => `<span class="plan-set plan-set--static">${esc(formatSummary(summarizeSegments([s])) || '—')}</span>`).join('');
     }
@@ -125,10 +132,7 @@ export function createPlannedWorkoutCard(plan, { getLibrary, lastWeight, onStart
 
   // The draft as saved exercises: sets renumbered, nothing undefined.
   function output() {
-    return JSON.parse(JSON.stringify(draft.map((ex) => ({
-      ...ex,
-      sets: (ex.sets || []).map((s, j) => ({ ...(isCardio(ex) ? s : plainSet(s)), setNumber: j + 1 })),
-    }))));
+    return planExercisesOut(draft, (s) => plainSet(s));
   }
 
   function openSetSheet(i, j) {
@@ -191,7 +195,7 @@ export function createPlannedWorkoutCard(plan, { getLibrary, lastWeight, onStart
           <div class="settings-list">
             ${i > 0 ? item('data-m="up"', 'arrow-up', 'הזזה למעלה') : ''}
             ${i < draft.length - 1 ? item('data-m="down"', 'arrow-down', 'הזזה למטה') : ''}
-            ${isCardio(ex) ? '' : item('data-m="swap"', 'arrow-left-right', 'החלפה בתרגיל אחר')}
+            ${isCardio(ex) || isSession(ex) ? '' : item('data-m="swap"', 'arrow-left-right', 'החלפה בתרגיל אחר')}
             ${item('data-m="delete"', 'trash-2', 'הסרת התרגיל')}
           </div>`;
         body.querySelectorAll('[data-m]').forEach((btn) => {
