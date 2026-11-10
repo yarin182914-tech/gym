@@ -121,6 +121,13 @@ export async function devRenameExerciseEverywhere(libraryId, oldName, newName, n
 // Removes only the library (quick-pick) entry — past workout records are
 // left untouched, since purging real training history is a separate,
 // far more destructive action than tidying up the exercise list.
+export async function devSetExerciseNote(libraryId, note) {
+  const state = load();
+  const lib = state.exerciseLibrary.find((e) => e.id === libraryId);
+  if (lib) lib.note = note;
+  save(state);
+}
+
 export async function devDeleteExerciseFromLibrary(libraryId) {
   const state = load();
   state.exerciseLibrary = state.exerciseLibrary.filter((e) => e.id !== libraryId);

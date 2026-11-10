@@ -1,5 +1,5 @@
 import {
-  collection, doc, setDoc, addDoc, getDoc, getDocs, updateDoc, deleteDoc,
+  collection, doc, setDoc as rawSetDoc, getDoc, getDocs, updateDoc as rawUpdateDoc, deleteDoc as rawDeleteDoc,
   query, orderBy, limit, serverTimestamp, deleteField,
 } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js';
 import { db, useCloud } from '../firebase-config.js';
@@ -7,7 +7,7 @@ import { currentUid } from '../auth.js';
 import {
   devEnsureUserDoc, devGetUserSettings, devUpdateUserSettings, devCreateWorkout, devUpdateWorkout, devDeleteWorkout, devListWorkouts,
   devListExerciseLibrary, devAddExerciseToLibrary,
-  devRenameExerciseEverywhere, devDeleteExerciseFromLibrary,
+  devRenameExerciseEverywhere, devDeleteExerciseFromLibrary, devSetExerciseNote,
   devAddNutritionEntry, devListNutritionEntries, devUpdateNutritionEntry, devDeleteNutritionEntry,
   devSetBodyWeight, devListBodyWeights, devDeleteBodyWeight,
   devSetDailyActivity, devGetDailyActivity, devMergeDailyActivity, devListDailyActivity,
@@ -16,6 +16,26 @@ import {
   devNewHabitId, devSetHabit, devDeleteHabit, devListHabits, devSetHabitMark, devListHabitLogs,
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
 } from './dev-store.js';
+import { normalizeExerciseName, findByName } from './exercise-names.js';
+import { WRITE_WAIT_MS } from './rules.js';
+
+// Writes land in the persistent local cache at once and sync by themselves,
+// but Firestore's promise waits for the server. On weak signal that froze
+// every save button (feedback 1.11 "לא עובד חלק באינטרנט חלש"), so a write
+// counts as done once the server answers or WRITE_WAIT_MS passes, whichever
+// comes first. A real failure is still logged.
+function settle(write) {
+  write.catch((err) => console.error('[firestore] write failed', err));
+  return Promise.race([write, new Promise((r) => setTimeout(r, WRITE_WAIT_MS))]);
+}
+const setDoc = (...args) => settle(rawSetDoc(...args));
+const updateDoc = (...args) => settle(rawUpdateDoc(...args));
+const deleteDoc = (...args) => settle(rawDeleteDoc(...args));
+// The id is made on the device, so a new doc doesn't wait for the server.
+const addDoc = (colRef, data) => {
+  const ref = doc(colRef);
+  return setDoc(ref, data).then(() => ref);
+};
 
 function uidOrThrow() {
   const uid = currentUid();
@@ -176,12 +196,17 @@ export async function listExerciseLibrary() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+// One entry per name: a name that already exists (spaces and case
+// ignored) returns that entry's id instead of adding a second one.
 export async function addExerciseToLibrary(exercise) {
-  if (!useCloud) return devAddExerciseToLibrary(exercise);
+  const name = normalizeExerciseName(exercise.name);
+  const existing = findByName(await listExerciseLibrary(), name);
+  if (existing) return existing.id;
+  if (!useCloud) return devAddExerciseToLibrary({ ...exercise, name });
   const uid = uidOrThrow();
   const ref = collection(db, 'users', uid, 'exerciseLibrary');
   const docRef = await addDoc(ref, {
-    name: exercise.name,
+    name,
     category: exercise.category ?? '',
     defaultUnit: exercise.defaultUnit ?? 'kg',
     defaultWeightMode: exercise.defaultWeightMode ?? 'total',
@@ -222,6 +247,13 @@ export async function renameExerciseEverywhere(libraryId, oldName, newName, newC
 // Removes only the library (quick-pick) entry — past workout records are
 // left untouched, since purging real training history is a separate, far
 // more destructive action than tidying up the exercise list.
+// A standing note on the exercise itself (which machine, seat height…),
+// shown whenever it's logged. Empty string clears it.
+export async function setExerciseNote(libraryId, note) {
+  if (!useCloud) return devSetExerciseNote(libraryId, note);
+  await updateDoc(doc(db, 'users', uidOrThrow(), 'exerciseLibrary', libraryId), { note });
+}
+
 export async function deleteExerciseFromLibrary(libraryId) {
   if (!useCloud) return devDeleteExerciseFromLibrary(libraryId);
   const uid = uidOrThrow();

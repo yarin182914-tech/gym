@@ -77,3 +77,7 @@ export const STEPS_IMPORT = {
   // Suggested time for the daily automation (shown in the how-to).
   automationTime: '21:00',
 };
+
+// Saves stop waiting for the server after this long; the write is already
+// in the phone's local copy and syncs by itself (js/lib/firestore.js).
+export const WRITE_WAIT_MS = 1500;
