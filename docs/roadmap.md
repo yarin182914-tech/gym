@@ -113,6 +113,12 @@ Asked by ירין 2026-11-10. A page of hand-picked books, podcasts, videos and 
 - Rewards (if M4 is in): points for finishing a book/episode, a "קורא" badge. No reading streaks, no punishment.
 - "+ הוספת המלצה" (asked by ירין 2026-11-10): a user adds their own book/podcast/link with a line on why, saved in `users/{uid}/libraryPicks` (`source: 'user'`). Sharing picks between users needs a shared board and moderation — after the pilot.
 
+## M8c ◐ Tracking where it's logged + quick log — `feature/m8c-tracking-plus`
+Asked by ירין 2026-11-10 ("ממשק המעקב לא נוח").
+- Each chart sits on the screen where the data is logged: body weight trend on תזונה; the workout charts (cardio, workout types, strength, PRs) as a third part of אימון ("התקדמות", `#/workout-progress`); new sleep charts on שינה (hours vs the minimum, bedtime vs the target, 14 / 30 nights).
+- The level screen ("התקדמות") keeps only the game: summary and tracking rows.
+- The + button logs anything in one tap: אימון, הליכה, ארוחה, שקילה, צעדים, שינה, הרגל — each opens its own screen with the form ready. Tasks join it when the tasks page lands.
+
 ## M9 ☐ Push notifications — `feature/m9-push`
 Plan: "שלב 3: התראות פוש", "שרת קטן" in "מענה טכני".
 - Web Push (VAPID) subscription stored per device; Vercel serverless function to send; scheduled check every 15 min from GitHub Actions. Rules: only when something is missing, max 4/day, quiet hours, quiet Saturday, merge multiple reminders.

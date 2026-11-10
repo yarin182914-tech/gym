@@ -3469,7 +3469,7 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
 
 .quick-add-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-2);
 }
 
@@ -3478,7 +3478,8 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: var(--space-4) var(--space-2);
+  padding: var(--space-3) var(--space-1);
+  font-size: var(--text-sm);
   background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -4626,6 +4627,8 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
   font: inherit;
   font-weight: var(--weight-bold);
   cursor: pointer;
+}
+
 /* ---------- "ללמוד" (M8b) ---------- */
 .lib-page {
   display: flex;
@@ -4842,3 +4845,7 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
 .lib-hint[hidden] {
   display: none;
 }
+
+/* "מגמה" on the sleep screen (js/ui/sleep-trend.js) */
+.sleep-trend-sub { margin: 10px 0 6px; font-size: 0.85rem; color: var(--text-muted); font-weight: var(--weight-semibold); }
+.sleep-trend-note { font-size: 0.72rem; margin: 10px 0 0; text-align: center; }
