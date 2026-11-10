@@ -16,7 +16,8 @@ import {
 } from '../lib/habits.js';
 import { dateKey, shiftDays, parseKey } from '../lib/sleep.js';
 import { HABITS, REWARDS } from '../lib/rules.js';
-import { rewardsState } from '../lib/rewards-sync.js';
+import { rewardsState, rewardsLedger, rewardsUserDoc, markSeen } from '../lib/rewards-sync.js';
+import { daySummaryHtml } from '../ui/day-summary-card.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { createSleepCard } from '../ui/sleep-card.js';
 import { habitCardHtml, targetText } from '../ui/habit-card.js';
@@ -148,8 +149,15 @@ function renderTop() {
   const items = activeHabits().filter((h) => isDue(h, key) && (isDone(entryFor(h, key, ctx)) || isOpenToday(h, key, ctx)));
   const total = items.length + 1;
   const done = items.filter((h) => isDone(entryFor(h, key, ctx))).length + (sleepLoggedToday ? 1 : 0);
-  host.innerHTML = levelBar(done, total) + nextStep(key);
+  // Yesterday's points, once, after the day closed.
+  const yesterday = shiftDays(key, -1);
+  const showSummary = rewardsState() && rewardsUserDoc().rewardsSeen?.daySummary !== yesterday;
+  host.innerHTML = levelBar(done, total) + (showSummary ? daySummaryHtml(rewardsLedger(), yesterday) : '') + nextStep(key);
   host.querySelector('[data-level]').addEventListener('click', () => navigate('dashboard'));
+  host.querySelector('[data-day-summary-close]')?.addEventListener('click', () => {
+    markSeen({ daySummary: yesterday });
+    renderTop();
+  });
   host.querySelector('[data-next]')?.addEventListener('click', (e) => {
     const target = e.currentTarget.dataset.next === 'sleep' ? sleepCard : container.querySelector('[data-today-habits]');
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
