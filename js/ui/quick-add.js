@@ -14,8 +14,10 @@
 // goes somewhere else first.
 //
 // The button hides itself (css/03-components.css) whenever it could cover
-// a form's save button — a sheet or dialog open, a field focused, the meal
-// form open.
+// a form's save button — a sheet or dialog open, the keyboard up, the meal
+// form open. "Keyboard up" is a focused field AND a visibly shorter
+// viewport: a field focused by code (שקילה) opens no keyboard on iPhone,
+// and hiding on focus alone left the button gone until the field blurred.
 
 import { icon } from './icon.js';
 import { openBottomSheet } from './bottom-sheet.js';
@@ -71,6 +73,31 @@ export function mountQuickAdd() {
 
   onRouteChange((name) => {
     if (pending && pending.route !== name) pending = null;
+  });
+
+  watchKeyboard();
+}
+
+const KEYBOARD_MIN_PX = 150; // shorter than this is a toolbar, not a keyboard
+
+function watchKeyboard() {
+  const vv = window.visualViewport;
+  if (!vv) return; // old browsers: the button simply stays
+  // The tallest the screen has been with nothing being typed into — the
+  // keyboard is up when the visible part is well short of it.
+  let fullHeight = vv.height;
+  const typing = () => document.activeElement?.matches('input, textarea, select, [contenteditable="true"]');
+  const update = () => {
+    if (!typing()) fullHeight = Math.max(fullHeight, vv.height);
+    const open = typing() && vv.height < fullHeight - KEYBOARD_MIN_PX;
+    document.body.classList.toggle('keyboard-open', open);
+  };
+  vv.addEventListener('resize', update);
+  document.addEventListener('focusin', update);
+  document.addEventListener('focusout', () => setTimeout(update, 0));
+  window.addEventListener('orientationchange', () => {
+    fullHeight = 0;
+    setTimeout(update, 300);
   });
 }
 

@@ -3311,10 +3311,11 @@ button.today-level > .icon {
 }
 
 /* Out of the way whenever it could cover something: a sheet or dialog is
-   open, a form is being typed into (the phone keyboard is up), the meal
+   open, the phone keyboard is up (js/ui/quick-add.js sets .keyboard-open —
+   a field focused by code, with no keyboard, keeps the button), the meal
    form is open, or the install banner sits where it would. */
 body:has(.sheet-overlay, .modal-overlay, .install-banner, [data-meal-form]) .fab,
-body:has(input:focus, textarea:focus, select:focus) .fab,
+body.keyboard-open .fab,
 #app.hidden ~ .fab {
   display: none;
 }
