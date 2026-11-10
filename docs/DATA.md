@@ -579,11 +579,22 @@ One document per habit — what it is and what counts as done. Shown on the
 | `icon` | string | A Lucide icon name the app knows (`book-open`, `footprints`, `phone-off`, `droplet`, `brain`, `heart`, `languages`, `apple`, `leaf`, `moon`, `sun`, `dumbbell`, `pencil`, `sparkles`, `check`). Unknown → a check mark. |
 | `area` | string | `body` (גוף) · `personal` (אישי) · `relationship` (זוגיות) · `career` (קריירה) |
 | `schedule` | map | `{ "type": "daily" }` · `{ "type": "weekly", "perWeek": 3 }` (any 3 days a week) · `{ "type": "days", "days": [1, 3] }` (fixed weekdays, `0` Sunday … `6` Saturday) |
-| `measure` | string | `yesno` · `quantity` (at least N) · `limit` (at most N) · `steps` (a routine checklist — stored, not editable in the app until the habit wizard) |
+| `kind` | string | `good` (something to do) · `bad` (something to quit — see "Bad habits" below). **Missing = `good`**: every habit before M5 is a good one, and the app never converts one. |
+| `measure` | string | Good: `yesno` · `quantity` (at least N) · `limit` (at most N) · `steps` (a routine checklist). Bad: `clean` (a reported clean day) · `limit` (at most N, e.g. minutes) · `slips` (a slip counter). |
 | `unit` | string | `"דקות"`, `"עמודים"`, `"פעמים"`, `"צעדים"`… |
 | `full` | number \| null | The ideal. `quantity`: at least this; `limit`: at most this; `yesno`: just describes it (e.g. `30` minutes). |
 | `short` | number \| null | The minimum that still counts ("מקוצר"). `quantity`: less than `full`; `limit`: more than `full`. `null` = no short level — on a `yesno` habit one tap marks it done. |
 | `steps` | string[] | Only for `measure: 'steps'` — the routine's steps. |
+| `shortSteps` | number[] | Routines: the step indexes that count as "מקוצר" (e.g. `[0, 1]` = water and bed). Empty = no short level. |
+| `why` | string | One sentence: why it matters (good) / what it costs (bad). The coach uses it on hard days. Optional. |
+| `partOfDay` | string \| null | `morning` · `noon` · `evening` · `night` |
+| `anchor` | string | What it's tied to, e.g. `"אחרי הקפה"`. Optional. |
+| `reminder` | string \| null | `'hh:mm'` — stored now, sent once push notifications exist (M9). |
+| `markedBy` | string | `me` (a tap) · `coach` (asked in the evening check) · `auto` (from the phone's steps). `me` when missing. |
+| `trigger` | string | Bad habits: when, where, what's felt before. Optional. |
+| `replacement` | string | Bad habits: what to do instead. Optional. |
+| `friction` | string | Bad habits: how it's made harder. Optional. |
+| `cleanWeekTarget` | number | Bad habits: clean days a week for the +20 bonus, `1`–`7`. `5` when missing. |
 | `autoSource` | string \| null | `"dailyActivity.steps"` — the day's level comes from `steps` in that day's `dailyActivity` doc (see below); `null` — marked by hand. |
 | `active` | boolean | `false` = paused (kept, not counted). |
 | `order` | number | Position on the screen, smallest first. |
@@ -668,6 +679,86 @@ await day.update({ [`habits.${habitId}`]: { level: 'full', value: 20, source: 'c
     "Pq7…phoneId":   { "level": "short", "value": null, "source": "coach" } },
   "updatedAt": "serverTimestamp()" }
 ```
+
+**A routine's mark** (`measure: 'steps'`) also carries `stepsDone: [0, 1]` —
+the steps ticked. Its `level`: every step → `full`, all the `shortSteps` →
+`short`, anything else → `none`.
+
+### Bad habits — a clean day and a slip
+
+A bad habit's day lives in the same `habitLogs/{date}` doc, under its own
+key, with this mark:
+
+| Field | Type | Notes |
+|---|---|---|
+| `clean` | boolean | `true` = the day was reported clean ("יום נקי ✓", or the coach's evening check). |
+| `slips` | Timestamp[] | One per slip ("מעדתי"), the moment it was logged. Shown in Israel time. `[]` when none. |
+| `value` | number \| null | `slips`/`clean`: the number of slips. `limit`: the minutes (or whatever `unit` is) of that day. |
+| `level` | string | `full` · `short` · `none` — written for readability; the app works it out again from the rest. |
+| `source` | string | `manual` · `coach` |
+
+How the app reads the day — **a clean day must be reported**:
+
+- Nothing reported (no mark, or no `clean: true` and no slips / value) →
+  **unknown**: no points, shown as an outline. It can be filled in up to 7
+  days back; after that it ends the clean streak.
+- `clean: true` and no slips → **clean** (`full`). A slip the same day wins
+  over the clean tap.
+- Slip counter: 1 slip → `short`; more → `none`. Clean-day measure: any
+  slip → `none`. Limit: `value` at most `full` → `full`, at most `short` →
+  `short`, more → `none`.
+
+**The coach marks one habit's day** exactly like a good habit's mark —
+merge **only that habit's key** in `habitLogs/{date}`, never the whole
+day, so every other habit's mark (and the app's slips) survive. Always
+write the **whole** mark for that habit; to add a slip, read the day first
+and write the existing `slips` plus the new one:
+
+```js
+// Node, firebase-admin. A clean day for one bad habit:
+const day = db.doc(`users/${uid}/habitLogs/2026-11-12`);
+await day.set({
+  date: '2026-11-12',
+  habits: { [habitId]: { clean: true, slips: [], value: 0, level: 'full', source: 'coach' } },
+  updatedAt: FieldValue.serverTimestamp(),
+}, { merge: true });
+
+// A slip at 21:40 Israel time — keep the slips already there:
+const snap = await day.get();
+const old = snap.exists ? (snap.data().habits?.[habitId] || {}) : {};
+const slips = [...(old.slips || []), Timestamp.fromDate(new Date('2026-11-12T21:40:00+02:00'))];
+await day.set({
+  date: '2026-11-12',
+  habits: { [habitId]: { clean: false, slips, value: slips.length, level: slips.length === 1 ? 'short' : 'none', source: 'coach' } },
+  updatedAt: FieldValue.serverTimestamp(),
+}, { merge: true });
+
+// A limit habit (Instagram, minutes): the day's minutes.
+await day.set({
+  date: '2026-11-12',
+  habits: { [habitId]: { clean: false, slips: [], value: 25, level: 'full', source: 'coach' } },
+  updatedAt: FieldValue.serverTimestamp(),
+}, { merge: true });
+```
+
+The same rules as above apply: the nested `habits` map in `set()` with
+`merge`, never a dotted key in `set()`, never `set()` without merge.
+Israel time (`+02:00` in winter, `+03:00` in summer) for every slip.
+
+```json
+// users/{uid}/habitLogs/2026-11-12 — two slips of nail biting, Instagram 25 min, reading done
+{ "date": "2026-11-12",
+  "habits": {
+    "Nb4…nailsId": { "clean": false, "slips": ["Timestamp(2026-11-12 21:40 Asia/Jerusalem)", "Timestamp(2026-11-12 22:15 Asia/Jerusalem)"], "value": 2, "level": "none", "source": "manual" },
+    "Ig9…instaId": { "clean": false, "slips": [], "value": 25, "level": "full", "source": "coach" },
+    "Xk2…readingId": { "level": "full", "value": null, "source": "manual" } },
+  "updatedAt": "serverTimestamp()" }
+```
+
+**Clean streak:** reported clean days in a row. A slip ends it (no points
+are taken); an unreported day doesn't, while it can still be filled in (7
+days). The best streak is shown next to the current one. Never stored —
+worked out from these marks.
 
 ---
 
@@ -780,7 +871,7 @@ higher value, so two phones can't lower each other's entries.
 |---|---|---|
 | `date` | string | `yyyy-mm-dd` — the day it counts for (a night: its morning) |
 | `source` | string | `sleep` · `habit` · `meal` · `nutrition` · `weight` · `workout` · `bonus` |
-| `rule` | string | `sleep-bedtime` · `sleep-duration` · `habit` · `habit-week` · `meal-log` · `calories` · `protein` · `meal-count` · `weigh-in` · `workout` · `workout-week` · `pr` · `perfect-day` |
+| `rule` | string | `sleep-bedtime` · `sleep-duration` · `habit` · `habit-week` · `meal-log` · `calories` · `protein` · `meal-count` · `weigh-in` · `workout` · `workout-week` · `pr` · `perfect-day` · `bad-clean` · `bad-slip` · `bad-week` · `bad-streak` |
 | `ref` | string \| null | The habit / meal / `<workoutId>_<exercise>` it's for |
 | `points` | number | Points awarded (after the daily cap) |
 | `raw` | number | What the rule earned before the cap |
@@ -810,8 +901,17 @@ higher value, so two phones can't lower each other's entries.
   daily / fixed-weekday habit due that day done, calories, protein and
   meal count full — and a workout only if the coach planned one that day
   (not marked "לא היום"). A rest day never blocks it.
-- **Daily cap 200**, not counting the weekly bonuses, records and the
+- Bad habits (`BAD_HABITS`): logging a slip (or a day over the limit) +2
+  at once, once a day per habit — honesty pays. When the day is over: a
+  reported clean day 10, one slip / within the short limit 5, nothing
+  reported 0. +20 on the day the week's clean days reach
+  `cleanWeekTarget`. Clean-streak milestones, each once per streak (the id
+  carries the streak's first day: `{start}_bad-streak_{habitId}_{days}`):
+  3 days 15, 7 → 30, 14 → 60, 30 → 120, 66 → 250 and the "נגמל" badge,
+  100 → 400. A slip never takes points away. Bad habits never block the
   perfect day.
+- **Daily cap 200**, not counting the weekly bonuses, records, the
+  perfect day and the clean-streak milestones.
 - Scoring starts on the day the app first runs it (`rewardsStartDate`);
   the past isn't scored. Each run scores from the last day checked
   (`rewardsCheckedThrough`, less 7 days) to today, at most 31 days back —

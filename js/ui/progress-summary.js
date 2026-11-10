@@ -10,7 +10,7 @@ import { showToast } from './toast.js';
 import { REWARDS } from '../lib/rules.js';
 import { ledgerStreak } from '../lib/rewards.js';
 import { sleepStreak } from '../lib/sleep.js';
-import { habitStreak } from '../lib/habits.js';
+import { habitStreak, cleanStreak } from '../lib/habits.js';
 import { updateUserSettings } from '../lib/firestore.js';
 
 const fmt = (n) => n.toLocaleString('he-IL');
@@ -25,10 +25,13 @@ export function mountProgressSummary(host, { summary, ledger, ctx, userDoc, toda
       { name: 'שינה', icon: 'moon', n: sleepStreak([...ctx.nights.values()], ctx.sleep, today), unit: 'לילות' },
       { name: 'קלוריות ביעד', icon: 'target', n: ledgerStreak(ledger, 'calories', ['full'], today), unit: 'ימים' },
       { name: 'ימים מושלמים', icon: 'sparkles', n: ledgerStreak(ledger, 'perfect-day', null, today), unit: 'ימים' },
-      ...ctx.habits.map((h) => {
+      ...ctx.goodHabits.map((h) => {
         const s = habitStreak(h, today, ctx.habitCtx);
         return { name: h.name, icon: h.icon || 'check', n: s.count, unit: s.unit === 'weeks' ? 'שבועות' : 'ימים' };
       }),
+      ...ctx.badHabits.map((h) => ({
+        name: h.name, icon: h.icon || 'check', n: cleanStreak(h, today, ctx.habitCtx).current, unit: 'ימים נקיים',
+      })),
     ];
     const areas = [...new Set(REWARDS.badges.map((b) => b.area))];
     host.innerHTML = `
