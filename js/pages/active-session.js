@@ -600,6 +600,7 @@ function renderLastTimePane(point, roleAttr) {
         <span class="num last-time-headline-value">${esc(formatWeight(point.set))} × ${esc(point.set.reps)}</span>
         <span class="last-time-headline-date">${esc(formatDateHe(point.date))}</span>
       </div>
+      ${point.note ? `<p class="exercise-note-prev">${icon('pencil', { className: 'icon--sm' })} ${esc(point.note)}</p>` : ''}
       ${setsTable(point.sets)}
     </div>`;
 }
@@ -678,7 +679,6 @@ function renderLastTimeModal() {
       <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="last-time-title">
         <button class="modal-close" id="last-time-close" type="button" aria-label="סגירה">${icon('x', { className: 'icon--sm' })}</button>
         <h3 id="last-time-title" style="color:var(--text);">${esc(name)}</h3>
-        ${libraryNoteFor(name) ? `<p class="exercise-note">${esc(libraryNoteFor(name))}</p>` : ''}
         ${body}
       </div>
     </div>`;
@@ -1034,7 +1034,13 @@ function buildExerciseCard(ex) {
     </div>
     <div class="history-detail${isOpen ? ' history-detail--open' : ''}" data-exercise-detail>
       <div class="history-detail-inner exercise-detail-inner">
-        ${!isCardio && exerciseNote(ex) ? `<button type="button" class="exercise-note-strip" data-edit-note aria-label="עריכת ההערה">${icon('pencil', { className: 'icon--sm' })}<span>${esc(exerciseNote(ex))}</span></button>` : ''}
+        ${isCardio ? '' : `
+        <label class="exercise-note-field">
+          ${icon('pencil', { className: 'icon--sm' })}
+          <input type="text" data-exercise-note maxlength="80" value="${esc(ex.note || '')}"
+            placeholder="מכשיר / הערה לאימון הזה" aria-label="מכשיר או הערה לאימון הזה">
+        </label>
+        <p class="exercise-note-prev" data-prev-note hidden></p>`}
         ${controlsHtml}
         <div class="sets-list"></div>
         <div class="row" style="gap:8px; margin-top:10px;">
@@ -1042,28 +1048,16 @@ function buildExerciseCard(ex) {
           ${isCardio ? '<button type="button" class="btn btn-dashed" data-repeat-segments>חזרה ×</button>' : ''}
           <button type="button" class="btn btn-outline" data-finish-exercise style="flex:1;">סיום תרגיל</button>
         </div>
-        ${!isCardio && !exerciseNote(ex) ? '<button type="button" class="exercise-note-add" data-edit-note>+ הערה קבועה לתרגיל</button>' : ''}
+
       </div>
     </div>
   `;
 
-  // The standing note sits on the card itself (feedback 10.11: the pencil
-  // in the add-exercise list was too hidden). Opens the same edit sheet.
-  el.querySelector('[data-edit-note]')?.addEventListener('click', async () => {
-    let lib = library.find((l) => sameExerciseName(l.name, ex.name));
-    if (!lib) {
-      const id = await addExerciseToLibrary({ name: ex.name, category: ex.category || '', defaultWeightMode: ex.weightMode || 'total' });
-      lib = { id, name: normalizeExerciseName(ex.name), category: ex.category || '' };
-      library.push(lib);
-    }
-    openExerciseEditSheet(lib, {
-      onSaved: async () => {
-        library = await listExerciseLibrary();
-        render();
-        // The sliding toggles measure themselves once laid out again.
-        requestAnimationFrame(() => session?.exercises.forEach(patchExerciseCard));
-      },
-    });
+  // A note for this exercise in this workout — which machine, seat… — so
+  // next time "פעם קודמת" says where it was done (feedback 9.11).
+  el.querySelector('[data-exercise-note]')?.addEventListener('input', (e) => {
+    ex.note = e.target.value;
+    persistSession();
   });
 
   el.querySelector('[data-last-time]').addEventListener('click', () => {
@@ -1150,8 +1144,10 @@ function buildExerciseCard(ex) {
     detailEl: el.querySelector('[data-exercise-detail]'),
     chevronEl: el.querySelector('[data-collapse-chevron]'),
     metaEl: el.querySelector('[data-role="exercise-meta"]'),
+    prevNoteEl: el.querySelector('[data-prev-note]'),
   };
   exerciseRefs.set(ex._uid, refs);
+  patchPrevNote(ex, refs);
 
   patchToggleGroup(modeGroupEl, ex.weightMode);
   patchToggleGroup(unitGroupEl, ex.weightUnit);
@@ -1226,8 +1222,19 @@ function patchExerciseCard(ex) {
   patchToggleGroup(refs.inputModeGroupEl, ex.inputMode);
   patchCardioSummary(ex, refs);
   patchExerciseMeta(ex, refs);
+  patchPrevNote(ex, refs);
   applyFocusMode();
   patchExerciseCollapse(ex);
+}
+
+// "פעם קודמת: מכונה Y" under the note field, once last time has loaded and
+// only when last time had a note.
+function patchPrevNote(ex, refs) {
+  const el = refs.prevNoteEl;
+  if (!el) return;
+  const prev = ex.previous?.note || '';
+  el.hidden = !prev;
+  el.textContent = prev ? `פעם קודמת: ${prev}` : '';
 }
 
 function exerciseSetsSummary(ex) {
@@ -2420,13 +2427,6 @@ function onToggleDone(ex, set) {
   patchExerciseCard(ex);
 }
 
-// The exercise's standing note from the library (feedback 9.11: machines
-// differ), or ''.
-function libraryNoteFor(name) {
-  return library.find((l) => sameExerciseName(l.name, name))?.note || '';
-}
-const exerciseNote = (ex) => libraryNoteFor(ex.name);
-
 function computePR(ex, set) {
   const history = ex.history || [];
   const bestPrev = history.flatMap((h) => h.sets || [])
@@ -2490,16 +2490,16 @@ function headlineSet(sets) {
   }, null);
 }
 
-function toPoint(date, sets) {
+function toPoint(date, sets, note = '') {
   const set = headlineSet(sets);
-  return set ? { date, sets, set, profile: weightProfile(sets) } : null;
+  return set ? { date, sets, note, set, profile: weightProfile(sets) } : null;
 }
 
 function findExercisePR(ex) {
   // ex.history is oldest first; `>= 0` lets a later workout take over a tie.
   let best = null;
   for (const h of ex.history || []) {
-    const point = toPoint(h.date, h.sets);
+    const point = toPoint(h.date, h.sets, h.note);
     if (point && (!best || compareWeightProfiles(point.profile, best.profile) >= 0)) best = point;
   }
   // ex.previous comes from a separate lookup; never let it outrank the PR.
@@ -2512,7 +2512,7 @@ function findExercisePR(ex) {
 // (see getLastPerformance).
 function findExerciseLast(ex) {
   if (!ex.previous) return null;
-  return toPoint(ex.previous.workoutDate, ex.previous.sets);
+  return toPoint(ex.previous.workoutDate, ex.previous.sets, ex.previous.note);
 }
 
 function startWorkout(customDate, hasTime = false) {
@@ -2629,6 +2629,7 @@ function sessionExercisesFrom(savedExercises, { done }) {
       _uid: nextUid(),
       name: savedEx.name,
       category: savedEx.category || '',
+      note: savedEx.note || '',
       weightMode: sets[0]?.weightMode || 'total',
       weightUnit: sets[0]?.weightUnit || 'kg',
       ...lookups,
@@ -2970,6 +2971,7 @@ async function finishWorkout() {
         name: ex.name,
         category: ex.category,
         ...(ex.kind === 'cardio' ? { kind: 'cardio', activity: ex.activity, inputMode: ex.inputMode } : {}),
+        ...(ex.note?.trim() ? { note: ex.note.trim() } : {}),
         sets: buildSavedSets(ex),
       }))
       .filter((ex) => ex.sets.length > 0);

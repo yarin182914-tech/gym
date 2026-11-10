@@ -7,7 +7,7 @@ import { currentUid } from '../auth.js';
 import {
   devEnsureUserDoc, devGetUserSettings, devUpdateUserSettings, devCreateWorkout, devUpdateWorkout, devDeleteWorkout, devListWorkouts,
   devListExerciseLibrary, devAddExerciseToLibrary,
-  devRenameExerciseEverywhere, devDeleteExerciseFromLibrary, devSetExerciseNote,
+  devRenameExerciseEverywhere, devDeleteExerciseFromLibrary,
   devAddNutritionEntry, devListNutritionEntries, devUpdateNutritionEntry, devDeleteNutritionEntry,
   devSetBodyWeight, devListBodyWeights, devDeleteBodyWeight,
   devSetDailyActivity, devGetDailyActivity, devMergeDailyActivity, devListDailyActivity,
@@ -169,7 +169,7 @@ export async function getLastPerformance(exerciseName, excludeWorkoutId = null) 
   for (const w of workouts) {
     if (w.id === excludeWorkoutId) continue;
     const ex = (w.exercises || []).find((e) => e.name === exerciseName);
-    if (ex) return { workoutDate: w.date, sets: ex.sets };
+    if (ex) return { workoutDate: w.date, sets: ex.sets, note: ex.note || '' };
   }
   return null;
 }
@@ -182,7 +182,7 @@ export async function getExerciseHistory(exerciseName, excludeWorkoutId = null) 
   for (const w of workouts) {
     if (w.id === excludeWorkoutId) continue;
     const ex = (w.exercises || []).find((e) => e.name === exerciseName);
-    if (ex) points.push({ date: w.date, sets: ex.sets });
+    if (ex) points.push({ date: w.date, sets: ex.sets, note: ex.note || '' });
   }
   return points.reverse();
 }
@@ -247,13 +247,6 @@ export async function renameExerciseEverywhere(libraryId, oldName, newName, newC
 // Removes only the library (quick-pick) entry — past workout records are
 // left untouched, since purging real training history is a separate, far
 // more destructive action than tidying up the exercise list.
-// A standing note on the exercise itself (which machine, seat height…),
-// shown whenever it's logged. Empty string clears it.
-export async function setExerciseNote(libraryId, note) {
-  if (!useCloud) return devSetExerciseNote(libraryId, note);
-  await updateDoc(doc(db, 'users', uidOrThrow(), 'exerciseLibrary', libraryId), { note });
-}
-
 export async function deleteExerciseFromLibrary(libraryId) {
   if (!useCloud) return devDeleteExerciseFromLibrary(libraryId);
   const uid = uidOrThrow();

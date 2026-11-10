@@ -217,6 +217,9 @@ by what it contains: only cardio → "ריצה" / "הליכה" etc., only streng
 }
 ```
 
+- `note` (optional string, strength only): a note for this exercise in
+  this workout, usually which machine ("מכונה 2, מושב 4"). The next workout
+  shows it as "פעם קודמת: …". Missing or `""` = no note.
 - `name` must match an `exerciseLibrary` entry **exactly** (same spelling,
   spaces, parentheses). Progress charts and records are keyed by name —
   "לחיצת חזה " with a trailing space is a different exercise with no
@@ -586,7 +589,6 @@ names; add to it only for a genuinely new exercise.
 | `defaultUnit` | string | `kg` |
 | `defaultWeightMode` | string | `total` · `perSide` |
 | `isCustom` | boolean | `true` for anything added later |
-| `note` | string, optional | A standing note on the exercise (which machine, seat height…). Shown under the name in every workout and in "פעם קודמת". Missing or `''` = no note |
 
 ---
 

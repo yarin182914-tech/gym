@@ -2,7 +2,7 @@ import { openBottomSheet } from './bottom-sheet.js';
 import { confirmDialog } from './confirm-dialog.js';
 import { icon } from './icon.js';
 import { esc } from '../core/dom.js';
-import { renameExerciseEverywhere, deleteExerciseFromLibrary, listExerciseLibrary, setExerciseNote, CATEGORY_GROUPS } from '../lib/firestore.js';
+import { renameExerciseEverywhere, deleteExerciseFromLibrary, listExerciseLibrary, CATEGORY_GROUPS } from '../lib/firestore.js';
 import { normalizeExerciseName, findByName } from '../lib/exercise-names.js';
 
 // Rename/category/delete editor for one exercise, shared by the Active
@@ -31,10 +31,6 @@ export function openExerciseEditSheet(entry, { onSaved } = {}) {
         <input type="text" id="edit-name-input" class="search-bar" value="${esc(entry.name)}" style="margin-bottom:6px;">
         <p class="text-muted" id="edit-name-taken" style="font-size:var(--text-sm); margin:0 0 10px;" hidden>כבר יש תרגיל בשם הזה. אפשר לבחור שם אחר.</p>
         <div style="margin-bottom:8px;"></div>
-
-        ${entry.id ? `
-        <div class="sheet-field-label">הערה קבועה</div>
-        <textarea id="edit-note-input" class="search-bar" rows="2" maxlength="200" placeholder="למשל: המכשיר השני מימין, מושב בגובה 4" style="margin-bottom:14px; resize:vertical;">${esc(entry.note || '')}</textarea>` : ''}
 
         <div class="sheet-field-label">קטגוריה</div>
         <div class="pill-row" id="edit-category-pills" style="margin-bottom:10px;">
@@ -73,13 +69,8 @@ export function openExerciseEditSheet(entry, { onSaved } = {}) {
         saveBtn.disabled = true;
         saveBtn.textContent = 'שומר...';
         try {
-          if (newName !== entry.name || selectedCategory !== (entry.category || '')) {
-            await renameExerciseEverywhere(entry.id, entry.name, newName, selectedCategory);
-          }
-          const noteEl = body.querySelector('#edit-note-input');
-          const note = noteEl ? noteEl.value.trim() : '';
-          if (noteEl && note !== (entry.note || '')) await setExerciseNote(entry.id, note);
-          onSaved?.({ note, renamed: true, oldName: entry.name, newName, newCategory: selectedCategory });
+          await renameExerciseEverywhere(entry.id, entry.name, newName, selectedCategory);
+          onSaved?.({ renamed: true, oldName: entry.name, newName, newCategory: selectedCategory });
         } finally {
           sheetApi.close();
         }
