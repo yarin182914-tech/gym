@@ -154,7 +154,7 @@ async function onCopy(e) {
 function buildSteps() {
   const L = IOS_LABELS[lang];
   const S = IOS_SEARCH[lang];
-  const find = (key) => `מחפשים ${chip(S[key])} ומוסיפים את ${chip(L[key])}.`;
+  const find = (key) => `בשורת החיפוש למטה מקלידים ${chip(S[key])} ומוסיפים את ${chip(L[key])}.`;
   const copyBtn = (what, label) => `<button type="button" class="btn btn-secondary connection-copy" data-copy="${what}">${icon('copy', { className: 'icon--sm' })} ${label}</button>`;
   const steps = [
     `פותחים את ${chip(L.shortcutsApp)}, לוחצים ${chip('+')} למעלה. לוחצים על השם שבראש המסך, ${chip(L.rename)}, וכותבים ${chip(STEPS_IMPORT.shortcutName)}.`,
