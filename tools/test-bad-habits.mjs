@@ -129,5 +129,45 @@ check('limit: short allows more than full', W.problemOn(d({ measure: 'limit', fu
 check('a routine needs a step', W.problemOn(d({ measure: 'steps', steps: [' '] }), 'done'), 'צריך לפחות צעד אחד');
 check('fixed days need one', W.problemOn(d({ schedule: { type: 'days', days: [] } }), 'often'), 'בחרו לפחות יום אחד');
 
+// Parts: one field per part, the sum is the value (M5, asked 2026-11-10).
+{
+  const social = H.normalizeHabit({ id: 'p1', name: 'אינסטגרם + פייסבוק', measure: 'limit', unit: 'דקות', full: 15, short: 30, parts: [' אינסטגרם', 'פייסבוק', 'אינסטגרם', ''] });
+  check('parts trimmed, de-duplicated, blanks dropped', social.parts, ['אינסטגרם', 'פייסבוק']);
+  check('parts only on quantity/limit', H.normalizeHabit({ measure: 'yesno', parts: ['a'] }).parts, []);
+  check('at most MAX_PARTS', H.normalizeHabit({ measure: 'quantity', parts: ['a', 'b', 'c', 'd', 'e', 'f', 'g'] }).parts.length, H.MAX_PARTS);
+  check('partsMark sums the parts', H.partsMark(social, { אינסטגרם: 10, פייסבוק: 4 }), { value: 14, parts: { אינסטגרם: 10, פייסבוק: 4 } });
+  check('partsMark skips an empty part', H.partsMark(social, { אינסטגרם: 20, פייסבוק: '' }), { value: 20, parts: { אינסטגרם: 20 } });
+  check('partsMark with nothing entered', H.partsMark(social, {}), null);
+  check('the sum sets the level (limit 15/30)', [H.levelFor(social, 14), H.levelFor(social, 25), H.levelFor(social, 31)], ['full', 'short', 'none']);
+}
+
+// Strength workouts counted automatically.
+{
+  const lift = H.normalizeHabit({ id: 's1', name: 'אימוני כוח', measure: 'yesno', schedule: { type: 'weekly', perWeek: 3 }, autoSource: H.AUTO_STRENGTH });
+  check('strength auto source kept', [lift.autoSource, lift.markedBy], [H.AUTO_STRENGTH, 'auto']);
+  const w = (iso, exercises) => ({ startTime: at(iso), exercises });
+  const workouts = [
+    w('2026-11-09T18:00:00+02:00', [{ name: 'סקוואט', sets: [] }]),
+    w('2026-11-09T20:00:00+02:00', [{ name: 'לחיצת חזה', sets: [] }, { kind: 'cardio', activity: 'run' }]),
+    w('2026-11-08T18:00:00+02:00', [{ kind: 'cardio', activity: 'walk' }]),
+    w('2026-11-07T10:00:00+02:00', [{ kind: 'session', typeId: 'pilates', name: 'פילאטיס' }]),
+  ];
+  const ctx = H.habitContext([], [], workouts);
+  check('a strength day is full, value = workouts', H.entryFor(lift, '2026-11-09', ctx), { level: 'full', value: 2, auto: true });
+  check('cardio only does not count', H.entryFor(lift, '2026-11-08', ctx), null);
+  check('a session only does not count', H.entryFor(lift, '2026-11-07', ctx), null);
+  const marked = H.habitContext([{ date: '2026-11-08', habits: { s1: { level: 'full', value: null, source: 'manual' } } }], [], workouts);
+  check('a manual mark wins', H.entryFor(lift, '2026-11-08', marked), { level: 'full', value: null, auto: false });
+  check('the week counts strength days', H.weekCount(lift, '2026-11-09', ctx), 1);
+}
+
+// The wizard keeps parts and the auto source it can use.
+{
+  check('auto strength on a yes/no habit', W.autoFor({ kind: 'good', markedBy: 'auto', autoSource: H.AUTO_STRENGTH, measure: 'yesno' }), H.AUTO_STRENGTH);
+  check('auto steps needs צעדים', W.autoFor({ kind: 'good', markedBy: 'auto', autoSource: H.AUTO_STEPS, measure: 'quantity', unit: 'דקות' }), null);
+  check('no auto on a bad habit', W.autoFor({ kind: 'bad', markedBy: 'auto', autoSource: H.AUTO_STRENGTH, measure: 'yesno' }), null);
+  check('parts from text', W.partsFromText(' אינסטגרם, פייסבוק ,, אינסטגרם'), ['אינסטגרם', 'פייסבוק']);
+}
+
 console.log(failed ? `\n${failed} FAILED` : '\nall passed');
 process.exit(failed ? 1 : 0);

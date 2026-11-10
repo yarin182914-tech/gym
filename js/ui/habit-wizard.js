@@ -7,7 +7,9 @@
 // onSave(fields) gets the habit's fields (no id/order); onDelete() only for
 // an existing habit. Both run after the sheet has closed.
 
-import { AREAS, AUTO_STEPS, PARTS_OF_DAY, MARKED_BY, normalizeHabit } from '../lib/habits.js';
+import {
+  AREAS, AUTO_STEPS, AUTO_STRENGTH, PARTS_OF_DAY, MARKED_BY, MAX_PARTS, normalizeHabit,
+} from '../lib/habits.js';
 import { GOOD_TEMPLATES, BAD_TEMPLATES, TRIGGER_CHIPS } from '../lib/habit-templates.js';
 import { HABITS, BAD_HABITS } from '../lib/rules.js';
 import { openBottomSheet } from './bottom-sheet.js';
@@ -26,6 +28,16 @@ const ICONS = {
   dumbbell: 'משקולת', pencil: 'עיפרון', sparkles: 'ניצוצות',
 };
 const UNITS = ['דקות', 'עמודים', 'פעמים', 'צעדים', 'כוסות'];
+// What "אוטומטית" can count from, and what each needs from the habit.
+const AUTO_LABELS = { [AUTO_STEPS]: 'צעדים יומיים', [AUTO_STRENGTH]: 'אימוני כוח' };
+// The auto source this draft can really use, or null.
+export function autoFor(draft) {
+  if (draft.kind !== 'good' || draft.markedBy !== 'auto') return null;
+  if (draft.autoSource === AUTO_STRENGTH && (draft.measure === 'yesno' || draft.measure === 'quantity')) return AUTO_STRENGTH;
+  if (draft.autoSource === AUTO_STEPS && draft.measure === 'quantity' && draft.unit === 'צעדים') return AUTO_STEPS;
+  return null;
+}
+export const partsFromText = (text) => [...new Set(String(text || '').split(',').map((p) => p.trim()).filter(Boolean))].slice(0, MAX_PARTS);
 const SCHEDULES = { daily: 'כל יום', weekly: 'כמה פעמים בשבוע', days: 'ימים קבועים' };
 const GOOD_MEASURES = { yesno: 'כן / לא', quantity: 'כמות', steps: 'רשימת צעדים', limit: 'מגבלה' };
 const BAD_MEASURES = { clean: 'יום נקי (כן / לא)', limit: 'מגבלה', slips: 'מונה מעידות' };
@@ -54,6 +66,7 @@ function draftFrom(raw) {
     steps: [...h.steps],
     shortSteps: [...h.shortSteps],
     autoSource: h.autoSource,
+    partsText: (h.parts || []).join(', '),
     active: h.active,
     why: h.why,
     partOfDay: h.partOfDay,
@@ -199,7 +212,10 @@ export function openHabitWizard({ habit = null, onSave, onDelete }) {
               <div><div class="sheet-field-label">${fullLabel}</div><div data-w-full></div></div>
               <div><div class="sheet-field-label">${shortLabel}</div><div data-w-short></div></div>
             </div>
-            <p class="wizard-hint">"מלא" הוא האידיאל, "מקוצר" המינימום שעדיף מכלום.</p>` : ''}
+            <p class="wizard-hint">"מלא" הוא האידיאל, "מקוצר" המינימום שעדיף מכלום.</p>
+            <div class="sheet-field-label">פירוק לכמה שדות (לא חובה)</div>
+            <input type="text" class="search-bar" data-w-parts value="${esc(draft.partsText)}" maxlength="80" placeholder="למשל: אינסטגרם, פייסבוק">
+            <p class="wizard-hint">מפרידים בפסיק. בסימון יופיע שדה לכל אחד, והסכום הוא מה שנספר.</p>` : ''}
           ${draft.measure === 'steps' ? `
             <div class="wizard-steps">
               ${draft.steps.map((s, i) => `
@@ -217,7 +233,7 @@ export function openHabitWizard({ habit = null, onSave, onDelete }) {
       }
 
       function whoBody() {
-        const autoOk = draft.kind === 'good' && draft.measure === 'quantity' && draft.unit === 'צעדים';
+        const autoOk = draft.kind === 'good' && (draft.measure === 'quantity' || draft.measure === 'yesno');
         return `
           ${draft.kind === 'bad' ? '<div class="sheet-field-label">מי מסמן</div>' : ''}
           <div class="pill-row">${Object.entries(MARKED_BY).map(([k, l]) => {
@@ -225,7 +241,11 @@ export function openHabitWizard({ habit = null, onSave, onDelete }) {
             return pill('data-w-who', k, disabled ? `${l} · בקרוב` : l, draft.markedBy === k, disabled ? 'disabled' : '');
           }).join('')}</div>
           ${draft.markedBy === 'coach' ? '<p class="wizard-hint">העוזר ישאל בבדיקת הערב ויסמן בשבילך.</p>' : ''}
-          ${draft.markedBy === 'auto' ? '<p class="wizard-hint">נספר מהצעדים היומיים שמגיעים מהאייפון.</p>' : ''}`;
+          ${draft.markedBy === 'auto' && autoOk ? `
+            <div class="sheet-field-label">נספר מ...</div>
+            <div class="pill-row">${Object.entries(AUTO_LABELS).map(([k, l]) => pill('data-w-auto', k, l, draft.autoSource === k)).join('')}</div>
+            ${draft.autoSource === AUTO_STEPS ? '<p class="wizard-hint">נספר מהצעדים היומיים שמגיעים מהאייפון.</p>' : ''}
+            ${draft.autoSource === AUTO_STRENGTH ? '<p class="wizard-hint">כל יום עם אימון כוח שמור נספר כביצוע מלא.</p>' : ''}` : ''}`;
       }
 
       function summaryScreen() {
@@ -278,6 +298,7 @@ export function openHabitWizard({ habit = null, onSave, onDelete }) {
         body.querySelector('[data-w-name]')?.addEventListener('input', (e) => { draft.name = e.target.value; });
         body.querySelectorAll('[data-w-text]').forEach((el) => el.addEventListener('input', () => { draft[el.dataset.wText] = el.value; }));
         body.querySelector('[data-w-anchor]')?.addEventListener('input', (e) => { draft.anchor = e.target.value; });
+        body.querySelector('[data-w-parts]')?.addEventListener('input', (e) => { draft.partsText = e.target.value; });
         body.querySelector('[data-w-reminder]')?.addEventListener('change', (e) => { draft.reminder = e.target.value || null; });
         body.querySelectorAll('[data-w-step]').forEach((el) => el.addEventListener('input', () => { draft.steps[Number(el.dataset.wStep)] = el.value; }));
         body.querySelectorAll('[data-w-short-step]').forEach((el) => el.addEventListener('change', () => {
@@ -362,7 +383,13 @@ export function openHabitWizard({ habit = null, onSave, onDelete }) {
         else if (ds.wPart) draft.partOfDay = draft.partOfDay === ds.wPart ? null : ds.wPart;
         else if (ds.wWho) {
           draft.markedBy = ds.wWho;
-          draft.autoSource = ds.wWho === 'auto' ? AUTO_STEPS : null;
+          if (ds.wWho !== 'auto') draft.autoSource = null;
+          else if (!draft.autoSource) draft.autoSource = draft.unit === 'צעדים' ? AUTO_STEPS : AUTO_STRENGTH;
+        } else if (ds.wAuto) {
+          draft.autoSource = ds.wAuto;
+          // Steps are counted as a quantity in צעדים; strength days as done / not.
+          if (ds.wAuto === AUTO_STEPS) { draft.measure = 'quantity'; draft.unit = 'צעדים'; }
+          else if (draft.measure !== 'quantity') draft.measure = 'yesno';
         } else if (ds.wTarget) draft.cleanWeekTarget = Number(ds.wTarget);
         else if (ds.wChip) draft.trigger = draft.trigger ? `${draft.trigger}, ${ds.wChip}` : ds.wChip;
         else if (ds.wPaused) draft.active = !draft.active;
@@ -398,13 +425,14 @@ export function openHabitWizard({ habit = null, onSave, onDelete }) {
       short: draft.short,
       steps: draft.measure === 'steps' ? keep.map((i) => steps[i]) : [],
       shortSteps: draft.measure === 'steps' ? draft.shortSteps.filter((i) => keep.includes(i)).map((i) => keep.indexOf(i)) : [],
-      autoSource: draft.markedBy === 'auto' && draft.measure === 'quantity' && draft.unit === 'צעדים' ? AUTO_STEPS : null,
+      autoSource: autoFor(draft),
+      parts: draft.measure === 'quantity' || draft.measure === 'limit' ? partsFromText(draft.partsText) : [],
       active: draft.active,
       why: draft.why.trim(),
       partOfDay: draft.partOfDay,
       anchor: draft.anchor.trim(),
       reminder: draft.reminder,
-      markedBy: draft.markedBy === 'auto' && !(draft.measure === 'quantity' && draft.unit === 'צעדים') ? 'me' : draft.markedBy,
+      markedBy: draft.markedBy === 'auto' && !autoFor(draft) ? 'me' : draft.markedBy,
       ...(draft.kind === 'bad' ? {
         trigger: draft.trigger.trim(),
         replacement: draft.replacement.trim(),

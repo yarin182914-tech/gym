@@ -590,12 +590,13 @@ One document per habit — what it is and what counts as done. Shown on the
 | `partOfDay` | string \| null | `morning` · `noon` · `evening` · `night` |
 | `anchor` | string | What it's tied to, e.g. `"אחרי הקפה"`. Optional. |
 | `reminder` | string \| null | `'hh:mm'` — stored now, sent once push notifications exist (M9). |
-| `markedBy` | string | `me` (a tap) · `coach` (asked in the evening check) · `auto` (from the phone's steps). `me` when missing. |
+| `markedBy` | string | `me` (a tap) · `coach` (asked in the evening check) · `auto` (counted from `autoSource`). `me` when missing. |
 | `trigger` | string | Bad habits: when, where, what's felt before. Optional. |
 | `replacement` | string | Bad habits: what to do instead. Optional. |
 | `friction` | string | Bad habits: how it's made harder. Optional. |
 | `cleanWeekTarget` | number | Bad habits: clean days a week for the +20 bonus, `1`–`7`. `5` when missing. |
-| `autoSource` | string \| null | `"dailyActivity.steps"` — the day's level comes from `steps` in that day's `dailyActivity` doc (see below); `null` — marked by hand. |
+| `autoSource` | string \| null | `"dailyActivity.steps"` — the day's level comes from `steps` in that day's `dailyActivity` doc (see below); `"workouts.strength"` — full on a day with a saved strength workout (see below); `null` — marked by hand. |
+| `parts` | string[] | Only on `quantity` / `limit`, optional, at most 6 — the habit is entered as one number per part (`["אינסטגרם", "פייסבוק"]`) and the day's `value` is their sum. `[]` or missing = one number. |
 | `active` | boolean | `false` = paused (kept, not counted). |
 | `order` | number | Position on the screen, smallest first. |
 | `source` | string | `manual` (added in the app) · `example` (the starter habits) · `coach` (written from outside) |
@@ -608,6 +609,13 @@ full, ≥ `short` → short, less → none (shown grey). `0` or no doc = not kno
 yet, nothing shown. **Don't also write the steps into `habitLogs`** — a
 mark there is a manual override and wins over the steps (the user's
 "מלא" tap, say); deleting the mark brings the automatic count back.
+
+**`autoSource: "workouts.strength"`** — read from `workouts`: a day (Israel
+time, by `startTime`) with at least one saved workout holding a strength
+exercise (an exercise whose `kind` is neither `cardio` nor `session`) is
+full, its value the number of such workouts. Cardio-only and session-only
+workouts don't count. Nothing to write — log the workout itself; a
+`habitLogs` mark is a manual override, as with steps.
 
 ```json
 // users/{uid}/habits/<auto id>
@@ -637,7 +645,8 @@ A mark:
 | Field | Type | Notes |
 |---|---|---|
 | `level` | string | `full` · `short` · `none` (logged, but below the short level — shown grey, never red) |
-| `value` | number \| null | The number, when one was given (`7` minutes read); `null` after a plain מלא / מקוצר tap |
+| `value` | number \| null | The number, when one was given (`7` minutes read); `null` after a plain מלא / מקוצר tap. On a habit with `parts`, the sum of the parts. |
+| `parts` | map | Only on a habit with `parts`: part name → number (`{ "אינסטגרם": 10, "פייסבוק": 4 }`). A part left empty is left out. |
 | `source` | string | `manual` (marked in the app) · `coach` (written from outside) |
 
 Streaks are computed from these docs, never stored: daily habits in days,
