@@ -71,7 +71,7 @@ function loadChartLib() {
 // both this module and js/pages/dashboard.js's own (richer) series-building
 // need, so it lives here rather than being computed twice.
 export function heaviestSet(sets) {
-  return sets.reduce((best, s) => (s.weight > (best?.weight ?? -1) ? s : best), null);
+  return (sets || []).reduce((best, s) => (s.weight > (best?.weight ?? -1) ? s : best), null);
 }
 
 // Turns getExerciseHistory()'s raw output into exactly what renderProgressChart
@@ -81,7 +81,7 @@ export function heaviestSet(sets) {
 // heaviestSet() above rather than calling this; this is for a caller that
 // only ever wants the weight line.
 export function buildWeightSeries(history) {
-  const points = history.map((point) => {
+  const points = history.filter((point) => heaviestSet(point.sets)).map((point) => {
     const top = heaviestSet(point.sets);
     return { date: point.date, maxWeight: top.weight, unit: top.weightUnit || 'kg' };
   });
