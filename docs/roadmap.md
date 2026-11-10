@@ -101,15 +101,17 @@ Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון ע�
 ## M8 ☐ Settings — "התכנית שלי" — `feature/m8-my-plan`
 Plan: "מסך ההגדרות: "התכנית שלי"".
 - Sections: goals, sleep, habits, training, nutrition, body, routine, rewards, notifications, assistant. Change history (`users/{uid}/planHistory`). Assistant suggestion cards (approve/decline).
+- **Feature switches** (asked by ירין 2026-11-10): one on/off per area — sleep, habits, workouts, nutrition, tasks — on the user doc (`features: { sleep: true, … }`, missing = on). Off: its screen/tab and Today card are hidden, and it is left out of points, the perfect day and the progress rows, so nobody loses points for something they didn't choose. Turning one on opens a short setup for it (e.g. bedtime and hours for sleep). The same question appears in signup (M10).
 - Life plan (plan: "שאלון חיים ותכנית אב"): `users/{uid}/lifePlan` (planDepth basic|goals|full, areas, goals with horizon 3m|1y|3-5y and A/B/C, reviewRhythm, lastOfferedAt, declinedCount). Level 2 (goals) and level 3 (full plan) forms, every question skippable, "later" keeps partial answers, deepen one area at a time. Per-area recommendation templates in code (`js/lib/plan-templates.js`) that create a habit/task in one tap — work offline, no Claude needed.
 
-## M8b ☐ "ללמוד" — recommended content for a healthy life — `feature/m8b-library`
+## M8b ◐ "ללמוד" — recommended content for a healthy life — `feature/m8b-library`
 Asked by ירין 2026-11-10. A page of hand-picked books, podcasts, videos and articles on sleep, nutrition, training, habits, longevity and mind, each with a cover image, a short Hebrew summary and a link.
 - Content lives in the repo as data (`data/library.json`), no CMS: `{ id, type: book|podcast|episode|video|article, area: sleep|nutrition|training|habits|longevity|mind, title, author, lang, minutes|pages, image, link, summary (2–3 Hebrew lines), takeaways: [3 short Hebrew bullets], habitIdea? }`. Cover images are small local files in `images/library/` (works offline, no hot-linking). Claude curates and writes the summaries; ירין approves the first batch (~20 items) before merge.
 - Page: opened from the profile menu and from "התכנית שלי". Filter chips by area and type; the order puts first the areas where the user's own data is weakest (e.g. sleep under target → sleep first). Card: image, title, author, length, summary; tap → takeaways + "פתיחה" (link) + "שמירה" + "סיימתי".
 - One tap from a takeaway to a new habit or task (reuses M2/M6), so learning turns into action.
 - Per-user marks in `users/{uid}/libraryMarks/{itemId}` = `{ saved, doneAt }`; the coach can add personal picks in `users/{uid}/libraryPicks/{auto}` (same shape as an item, plus `reason`). Document both in DATA.md.
 - Rewards (if M4 is in): points for finishing a book/episode, a "קורא" badge. No reading streaks, no punishment.
+- "+ הוספת המלצה" (asked by ירין 2026-11-10): a user adds their own book/podcast/link with a line on why, saved in `users/{uid}/libraryPicks` (`source: 'user'`). Sharing picks between users needs a shared board and moderation — after the pilot.
 
 ## M9 ☐ Push notifications — `feature/m9-push`
 Plan: "שלב 3: התראות פוש", "שרת קטן" in "מענה טכני".
@@ -117,7 +119,7 @@ Plan: "שלב 3: התראות פוש", "שרת קטן" in "מענה טכני".
 
 - Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
 ## M10 ☐ Signup and profile — `feature/m10-onboarding`
-Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). Questionnaire on first login (level 1 only is required; ends with "set goals now / later / never" → `lifePlan.planDepth`); personal BMR (Mifflin-St Jeor) replaces the hard-coded 1950; targets from the goal; remove `weddingDate`.
+Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). Includes "במה תרצה להשתמש?" (the M8 feature switches). Questionnaire on first login (level 1 only is required; ends with "set goals now / later / never" → `lifePlan.planDepth`); personal BMR (Mifflin-St Jeor) replaces the hard-coded 1950; targets from the goal; remove `weddingDate`.
 
 ## M11 ☐ Claude connector (MCP) — `feature/m11-mcp`
 Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "what changed since last check".
