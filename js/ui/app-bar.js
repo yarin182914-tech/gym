@@ -18,6 +18,7 @@ const TITLES = {
   tasks: 'משימות',
   session: 'אימון',
   history: 'היסטוריה',
+  'workout-progress': 'התקדמות',
   dashboard: 'התקדמות',
   nutrition: 'תזונה',
   sleep: 'שינה',

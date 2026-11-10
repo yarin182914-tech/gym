@@ -1,5 +1,5 @@
 import {
-  listWorkouts, getExerciseHistory, listExerciseLibrary, listBodyWeights, listWorkoutTypes, CATEGORY_GROUPS,
+  listWorkouts, getExerciseHistory, listExerciseLibrary, listWorkoutTypes, CATEGORY_GROUPS,
 } from '../lib/firestore.js';
 import {
   syncRewardsNow, rewardsState, rewardsContext, rewardsLedger, rewardsUserDoc,
@@ -17,15 +17,13 @@ import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { openExerciseEditSheet } from '../ui/exercise-edit-sheet.js';
-import { mountBodyWeightTrend } from '../ui/body-weight-trend.js';
 import { mountCardioStats } from '../ui/cardio-stats.js';
 import { strengthNamesIn } from '../lib/workout-types.js';
+import { workoutSwitch } from '../ui/workout-switch.js';
 
 let pageRoot = null;
-// The exercise-progress part of the screen, which render() rebuilds; the
-// body-weight card above it lives in its own host.
+// The exercise-progress part of the workout charts, which render() rebuilds.
 let container = null;
-let bodyWeightTrend = null;
 let cardioStats = null;
 let allExerciseNames = [];
 let categoryByName = new Map();
@@ -40,12 +38,13 @@ let viewMode = 'chart'; // 'chart' | 'table'
 let chartInstance = null;
 let picker = { open: false, query: '', category: null };
 
-// "התקדמות" (opened from the level bar), in three tabs: סיכום (level, the
-// road to the real reward, streaks, badges — js/ui/progress-summary.js),
-// מעקב (a row per tracked area — js/ui/progress-rows.js) and אימונים (body
-// weight, cardio, workout types and strength, below).
+// "התקדמות" (opened from the level bar), in two tabs: סיכום (level, the
+// road to the real reward, streaks, badges — js/ui/progress-summary.js) and
+// מעקב (a row per tracked area — js/ui/progress-rows.js). The workout charts
+// (cardio, workout types and strength, below) live in the אימון tab as
+// "התקדמות" (#/workout-progress); body weight is on תזונה.
 let tab = 'summary'; // kept across visits
-let loaded = null; // { workouts, libraryEntries, weights, workoutTypes }
+let loaded = null; // {} on התקדמות; { workouts, libraryEntries, workoutTypes } on the workout charts
 let progressRows = null;
 let typeStats = null;
 
@@ -53,7 +52,6 @@ let typeStats = null;
 // when the theme switch flips while this screen is showing.
 window.addEventListener('gym-theme-change', () => {
   if (container && chartInstance) render();
-  bodyWeightTrend?.redraw();
   cardioStats?.redraw();
   typeStats?.redraw();
   progressRows?.redraw();
@@ -62,8 +60,6 @@ window.addEventListener('gym-theme-change', () => {
 function destroyTab() {
   if (chartInstance) chartInstance.destroy();
   chartInstance = null;
-  bodyWeightTrend?.destroy();
-  bodyWeightTrend = null;
   cardioStats?.destroy();
   cardioStats = null;
   typeStats?.destroy();
@@ -88,25 +84,41 @@ export async function mountDashboard(rootEl) {
   pageRoot = rootEl;
   renderLoading(rootEl, 'טוען נתוני התקדמות...');
 
-  const [workouts, libraryEntries, weights, workoutTypes] = await Promise.all([
+  // Today's points and data, fresh (js/lib/rewards-sync.js).
+  await syncRewardsNow().catch((err) => console.error('[rewards] sync failed', err));
+  if (isStale(token)) return;
+  loaded = {};
+  showTab();
+}
+
+// אימון → התקדמות: the workout charts on their own screen.
+let progressRoot = null; // #/workout-progress while it's showing
+
+export async function mountWorkoutProgress(rootEl) {
+  const token = beginMount();
+  pageRoot = null;
+  progressRoot = rootEl;
+  rootEl.innerHTML = `${workoutSwitch('workout-progress')}<div data-wp-body></div>`;
+  const body = rootEl.querySelector('[data-wp-body]');
+  renderLoading(body, 'טוען נתוני אימונים...');
+  const [workouts, libraryEntries, workoutTypes] = await Promise.all([
     listWorkouts(500),
     listExerciseLibrary(),
-    // A failed weigh-in load shouldn't take the exercise progress with it.
-    listBodyWeights(1000).catch((err) => {
-      console.error('[body-weight] load failed', err);
-      return [];
-    }),
     listWorkoutTypes().catch(() => []),
-    // Today's points and data, fresh (js/lib/rewards-sync.js).
-    syncRewardsNow().catch((err) => console.error('[rewards] sync failed', err)),
   ]);
   if (isStale(token)) return;
-  loaded = { workouts, libraryEntries, weights, workoutTypes };
-  showTab();
+  loaded = { workouts, libraryEntries, workoutTypes };
+  mountWorkoutsTab(body);
+}
+
+export function unmountWorkoutProgress() {
+  unmountDashboard();
+  progressRoot = null;
 }
 
 function showTab() {
   if (!pageRoot || !loaded) return;
+  if (tab !== 'summary' && tab !== 'rows') tab = 'summary';
   destroyTab();
   pageRoot.innerHTML = `
     <div class="dash-tabs">
@@ -115,7 +127,7 @@ function showTab() {
         active: tab,
         label: 'התקדמות',
         groupAttrs: 'data-dash-tabs',
-        options: [{ value: 'summary', label: 'סיכום' }, { value: 'rows', label: 'מעקב' }, { value: 'workouts', label: 'אימונים' }],
+        options: [{ value: 'summary', label: 'סיכום' }, { value: 'rows', label: 'מעקב' }],
       })}
     </div>
     <div data-dash-tab></div>`;
@@ -127,24 +139,21 @@ function showTab() {
   const summary = rewardsState();
   const ctx = rewardsContext();
   const today = dateKey(new Date());
-  if (tab !== 'workouts' && (!summary || !ctx)) {
+  if (!summary || !ctx) {
     host.innerHTML = `<div class="card">${emptyState('הנקודות עוד נטענות — נסו שוב בעוד רגע.', { centered: true })}</div>`;
     return;
   }
   if (tab === 'summary') {
     mountProgressSummary(host, { summary, ledger: rewardsLedger(), ctx, userDoc: rewardsUserDoc(), today });
-  } else if (tab === 'rows') {
-    progressRows = mountProgressRows(host, { ctx, today, userDoc: rewardsUserDoc() });
   } else {
-    mountWorkoutsTab(host);
+    progressRows = mountProgressRows(host, { ctx, today, userDoc: rewardsUserDoc() });
   }
 }
 
-// The workouts tab: body weight, cardio, workout types, then strength.
+// The workout charts: cardio, workout types, then strength.
 function mountWorkoutsTab(host) {
-  const { workouts, libraryEntries, weights, workoutTypes } = loaded;
-  host.innerHTML = '<div data-dash-weight></div><div data-dash-cardio></div><div data-dash-types></div><div data-dash-exercises></div>';
-  bodyWeightTrend = mountBodyWeightTrend(host.querySelector('[data-dash-weight]'), weights);
+  const { workouts, libraryEntries, workoutTypes } = loaded;
+  host.innerHTML = '<div data-dash-cardio></div><div data-dash-types></div><div data-dash-exercises></div>';
   cardioStats = mountCardioStats(host.querySelector('[data-dash-cardio]'), workouts);
   typeStats = mountWorkoutTypeStats(host.querySelector('[data-dash-types]'), workouts, workoutTypes);
   container = host.querySelector('[data-dash-exercises]');
@@ -380,7 +389,7 @@ function wireExercisePicker() {
       if (!entry) return;
       openExerciseEditSheet(entry, {
         onSaved: async () => {
-          await mountDashboard(pageRoot);
+          if (progressRoot) await mountWorkoutProgress(progressRoot);
         },
       });
     });
