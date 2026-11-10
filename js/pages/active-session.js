@@ -66,6 +66,7 @@ const SESSIONS_STORAGE_KEY = 'gym-active-sessions-v2';
 const LEGACY_SESSION_STORAGE_KEY = 'gym-active-session-v1';
 let picker = { open: false, query: '', category: null };
 let lastTimeModal = null; // { name, previous }
+const noteOpen = new WeakSet(); // exercises whose note field is showing (screen state only)
 let stopQuickActions = null; // while mounted: takes the + button's "הליכה"
 let recentExerciseNames = []; // fetched lazily each time the picker opens
 
@@ -1019,13 +1020,14 @@ function buildExerciseCard(ex) {
         </div>`;
 
   el.innerHTML = `
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+    <div class="exercise-card-head" style="display:flex; align-items:center; gap:4px; margin-bottom:8px;">
       <button type="button" class="set-more-btn exercise-drag-handle" data-role="drag-handle" aria-label="גרירה לשינוי סדר התרגילים" style="flex:none;">${icon('grip-vertical', { className: 'icon--sm' })}</button>
       <span class="exercise-num" data-role="exercise-num">${esc(exNum)}</span>
       <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
         <span class="exercise-name">${esc(ex.name)}</span>
         <span class="exercise-meta${allDone ? ' exercise-meta--done' : ''}" data-role="exercise-meta">${esc(exerciseMetaText(ex))}</span>
       </div>
+      ${isCardio ? '' : `<button type="button" class="set-more-btn exercise-note-toggle" data-note-toggle aria-label="מכשיר או הערה לאימון הזה" aria-expanded="false">${icon('pencil', { className: 'icon--sm' })}<span class="exercise-note-dot" data-note-dot hidden></span></button>`}
       <button type="button" class="set-more-btn" data-last-time aria-label="פעם קודמת">${icon('clock', { className: 'icon--sm' })}</button>
       <button type="button" class="set-more-btn set-more-btn--danger" data-delete-exercise aria-label="מחיקת התרגיל">${icon('trash-2', { className: 'icon--sm' })}</button>
       <button type="button" class="set-more-btn" data-collapse-toggle aria-label="כיווץ/הרחבת התרגיל">
@@ -1035,12 +1037,13 @@ function buildExerciseCard(ex) {
     <div class="history-detail${isOpen ? ' history-detail--open' : ''}" data-exercise-detail>
       <div class="history-detail-inner exercise-detail-inner">
         ${isCardio ? '' : `
-        <label class="exercise-note-field">
-          ${icon('pencil', { className: 'icon--sm' })}
-          <input type="text" data-exercise-note maxlength="80" value="${esc(ex.note || '')}"
-            placeholder="מכשיר / הערה לאימון הזה" aria-label="מכשיר או הערה לאימון הזה">
-        </label>
-        <p class="exercise-note-prev" data-prev-note hidden></p>`}
+        <div class="exercise-note-panel" data-note-panel hidden>
+          <label class="exercise-note-field">
+            <input type="text" data-exercise-note maxlength="80" value="${esc(ex.note || '')}"
+              placeholder="מכשיר / הערה לאימון הזה" aria-label="מכשיר או הערה לאימון הזה">
+          </label>
+          <p class="exercise-note-prev" data-prev-note hidden></p>
+        </div>`}
         ${controlsHtml}
         <div class="sets-list"></div>
         <div class="row" style="gap:8px; margin-top:10px;">
@@ -1055,9 +1058,20 @@ function buildExerciseCard(ex) {
 
   // A note for this exercise in this workout — which machine, seat… — so
   // next time "פעם קודמת" says where it was done (feedback 9.11).
+  // Hidden until the pencil is tapped, so the card stays as clean as before
+  // (feedback 10.11). Open/closed is screen state only, never saved.
   el.querySelector('[data-exercise-note]')?.addEventListener('input', (e) => {
     ex.note = e.target.value;
     persistSession();
+    patchPrevNote(ex, refs);
+  });
+  el.querySelector('[data-note-toggle]')?.addEventListener('click', () => {
+    if (noteOpen.has(ex)) noteOpen.delete(ex); else noteOpen.add(ex);
+    patchPrevNote(ex, refs);
+    if (noteOpen.has(ex)) {
+      if (ex.collapsed) toggleExerciseCollapse(ex);
+      el.querySelector('[data-exercise-note]')?.focus();
+    }
   });
 
   el.querySelector('[data-last-time]').addEventListener('click', () => {
@@ -1145,6 +1159,9 @@ function buildExerciseCard(ex) {
     chevronEl: el.querySelector('[data-collapse-chevron]'),
     metaEl: el.querySelector('[data-role="exercise-meta"]'),
     prevNoteEl: el.querySelector('[data-prev-note]'),
+    notePanelEl: el.querySelector('[data-note-panel]'),
+    noteToggleEl: el.querySelector('[data-note-toggle]'),
+    noteDotEl: el.querySelector('[data-note-dot]'),
   };
   exerciseRefs.set(ex._uid, refs);
   patchPrevNote(ex, refs);
@@ -1235,6 +1252,16 @@ function patchPrevNote(ex, refs) {
   const prev = ex.previous?.note || '';
   el.hidden = !prev;
   el.textContent = prev ? `פעם קודמת: ${prev}` : '';
+  // The pencil is the only trace on a closed card: accent when this workout
+  // has a note, a small dot when only last time had one.
+  const open = noteOpen.has(ex);
+  const hasNote = !!ex.note?.trim();
+  if (refs.notePanelEl) refs.notePanelEl.hidden = !open;
+  if (refs.noteToggleEl) {
+    refs.noteToggleEl.classList.toggle('exercise-note-toggle--on', hasNote || open);
+    refs.noteToggleEl.setAttribute('aria-expanded', String(open));
+  }
+  if (refs.noteDotEl) refs.noteDotEl.hidden = open || hasNote || !prev;
 }
 
 function exerciseSetsSummary(ex) {

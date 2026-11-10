@@ -3638,6 +3638,29 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
 
 /* This workout's note on an exercise (which machine…): a quiet one-line
    field at the top of the open card; last time's note right under it. */
+.exercise-note-toggle {
+  position: relative;
+}
+
+.exercise-note-toggle--on {
+  color: var(--accent);
+}
+
+/* Last time had a note and this workout has none yet. */
+.exercise-note-dot {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.exercise-note-panel {
+  margin-bottom: var(--space-2);
+}
+
 .exercise-note-field {
   display: flex;
   align-items: center;
@@ -3679,4 +3702,16 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
 .exercise-note-prev .icon {
   width: 12px;
   height: 12px;
+}
+
+.exercise-note-panel[hidden],
+.exercise-note-prev[hidden],
+.exercise-note-dot[hidden] {
+  display: none;
+}
+
+/* Four icon buttons share the header with the name; slimmer (still full
+   height) so the name and "3/4 סטים" keep one line each at phone width. */
+.exercise-card-head .set-more-btn {
+  min-width: 36px;
 }
