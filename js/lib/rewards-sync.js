@@ -97,7 +97,9 @@ async function reconcile() {
   const [nights, habits, logs, activities, meals, weights, workouts, plans, loadedLedger] = await Promise.all([
     soft(listSleep(span), []),
     soft(listHabits(), []),
-    soft(listHabitLogs(span), []),
+    // A bad habit's clean streak can run for months (milestones up to 100
+    // days), so its logs go further back.
+    soft(listHabitLogs(REWARDS.habitLogsToLoad), []),
     soft(listDailyActivity(span), []),
     soft(listNutritionEntries(span * 6), []),
     soft(listBodyWeights(span), []),
@@ -107,8 +109,11 @@ async function reconcile() {
   ]);
   ledger = loadedLedger;
 
+  // With the limit reached, older logs exist that weren't read: a streak
+  // reaching back to the first one read has an unknown start.
+  const logsFrom = logs.length >= REWARDS.habitLogsToLoad ? logs.reduce((m, l) => (l.date < m ? l.date : m), today) : null;
   const ctx = buildContext({
-    userDoc, nights, habits: habits.map(normalizeHabit), logs, activities, meals, weights, workouts, plans,
+    userDoc, nights, habits: habits.map(normalizeHabit), logs, activities, meals, weights, workouts, plans, today, logsFrom,
   });
   lastCtx = ctx;
   const awards = days.flatMap((key) => scoreDay(key, ctx, { closed: key < today }));

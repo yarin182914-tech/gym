@@ -10,9 +10,12 @@
 // Level, totals, streaks and badges are derived from the ledger here.
 // All numbers: REWARDS in js/lib/rules.js.
 
-import { REWARDS, NUTRITION } from './rules.js';
+import { REWARDS, NUTRITION, BAD_HABITS } from './rules.js';
 import { evaluateNight, sleepSettings, shiftDays, dateKey } from './sleep.js';
-import { habitContext, entryFor, isDone, isDue, weekStart } from './habits.js';
+import {
+  habitContext, entryFor, isDone, isDue, weekStart, isBad, isGood, badMark, badDayLevel, slipReported,
+  cleanRuns, cleanDaysThrough,
+} from './habits.js';
 import { totalOut } from './daily-activity.js';
 import { exerciseKind, workoutDayKey, brokenSessionRecord } from './workout-types.js';
 import { brokenCardioRecords } from './cardio.js';
@@ -35,6 +38,10 @@ export const RULE_SOURCE = {
   'workout-week': 'workout',
   pr: 'workout',
   'perfect-day': 'bonus',
+  'bad-clean': 'habit',
+  'bad-slip': 'habit',
+  'bad-week': 'habit',
+  'bad-streak': 'habit',
 };
 
 // Firestore ids can't hold '/', and stay short.
@@ -62,8 +69,14 @@ export function weeklyWorkoutGoal(userDoc = {}) {
 // ---------- the day's context ----------
 
 // data: { userDoc, nights, habits (normalized), logs, activities, meals,
-// weights, workouts, plans } — any order, any range. Indexed once.
+// weights, workouts, plans, today? } — any order, any range. Indexed once.
+// today (default: now) only decides which unreported days of a bad habit
+// can still be filled in (js/lib/habits.js#cleanRuns).
 export function buildContext(data) {
+  const today = data.today || dateKey(new Date());
+  const active = (data.habits || []).filter((h) => h.active !== false);
+  const habitCtx = habitContext(data.logs || [], data.activities || [], data.workouts || []);
+  const badHabits = active.filter(isBad);
   const byDay = (list, keyOf) => {
     const map = new Map();
     for (const item of list || []) {
@@ -84,8 +97,15 @@ export function buildContext(data) {
     goals: nutritionGoals(data.userDoc || {}),
     workoutGoal: weeklyWorkoutGoal(data.userDoc || {}),
     nights: new Map((data.nights || []).map((n) => [n.date, n])),
-    habits: (data.habits || []).filter((h) => h.active !== false),
-    habitCtx: habitContext(data.logs || [], data.activities || []),
+    today,
+    // Every active habit (the progress rows); good and bad apart for scoring.
+    habits: active,
+    goodHabits: active.filter(isGood),
+    badHabits,
+    habitCtx,
+    badRuns: new Map(badHabits.map((h) => [h.id, cleanRuns(h, today, habitCtx)])),
+    // The first habit log read when older ones weren't (null: all read).
+    logsFrom: data.logsFrom || null,
     activities: new Map((data.activities || []).map((a) => [a.date || a.id, a])),
     meals,
     weights: new Set((data.weights || []).map((w) => w.date)),
@@ -151,7 +171,7 @@ function award(key, rule, { ref = null, id = null, raw, grade = null, reason }) 
 // Habits that count toward a perfect day: active daily / fixed-weekday ones
 // due that day, which existed by then (N-per-week habits never block it).
 function habitsDueFor(key, ctx) {
-  return ctx.habits.filter((h) => {
+  return ctx.goodHabits.filter((h) => {
     if (h.schedule?.type === 'weekly' || !isDue(h, key)) return false;
     const created = h.createdAt ? dateKey(toDate(h.createdAt)) : null;
     return !created || created <= key;
@@ -213,7 +233,7 @@ export function scoreDay(key, ctx, { closed }) {
   }
 
   // Habits: full / short, and the N-per-week bonus on the day it's reached.
-  for (const h of ctx.habits) {
+  for (const h of ctx.goodHabits) {
     const entry = entryFor(h, key, ctx.habitCtx);
     if (!isDone(entry)) continue;
     out.push(award(key, 'habit', { ref: h.id, raw: P.habit[entry.level], grade: entry.level, reason: h.name }));
@@ -243,6 +263,9 @@ export function scoreDay(key, ctx, { closed }) {
     }
   }
 
+  // Bad habits: their own scoring (never part of the perfect day).
+  for (const h of ctx.badHabits) out.push(...scoreBadHabit(h, key, ctx, { closed }));
+
   if (closed) {
     const n = nutritionGrades(key, ctx);
     if (n) {
@@ -258,6 +281,43 @@ export function scoreDay(key, ctx, { closed }) {
       add('meal-count', P.mealCount, n.mealCount, n.mealCount === 'full' ? 'מספר הארוחות ביעד' : 'ארוחה אחת מעבר');
     }
     if (isPerfectDay(key, ctx, grades)) out.push(award(key, 'perfect-day', { raw: P.perfectDay, reason: 'יום מושלם' }));
+  }
+  return out;
+}
+
+// One bad habit's day (BAD_HABITS in rules.js). Right away: 2 for an
+// honest slip (or over-the-limit) report. Once the day is over — so a
+// "clean" tapped before a later slip can't keep its 10 — the clean day
+// 10 / 5, the week's clean-days bonus, and the clean-streak milestones,
+// each once per streak (its id carries the streak's first day).
+export function scoreBadHabit(h, key, ctx, { closed }) {
+  const out = [];
+  const B = BAD_HABITS.points;
+  const mark = badMark(h, key, ctx.habitCtx);
+  if (slipReported(h, mark)) {
+    out.push(award(key, 'bad-slip', { ref: h.id, raw: B.slipLog, reason: `${h.name} — רישום כן` }));
+  }
+  if (!closed) return out;
+  const level = badDayLevel(h, mark);
+  const raw = level === 'full' ? B.clean.full : level === 'short' ? B.clean.short : 0;
+  if (raw) out.push(award(key, 'bad-clean', { ref: h.id, raw, grade: level, reason: level === 'full' ? `${h.name} — יום נקי` : `${h.name} — כמעט נקי` }));
+  if (level === 'full' && cleanDaysThrough(h, key, ctx.habitCtx) === h.cleanWeekTarget) {
+    out.push(award(key, 'bad-week', {
+      id: `${weekStart(key)}_bad-week_${slug(h.id)}`, ref: h.id, raw: B.weekBonus, reason: `${h.name} — ${h.cleanWeekTarget} ימים נקיים השבוע`,
+    }));
+  }
+  const run = (ctx.badRuns.get(h.id) || []).find((r) => r.days.includes(key));
+  // A streak reaching back past the logs read has an unknown start — its
+  // milestones would land on shifting ids, so none are given for it.
+  if (run && !(ctx.logsFrom && run.start <= ctx.logsFrom)) {
+    const n = run.days.indexOf(key) + 1;
+    const milestone = BAD_HABITS.streakMilestones.find((m) => m.days === n);
+    if (milestone) {
+      out.push(award(key, 'bad-streak', {
+        id: `${run.start}_bad-streak_${slug(h.id)}_${n}`, ref: h.id, raw: milestone.points, grade: String(n),
+        reason: `${h.name} — ${n} ימים נקיים ברצף`,
+      }));
+    }
   }
   return out;
 }

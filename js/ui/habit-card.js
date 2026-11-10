@@ -4,7 +4,7 @@
 // Nothing missed is ever red — an unmarked or missed day is just grey.
 
 import { takesValue } from '../lib/habits.js';
-import { WEEKDAY_LETTERS } from './habit-form.js';
+import { WEEKDAY_LETTERS } from './habit-wizard.js';
 import { icon } from './icon.js';
 import { esc } from '../core/dom.js';
 
@@ -13,6 +13,9 @@ const fmt = (n) => Number(n).toLocaleString('he-IL');
 // "10 דקות · מקוצר 5", "עד 60 דקות", "8,000 צעדים".
 export function targetText(habit) {
   const { full, short, unit } = habit;
+  if (habit.measure === 'steps') {
+    return habit.steps.length ? `${habit.steps.length} צעדים${habit.shortSteps?.length ? ` · מקוצר ${habit.shortSteps.length}` : ''}` : '';
+  }
   if (full === null) return '';
   const u = unit ? ` ${unit}` : '';
   if (habit.measure === 'limit') return `עד ${fmt(full)}${u}${short !== null ? ` · מקוצר עד ${fmt(short)}` : ''}`;
@@ -56,7 +59,7 @@ export function habitCardHtml(habit, view) {
           <span class="habit-icon">${icon(habit.icon) || icon('check')}</span>
           <span class="habit-text">
             <span class="habit-name">${esc(habit.name)}</span>
-            <span class="habit-meta">${meta.join(' · ')}${entry?.auto ? ' · מהצעדים' : ''}</span>
+            <span class="habit-meta">${meta.join(' · ')}${entry?.auto ? (habit.autoSource === 'workouts.strength' ? ' · מהאימונים' : ' · מהצעדים') : ''}</span>
           </span>
           ${mark ? `<span class="habit-mark">${mark}</span>` : ''}
           ${streakHtml}
