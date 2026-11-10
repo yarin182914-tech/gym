@@ -72,7 +72,7 @@ export const STEPS_IMPORT = {
   statusDays: 30,
   // The ready-made shortcut, shared from iCloud. ירין publishes it once;
   // while it's empty the "הוספת הקיצור" button stays off.
-  shortcutUrl: '',
+  shortcutUrl: 'https://www.icloud.com/shortcuts/18d3b3748dc544c2b28928cb007d90d9',
   shortcutName: 'ג׳ימי צעדים',
   // Suggested time for the daily automation (shown in the how-to).
   automationTime: '21:00',

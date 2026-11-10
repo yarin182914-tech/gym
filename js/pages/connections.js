@@ -171,9 +171,9 @@ function buildSteps() {
     `${find('text')} בתוך תיבת הטקסט, לפי הסדר:
       <ol class="connection-substeps">
         <li>מדביקים את הכתובת: ${copyBtn('base', 'העתקת הכתובת')}</li>
-        <li>מעל המקלדת לוחצים על המשתנה של המספר המעוגל.</li>
-        <li>מדביקים <span class="connection-code" dir="ltr">&amp;date=</span> ${copyBtn('date', 'העתקה')}</li>
-        <li>לוחצים על המשתנה של התאריך המעוצב.</li>
+        <li>לא מקלידים את המשתנה. בשורה שמעל המקלדת לוחצים על ${chip(L.roundedVar)}, והוא נכנס כבועה כחולה. אם הוא לא שם: ${chip(L.selectVar)}, ואז הפעולה ${chip(L.roundNumber)}.</li>
+        <li>מיד אחרי הבועה, בלי רווח, מדביקים <span class="connection-code" dir="ltr">&amp;date=</span> ${copyBtn('date', 'העתקה')}</li>
+        <li>שוב בשורה שמעל המקלדת לוחצים על ${chip(L.formattedVar)}.</li>
       </ol>
       בסוף זה נראה כך, עם שני משתנים כחולים במקום המספרים: <span class="connection-code connection-code--wrap" dir="ltr">…/#/import?steps=12450&amp;date=2026-11-09</span>`,
     `${find('openUrls')} היא לוקחת לבד את הטקסט מהשלב הקודם.`,
