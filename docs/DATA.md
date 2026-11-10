@@ -13,8 +13,9 @@ public repo.
 
 | Collection | Doc id | What |
 |---|---|---|
-| `users/{uid}/workouts` | auto | Strength and cardio workouts |
+| `users/{uid}/workouts` | auto | Workouts: strength, cardio and sessions (Pilates, CrossFit…) |
 | `users/{uid}/exerciseLibrary` | auto | The strength-exercise quick-pick list |
+| `users/{uid}/workoutTypes` | auto | Workout types the user built ("סוג משלך") |
 | `users/{uid}/nutritionEntries` | auto | Meals |
 | `users/{uid}/bodyWeight` | `yyyy-mm-dd` | One weigh-in per day |
 | `users/{uid}/dailyActivity` | `yyyy-mm-dd` | Calories out, one per day — also the day's calorie target |
@@ -112,15 +113,37 @@ the nutrition screen and the target line on its trend chart. Days with no
 | `steps` | number | Steps that day (iPhone), `0` if unknown |
 | `baseKcal` | number | Resting + daily life, currently `1950` (Mifflin BMR × 1.2) |
 | `stepsKcal` | number | `round(steps × 0.04)` |
-| `workoutKcal` | number | Strength ≈ 250 kcal/hour of the workout; `0` if none |
+| `workoutKcal` | number | The day's workouts, summed by the app — **never write it** (below); `0` if none |
 | `totalOutKcal` | number | `baseKcal + stepsKcal + workoutKcal` — what the app shows |
 | `note` | string | Usually `""` |
 | `loggedAt` | Timestamp | When it was saved (server timestamp) |
-| `source` | string | `coach` (written from outside) · `manual` (typed in the app) · `shortcut` (steps from the iPhone, see below) |
+| `source` | string | `coach` (written from outside) · `manual` (typed in the app) · `shortcut` (steps from the iPhone, see below) · `workouts` (a day the app created only for a workout's burn) |
 
 All the kcal fields are integers. Keep `totalOutKcal` equal to the sum —
 the app trusts it as-is. `baseKcal` and the `0.04` per step live in
 `ACTIVITY` in `js/lib/rules.js`.
+
+**`workoutKcal` has one source: the app.** Every time a workout is saved,
+edited or deleted, the app adds up the `kcal` of all that day's workouts
+(see Workouts below) and merges `workoutKcal` and `totalOutKcal` into the
+day's doc, keeping `steps`, `stepsKcal`, `baseKcal`, `note`, `source` and
+`loggedAt`. A day with no doc yet gets one (`source: "workouts"`, steps 0)
+— unless its burn is 0. The nutrition screen shows the number but doesn't
+let it be typed.
+
+**The coach never writes `workoutKcal`.** To log a workout, write the
+workout; its burn follows the next time the app opens it (or write its
+`kcal` too, below). When writing the night's burn (steps):
+
+1. Read the day's doc first.
+2. Write with `set` + `merge` only `steps`, `stepsKcal`, `totalOutKcal`
+   (and `loggedAt`, `source: "coach"`), where
+   `totalOutKcal = baseKcal + stepsKcal + workoutKcal` using the doc's own
+   `baseKcal` (default `1950`) and **existing** `workoutKcal` (default `0`).
+3. Never replace the whole doc — a workout saved the same day would lose
+   its burn.
+
+So a workout save and the nightly write never overwrite each other.
 
 **Steps from the iPhone (`source: "shortcut"`).** An iOS Shortcut reads
 the day's steps from Apple Health and opens the app at
@@ -202,10 +225,28 @@ overwrite the whole doc.
 | `notes` | string | Usually `""` |
 | `exercises` | array | See below. Never empty. |
 | `planId` | string | Only on a workout started from the coach's plan: that `plannedWorkouts` doc id (`yyyy-mm-dd`). Set by the app; History tags the workout "לפי תוכנית". |
+| `kcal` | number | The workout's burn, integer — set by the app on save (below). Optional: a workout without it is worked out when its day is next summed. |
 
-An exercise is either **strength** or **cardio**. History labels a workout
-by what it contains: only cardio → "ריצה" / "הליכה" etc., only strength →
-"כוח", both → "כוח + ריצה".
+An exercise is **strength**, **cardio** or a **session** (Pilates,
+CrossFit…). History labels a workout by what it contains: only cardio →
+"ריצה" / "הליכה" etc., only strength → "כוח", a session → its type's name,
+a mix → "קרוספיט + כוח", "כוח + ריצה".
+
+**Burn (`kcal`)** = MET × body kg × hours, summed over the exercises. Body
+kg is the latest `bodyWeight` on or before the workout's day (`70` if none).
+The numbers are `WORKOUTS` in `js/lib/rules.js`:
+
+- **Outdoor walk / run (`inputMode: "free"`, or none) = 0** — the steps
+  already count it. History and streaks only.
+- Treadmill walk / run: from speed and incline (ACSM equations); without a
+  speed, from the segment's `effort`. Bike `7` MET, stairs `9`.
+- Strength: `3.5` MET over the workout's length minus its cardio and
+  sessions (≈ 250 kcal/hour at 70 kg); with `noTime: true`, 2.5 min per set.
+- Session: the type's MET at effort 5 × (`0.6 + 0.08 × rpe`), for
+  `durationSec`. No `durationSec` → 0.
+
+Then `dailyActivity.workoutKcal` for that day is the sum of its workouts'
+`kcal` — written by the app only (see Daily activity above).
 
 ### Strength exercise
 
@@ -357,6 +398,114 @@ distance and speed/pace give the third; pace = 3600 / speed):
     }
   ]
 }
+```
+
+### Session exercise (Pilates, CrossFit, yoga…)
+
+A workout of a type, logged as one entry — **no `sets`**. It can sit in a
+workout next to strength and cardio exercises (CrossFit's strength part is
+logged as ordinary strength exercises).
+
+```json
+{
+  "name": "פילאטיס",
+  "category": "אימון",
+  "kind": "session",
+  "typeId": "pilates",
+  "durationSec": 3000,
+  "rpe": 6,
+  "place": "סטודיו",
+  "fields": { "equipment": "מכשירים", "level": "בינוני" },
+  "notes": ""
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | The type's name, exactly as in the table below (or the user's own type's `name`) |
+| `category` | string | Always `"אימון"` |
+| `kind` | string | Always `"session"` |
+| `typeId` | string | From the table below, or `custom:<workoutTypes doc id>` |
+| `durationSec` | number | Length in seconds |
+| `rpe` | number | Effort `1`–`10` (integer) |
+| `avgHr` | number | Average heart rate. Optional. |
+| `place` | string | Place / studio. Optional. |
+| `fields` | object | The type's own values, keyed by field id (below). Only what's known. |
+| `notes` | string | Usually `""` |
+
+Write only the values that are known — leave the key out, never `null`
+(`fields` and `notes` are always there, `{}` / `""` when empty).
+`picklist` / `level` values must be one of the listed options, character
+for character.
+
+Built-in types:
+
+| `typeId` | `name` | `fields` |
+|---|---|---|
+| `functional` | `פונקציונלי` | `format`: `מעגל` · `EMOM` · `AMRAP` · `טבטה`; `rounds` (number); `stations`: `[{ name, amount, weight }]` — `amount` text ("12" reps or "0:40"), `weight` kg number; `restSec` (number, rest between rounds) |
+| `crossfit` | `קרוספיט` | `wod` (text, the WOD's name); `format`: `For Time` · `AMRAP` · `EMOM`; `timeCapSec`; For Time: `resultSec`; AMRAP: `resultRounds`, `resultReps` (reps past the last full round); `scale`: `Rx` · `Scaled`; `weights` (text) |
+| `pilates` | `פילאטיס` | `equipment`: `מכשירים` · `מזרן`; `level`: `מתחילים` · `בינוני` · `מתקדם`; `focus`: `בטן` · `גמישות` · `יציבה`; `instructor` (text) |
+| `yoga` | `יוגה` | `style`: `ויניאסה` · `האטה` · `אשטנגה` · `יין` · `אחר`; `level` (as Pilates); `focus`: `גמישות` · `כוח` · `נשימה` · `הרפיה` |
+| `swim` | `שחייה` | `distanceM` (metres); `stroke`: `חתירה` · `חזה` · `גב` · `פרפר` · `מעורב`. Pace per 100 m is worked out from `durationSec`. |
+| `studio` | `סטודיו` | `classType`: `ספינינג` · `HIIT` · `אגרוף` · `אחר`; `intensity`: `קלה` · `בינונית` · `גבוהה`; `rounds` |
+| `sport` | `ספורט` | `game`: `פאדל` · `טניס` · `כדורגל` · `כדורסל` · `אחר`; `intensity` (as studio); `result` (text) |
+| `ski` | `סקי` | `runs` (number); `slope`: `ירוק` · `כחול` · `אדום` · `שחור`. `durationSec` = time on the slopes. |
+
+**Records:** CrossFit — the same `wod` name (case and spaces ignored) in the
+same `format`: For Time, a lower `resultSec`; AMRAP, more `resultRounds`
+(then `resultReps`). Functional — more `rounds` in the same `format`.
+
+### Example: CrossFit with a strength part
+
+```json
+{
+  "date":      "Timestamp(2026-11-10 07:00 Asia/Jerusalem)",
+  "startTime": "Timestamp(2026-11-10 07:00 Asia/Jerusalem)",
+  "endTime":   "Timestamp(2026-11-10 08:00 Asia/Jerusalem)",
+  "noTime": false,
+  "notes": "",
+  "source": "coach",
+  "exercises": [
+    {
+      "name": "סקוואט", "category": "רגליים",
+      "sets": [
+        { "setNumber": 1, "type": "working", "weight": 80, "weightUnit": "kg", "weightMode": "total", "reps": 5, "notes": "" },
+        { "setNumber": 2, "type": "working", "weight": 80, "weightUnit": "kg", "weightMode": "total", "reps": 5, "notes": "" }
+      ]
+    },
+    {
+      "name": "קרוספיט", "category": "אימון", "kind": "session", "typeId": "crossfit",
+      "durationSec": 1200, "rpe": 9,
+      "fields": { "wod": "Fran", "format": "For Time", "resultSec": 290, "scale": "Rx", "weights": "43 ק\"ג" },
+      "notes": ""
+    }
+  ]
+}
+```
+
+---
+
+## Workout types — `users/{uid}/workoutTypes/{auto}`
+
+Types the user built ("סוג משלך"), e.g. TRX with rounds and a level. A
+session of one has `typeId: "custom:<this doc's id>"`. Deleting a type
+leaves the workouts logged with it as they are.
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | Shown in the picker and as the session's `name` |
+| `fields` | array | `[{ id, kind, label, options? }]` — `id` `f1`, `f2`…; `kind` one of `duration` · `distance` (km) · `rounds` · `reps` · `weight` (kg) · `resultTime` (seconds) · `level` (`מתחילים` · `בינוני` · `מתקדם`) · `picklist` (`options`: the choices) · `text` |
+| `order` | number | Position in the picker |
+| `createdAt` | Timestamp | Server timestamp |
+
+Every type also has `durationSec`, `rpe`, `avgHr`, `place` and `notes` on
+the session itself. Burn: `5` MET at effort 5.
+
+```json
+// users/{uid}/workoutTypes/a1B2c3
+{ "name": "TRX", "order": 0, "createdAt": "serverTimestamp()",
+  "fields": [ { "id": "f1", "kind": "rounds", "label": "סבבים" },
+              { "id": "f2", "kind": "level", "label": "רמה" } ] }
 ```
 
 ---
@@ -519,7 +668,7 @@ for any other date is never shown.
 | `date` | string | Same `yyyy-mm-dd` as the doc id |
 | `title` | string | Short, e.g. `"גב + רגליים"` — also the workout's tab name |
 | `coachNotes` | string | The coach's explanation, free Hebrew text (line breaks kept) |
-| `exercises` | array | **Exactly the workout exercise shape above** — strength: `name`, `category`, `sets` (`setNumber`, `type`, `weight`, `weightUnit`, `weightMode`, `reps`, `notes`, optional `dropGroup`); cardio: as in Workouts. Plus optional `reason` per exercise. |
+| `exercises` | array | **Exactly the workout exercise shape above** — strength: `name`, `category`, `sets` (`setNumber`, `type`, `weight`, `weightUnit`, `weightMode`, `reps`, `notes`, optional `dropGroup`); cardio and sessions: as in Workouts (a session shows as one line on the plan card and is filled in once the workout starts). Plus optional `reason` per exercise. |
 | `exercises[].reason` | string | Optional, one short line, e.g. `"שבוע שעבר 10×60 בכל הסטים → עולים ל-62.5"` |
 | `status` | string | `proposed` (write this) → `started` · `done` · `skipped` (the app sets these) |
 | `source` | string | `coach` |
@@ -600,9 +749,12 @@ names; add to it only for a genuinely new exercise.
 3. **Check for duplicates first.** Before adding a meal or a workout, read
    that day's entries; if something similar is already there, ask.
 4. **Strength exercise names come from `exerciseLibrary`**, character for
-   character. Cardio uses the built-in table above.
+   character. Cardio and sessions use the built-in tables above.
 5. **Israel time** for every timestamp; noon when only the date is known.
 6. **Estimate, and say so.** Meal macros from a photo or a description are
    estimates — state the assumed portions so the user can correct them
    before saving.
 7. Stay inside `users/{uid}/`. Never touch `siteFeedback` or other users.
+8. **Never write `dailyActivity.workoutKcal`** — the app owns it. The
+   nightly burn merges only `steps`, `stepsKcal` and `totalOutKcal` (see
+   Daily activity).
