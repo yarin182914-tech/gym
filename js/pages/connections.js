@@ -159,7 +159,7 @@ function buildSteps() {
   const steps = [
     `פותחים את ${chip(L.shortcutsApp)}, לוחצים ${chip('+')} למעלה. לוחצים על השם שבראש המסך, ${chip(L.rename)}, וכותבים ${chip(STEPS_IMPORT.shortcutName)}.`,
     `${find('findHealth')} בתוכה: לוחצים על הסוג ובוחרים ${chip(L.steps)}, מוודאים ש${chip(L.startDate)} הוא ${chip(L.today)}, ובשורה ${chip(L.groupBy)} בוחרים ${chip(L.day)}.`,
-    `${find('getDetails')} לוחצים על השדה הכחול ובוחרים ${chip(L.value)}.`,
+    `${find('getDetails')} הפעולה נראית כמו משפט אחד עם שתי מילים כחולות. לוחצים על המילה הכחולה <b>הראשונה</b> (מיד אחרי ${chip(L.getWord)}) ובוחרים ${chip(L.value)}. את המילה הכחולה השנייה לא משנים, היא כבר מחוברת לשלב 2.`,
     find('roundNumber'),
     `${find('formatDate')} התאריך: ${chip(L.currentDate)}. הפורמט: ${chip(L.custom)}, ובשדה שנפתח כותבים <span class="connection-code" dir="ltr">yyyy-MM-dd</span>.`,
     `${find('text')} בתוך תיבת הטקסט, לפי הסדר:
