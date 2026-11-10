@@ -157,3 +157,49 @@ export function sleepStreak(nights, settings, todayKey) {
 export function formatDuration(min) {
   return `${Math.floor(min / 60)}:${pad(Math.round(min % 60))}`;
 }
+
+// ---------- charts (js/ui/sleep-trend.js) ----------
+// Minutes after 18:00 the evening before, for a bedtime chart: 22:30 → 270,
+// 00:15 → 375. A time between 18:00 and 06:00 the next morning.
+export function minutesAfterSix(value) {
+  const d = asDate(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return ((d.getHours() * 60 + d.getMinutes()) - 18 * 60 + 24 * 60) % (24 * 60);
+}
+
+export function clockFromMinutesAfterSix(min) {
+  const t = Math.round(min + 18 * 60) % (24 * 60);
+  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
+
+// The last `count` nights, oldest first, one entry per morning (null where
+// none was logged): { keys, hours, bed, target, flexible, avgHours, onTarget, logged }.
+export function sleepSeries(nights, settings, todayKey, count) {
+  const byDate = new Map(nights.map((n) => [n.date, n]));
+  const keys = Array.from({ length: count }, (_, i) => shiftDays(todayKey, i - count + 1));
+  const hours = [];
+  const bed = [];
+  const target = [];
+  const flexible = [];
+  let sum = 0;
+  let logged = 0;
+  let onTarget = 0;
+  keys.forEach((k) => {
+    const n = byDate.get(k);
+    const rules = nightRules(k, settings);
+    flexible.push(rules.flexible);
+    target.push(rules.flexible ? null : minutesAfterSix(rules.targetDate));
+    if (!n) {
+      hours.push(null);
+      bed.push(null);
+      return;
+    }
+    const h = Math.round((Number(n.durationMin) / 60) * 10) / 10;
+    hours.push(h);
+    bed.push(minutesAfterSix(n.bedtime));
+    sum += Number(n.durationMin);
+    logged += 1;
+    if (h * 60 >= rules.minMin) onTarget += 1;
+  });
+  return { keys, hours, bed, target, flexible, logged, onTarget, avgHours: logged ? Math.round((sum / logged / 60) * 10) / 10 : null };
+}

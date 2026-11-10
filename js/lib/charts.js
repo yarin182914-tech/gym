@@ -406,3 +406,86 @@ export async function renderBarsChart(canvas, { labels, values, formatValue }, e
     }),
   });
 }
+
+// Sleep per night: hours as bars (nights under the minimum faded, never
+// red), with the minimum as a dashed line across.
+export async function renderSleepHoursChart(canvas, { labels, hours, minHours }, existingChart) {
+  const Chart = await loadChartLib();
+  if (existingChart) existingChart.destroy();
+  const colors = themeColors();
+  const faded = /^#[0-9a-f]{6}$/i.test(colors.line) ? `${colors.line}59` : colors.muted;
+  const options = cardioChartOptions(colors, {
+    yTicks: (v) => v,
+    tooltipLabel: (ctx) => (ctx.parsed.y === null ? 'לא נרשם' : `${round1(ctx.parsed.y)} שעות`),
+  });
+  options.plugins.tooltip.filter = (item) => item.datasetIndex === 0;
+  options.scales.y.suggestedMax = Math.max(9, minHours + 1);
+  return new Chart(canvas, {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'bar',
+          data: hours,
+          backgroundColor: hours.map((h) => (h !== null && h >= minHours ? colors.line : faded)),
+          borderRadius: 4,
+          maxBarThickness: 22,
+          order: 2,
+        },
+        {
+          type: 'line',
+          data: hours.map(() => minHours),
+          borderColor: colors.muted,
+          borderWidth: 1,
+          borderDash: [4, 4],
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          order: 1,
+        },
+      ],
+    },
+    options,
+  });
+}
+
+// Bedtime per night, as minutes after 18:00 (y reversed: earlier sits
+// higher), with the target as a dashed line. Flexible nights (Thu/Fri) are
+// hollow points.
+export async function renderBedtimeChart(canvas, { labels, minutes, targets, flexible, formatClock }, existingChart) {
+  const Chart = await loadChartLib();
+  if (existingChart) existingChart.destroy();
+  const colors = themeColors();
+  const options = cardioChartOptions(colors, {
+    reverseY: true,
+    yTicks: (v) => formatClock(v),
+    tooltipLabel: (ctx) => (ctx.parsed.y === null ? 'לא נרשם' : `נרדם ב-${formatClock(ctx.parsed.y)}`),
+  });
+  options.plugins.tooltip.filter = (item) => item.datasetIndex === 0;
+  return new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          data: minutes,
+          showLine: false,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          pointBorderColor: colors.line,
+          pointBackgroundColor: minutes.map((_, i) => (flexible[i] ? 'transparent' : colors.line)),
+          pointBorderWidth: 2,
+        },
+        {
+          data: targets,
+          borderColor: colors.muted,
+          borderWidth: 1,
+          borderDash: [4, 4],
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          stepped: 'middle',
+        },
+      ],
+    },
+    options,
+  });
+}
