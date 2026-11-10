@@ -161,7 +161,13 @@ function buildSteps() {
     `${find('findHealth')} בתוכה: לוחצים על הסוג ובוחרים ${chip(L.steps)}, מוודאים ש${chip(L.startDate)} הוא ${chip(L.today)}, ובשורה ${chip(L.groupBy)} בוחרים ${chip(L.day)}.`,
     `${find('getDetails')} הפעולה נראית כמו משפט אחד עם שתי מילים כחולות. לוחצים על המילה הכחולה <b>הראשונה</b> (מיד אחרי ${chip(L.getWord)}) ובוחרים ${chip(L.value)}. את המילה הכחולה השנייה לא משנים, היא כבר מחוברת לשלב 2.`,
     `${find('roundNumber')} למה: לפעמים הבריאות מחזירה מספר עם נקודה עשרונית, וג׳ימי מקבל רק מספר שלם. לא משנים בה כלום: היא לוקחת לבד את הערך משלב 3. ממשיכים לשלב הבא.`,
-    `${find('formatDate')} התאריך: ${chip(L.currentDate)}. הפורמט: ${chip(L.custom)}, ובשדה שנפתח כותבים <span class="connection-code" dir="ltr">yyyy-MM-dd</span>.`,
+    `${find('formatDate')} לא מקלידים תאריך. לפי הסדר:
+      <ol class="connection-substeps">
+        <li>לוחצים על השדה הכחול בראש הפעולה. אם קיצורים כבר שם בו לבד את המספר משלב 4, מוחקים אותו.</li>
+        <li>בשורה שמעל המקלדת (או ברשימה שנפתחת) בוחרים ${chip(L.currentDate)}.</li>
+        <li>פותחים את הפעולה בחץ הקטן שבצד, ובשורת הפורמט בוחרים ${chip(L.custom)}.</li>
+        <li>בשדה הפורמט כותבים בדיוק <span class="connection-code" dir="ltr">yyyy-MM-dd</span>. בדוגמה למטה אמור להופיע התאריך של היום, למשל <span class="connection-code" dir="ltr">2026-11-10</span>.</li>
+      </ol>`,
     `${find('text')} בתוך תיבת הטקסט, לפי הסדר:
       <ol class="connection-substeps">
         <li>מדביקים את הכתובת: ${copyBtn('base', 'העתקת הכתובת')}</li>
