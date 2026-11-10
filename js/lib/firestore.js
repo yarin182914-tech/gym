@@ -17,6 +17,7 @@ import {
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
   devListWorkoutTypes, devAddWorkoutType, devUpdateWorkoutType, devDeleteWorkoutType,
   devListPlannedWorkouts, devListLedger, devWriteLedger,
+  devListLibraryMarks, devSetLibraryMark, devListLibraryPicks, devAddLibraryPick, devDeleteLibraryPick,
 } from './dev-store.js';
 import { lastPerformanceIn, exerciseHistoryIn, workoutDayKey } from './workout-types.js';
 import { bodyKgOn as bodyKgFrom, dayWorkoutKcal, workoutKcalPatch } from './workout-kcal.js';
@@ -672,6 +673,46 @@ export async function writeLedger(entries) {
       if (higher(e, cur)) await setDoc(refs[i], merged(e, cur), { merge: true });
     }));
   }
+}
+
+// ---------- "ללמוד" (M8b) ----------
+// users/{uid}/libraryMarks/{itemId}: { saved, doneAt } — the user's own
+// marks on the shared list (js/data/library.js). users/{uid}/libraryPicks:
+// personal picks the coach adds, in an item's shape plus `reason`.
+
+export async function listLibraryMarks() {
+  if (!useCloud) return devListLibraryMarks();
+  const snap = await getDocs(collection(db, 'users', uidOrThrow(), 'libraryMarks'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export async function setLibraryMark(itemId, patch) {
+  if (!useCloud) return devSetLibraryMark(itemId, patch);
+  await setDoc(doc(db, 'users', uidOrThrow(), 'libraryMarks', itemId), {
+    ...patch,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+// The user's own pick ("+ הוספת המלצה", source 'user'); returns its id.
+export async function addLibraryPick(pick) {
+  if (!useCloud) return devAddLibraryPick(pick);
+  const ref = await addDoc(collection(db, 'users', uidOrThrow(), 'libraryPicks'), {
+    ...pick,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function deleteLibraryPick(pickId) {
+  if (!useCloud) return devDeleteLibraryPick(pickId);
+  await deleteDoc(doc(db, 'users', uidOrThrow(), 'libraryPicks', pickId));
+}
+
+export async function listLibraryPicks() {
+  if (!useCloud) return devListLibraryPicks();
+  const snap = await getDocs(collection(db, 'users', uidOrThrow(), 'libraryPicks'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 // ---------- site feedback ----------
