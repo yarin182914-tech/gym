@@ -16,6 +16,8 @@ import { createPlannedWorkoutCard } from '../ui/planned-workout-card.js';
 import { workoutSwitch } from '../ui/workout-switch.js';
 import { handleQuickActions } from '../ui/quick-add.js';
 import { todayKey } from '../lib/body-weight.js';
+import { normalizeExerciseName, sameExerciseName } from '../lib/exercise-names.js';
+import { typeAfter, typeFromLastTime } from '../lib/set-types.js';
 import { renderProgressChart, buildWeightSeries } from '../lib/charts.js';
 import {
   formatDateHe, formatWeight, unitLabel, convertWeight, SET_TYPES,
@@ -676,6 +678,7 @@ function renderLastTimeModal() {
       <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="last-time-title">
         <button class="modal-close" id="last-time-close" type="button" aria-label="סגירה">${icon('x', { className: 'icon--sm' })}</button>
         <h3 id="last-time-title" style="color:var(--text);">${esc(name)}</h3>
+        ${libraryNoteFor(name) ? `<p class="exercise-note">${esc(libraryNoteFor(name))}</p>` : ''}
         ${body}
       </div>
     </div>`;
@@ -799,7 +802,7 @@ function renderPicker() {
   const pickable = pickableExercises();
   const byCategory = picker.category ? pickable.filter((e) => e.category === picker.category) : pickable;
   const matches = byCategory.filter((e) => e.name.includes(q));
-  const exactMatch = pickable.some((e) => e.name === q);
+  const exactMatch = pickable.some((e) => sameExerciseName(e.name, q));
 
   // Skips exercises already in this session — the point is speeding up
   // what to add *next*, not re-suggesting what's already on screen.
@@ -850,9 +853,18 @@ function wirePicker() {
   const input = container.querySelector('#picker-input');
   input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
+  // Typing only refreshes the results list: a full render() rebuilt the
+  // whole screen on every keystroke and made it jump (feedback 5.11).
   input.addEventListener('input', (e) => {
     picker.query = e.target.value;
-    render();
+    const tmp = document.createElement('div');
+    tmp.innerHTML = renderPicker();
+    const fresh = tmp.querySelector('#picker-results');
+    const results = container.querySelector('#picker-results');
+    if (fresh && results) {
+      results.innerHTML = fresh.innerHTML;
+      wirePickerResults(results);
+    }
   });
   container.querySelectorAll('[data-category]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -860,13 +872,19 @@ function wirePicker() {
       render();
     });
   });
-  container.querySelectorAll('[data-pick]').forEach((btn) => {
+  wirePickerResults(container);
+}
+
+// The pick / edit / add-new buttons — wired again after each keystroke,
+// since the results list is replaced on its own.
+function wirePickerResults(root) {
+  root.querySelectorAll('[data-pick]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const lib = pickableExercises().find((e) => e.id === btn.dataset.pick);
       if (lib) addExerciseToSession(lib);
     });
   });
-  container.querySelectorAll('[data-edit-lib]').forEach((btn) => {
+  root.querySelectorAll('[data-edit-lib]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const lib = library.find((l) => l.id === btn.dataset.editLib);
@@ -879,10 +897,14 @@ function wirePicker() {
       });
     });
   });
-  const addNewBtn = container.querySelector('#picker-add-new');
+  const addNewBtn = root.querySelector('#picker-add-new');
   if (addNewBtn) {
     addNewBtn.addEventListener('click', async () => {
-      const name = picker.query.trim();
+      const name = normalizeExerciseName(picker.query);
+      // One exercise per name (feedback 10.11): an existing one is picked
+      // instead of being created twice.
+      const existing = library.find((l) => sameExerciseName(l.name, name));
+      if (existing) { addExerciseToSession(existing); return; }
       const category = picker.category || '';
       const id = await addExerciseToLibrary({ name, category, defaultWeightMode: 'total' });
       const lib = { id, name, category, defaultWeightMode: 'total', isCustom: true };
@@ -1002,6 +1024,7 @@ function buildExerciseCard(ex) {
       <span class="exercise-num" data-role="exercise-num">${esc(exNum)}</span>
       <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
         <span class="exercise-name">${esc(ex.name)}</span>
+        ${exerciseNote(ex) ? `<span class="exercise-note">${icon('pencil', { className: 'icon--sm' })} ${esc(exerciseNote(ex))}</span>` : ''}
         <span class="exercise-meta${allDone ? ' exercise-meta--done' : ''}" data-role="exercise-meta">${esc(exerciseMetaText(ex))}</span>
       </div>
       <button type="button" class="set-more-btn" data-last-time aria-label="פעם קודמת">${icon('clock', { className: 'icon--sm' })}</button>
@@ -1154,13 +1177,18 @@ function prefillForNewSet(ex) {
     // stage happened to be would silently start it as an (empty, confusing)
     // drop-set parent — that's only ever meant to happen when the user
     // explicitly picks it, so fall back to 'working' here.
-    const type = last.type === 'dropset' ? 'working' : last.type;
+    // Warm-ups don't repeat by themselves: the set after a warm-up starts as
+    // a working set (feedback 7.11 — every set after one warm-up was saved as
+    // a warm-up, so PRs skipped them). A second warm-up is one tap.
+    const type = typeAfter(last.type);
     return { type, weight: last.weight, reps: last.reps, notes: '' };
   }
   const prevSet = ex.prevLoaded ? ex.previous?.sets?.[newIdx] : null;
   if (prevSet) {
     const weight = convertWeight(prevSet.weight, prevSet.weightUnit || 'kg', ex.weightUnit);
-    const type = prevSet.type === 'dropset' ? 'working' : (prevSet.type ?? 'working');
+    // Last time's warm-ups are copied only into the leading sets; once a
+    // working set has been logged here, the rest are working sets.
+    const type = typeFromLastTime(prevSet.type, ex.sets);
     return { type, weight, reps: prevSet.reps, notes: '' };
   }
   return { type: 'working', weight: 20, reps: 8, notes: '' };
@@ -2371,6 +2399,13 @@ function onToggleDone(ex, set) {
   persistSession();
   patchExerciseCard(ex);
 }
+
+// The exercise's standing note from the library (feedback 9.11: machines
+// differ), or ''.
+function libraryNoteFor(name) {
+  return library.find((l) => sameExerciseName(l.name, name))?.note || '';
+}
+const exerciseNote = (ex) => libraryNoteFor(ex.name);
 
 function computePR(ex, set) {
   const history = ex.history || [];
