@@ -217,6 +217,9 @@ by what it contains: only cardio → "ריצה" / "הליכה" etc., only streng
 }
 ```
 
+- `note` (optional string, strength only): a note for this exercise in
+  this workout, usually which machine ("מכונה 2, מושב 4"). The next workout
+  shows it as "פעם קודמת: …". Missing or `""` = no note.
 - `name` must match an `exerciseLibrary` entry **exactly** (same spelling,
   spaces, parentheses). Progress charts and records are keyed by name —
   "לחיצת חזה " with a trailing space is a different exercise with no
@@ -581,7 +584,7 @@ names; add to it only for a genuinely new exercise.
 
 | Field | Type | Notes |
 |---|---|---|
-| `name` | string | Hebrew, unique |
+| `name` | string | Hebrew, unique — compared with spaces and case ignored; the app refuses a second entry with the same name, so check before adding |
 | `category` | string | One of `חזה` · `כתפיים` · `יד אחורית` · `בטן` · `גב` · `רגליים` · `יד קדמית` |
 | `defaultUnit` | string | `kg` |
 | `defaultWeightMode` | string | `total` · `perSide` |

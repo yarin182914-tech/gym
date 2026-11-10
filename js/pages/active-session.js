@@ -16,6 +16,8 @@ import { createPlannedWorkoutCard } from '../ui/planned-workout-card.js';
 import { workoutSwitch } from '../ui/workout-switch.js';
 import { handleQuickActions } from '../ui/quick-add.js';
 import { todayKey } from '../lib/body-weight.js';
+import { normalizeExerciseName, sameExerciseName } from '../lib/exercise-names.js';
+import { typeAfter, typeFromLastTime } from '../lib/set-types.js';
 import { renderProgressChart, buildWeightSeries } from '../lib/charts.js';
 import {
   formatDateHe, formatWeight, unitLabel, convertWeight, SET_TYPES,
@@ -64,6 +66,7 @@ const SESSIONS_STORAGE_KEY = 'gym-active-sessions-v2';
 const LEGACY_SESSION_STORAGE_KEY = 'gym-active-session-v1';
 let picker = { open: false, query: '', category: null };
 let lastTimeModal = null; // { name, previous }
+const noteOpen = new WeakSet(); // exercises whose note field is showing (screen state only)
 let stopQuickActions = null; // while mounted: takes the + button's "הליכה"
 let recentExerciseNames = []; // fetched lazily each time the picker opens
 
@@ -598,6 +601,7 @@ function renderLastTimePane(point, roleAttr) {
         <span class="num last-time-headline-value">${esc(formatWeight(point.set))} × ${esc(point.set.reps)}</span>
         <span class="last-time-headline-date">${esc(formatDateHe(point.date))}</span>
       </div>
+      ${point.note ? `<p class="exercise-note-prev">${icon('pencil', { className: 'icon--sm' })} ${esc(point.note)}</p>` : ''}
       ${setsTable(point.sets)}
     </div>`;
 }
@@ -799,7 +803,7 @@ function renderPicker() {
   const pickable = pickableExercises();
   const byCategory = picker.category ? pickable.filter((e) => e.category === picker.category) : pickable;
   const matches = byCategory.filter((e) => e.name.includes(q));
-  const exactMatch = pickable.some((e) => e.name === q);
+  const exactMatch = pickable.some((e) => sameExerciseName(e.name, q));
 
   // Skips exercises already in this session — the point is speeding up
   // what to add *next*, not re-suggesting what's already on screen.
@@ -850,9 +854,18 @@ function wirePicker() {
   const input = container.querySelector('#picker-input');
   input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
+  // Typing only refreshes the results list: a full render() rebuilt the
+  // whole screen on every keystroke and made it jump (feedback 5.11).
   input.addEventListener('input', (e) => {
     picker.query = e.target.value;
-    render();
+    const tmp = document.createElement('div');
+    tmp.innerHTML = renderPicker();
+    const fresh = tmp.querySelector('#picker-results');
+    const results = container.querySelector('#picker-results');
+    if (fresh && results) {
+      results.innerHTML = fresh.innerHTML;
+      wirePickerResults(results);
+    }
   });
   container.querySelectorAll('[data-category]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -860,13 +873,19 @@ function wirePicker() {
       render();
     });
   });
-  container.querySelectorAll('[data-pick]').forEach((btn) => {
+  wirePickerResults(container);
+}
+
+// The pick / edit / add-new buttons — wired again after each keystroke,
+// since the results list is replaced on its own.
+function wirePickerResults(root) {
+  root.querySelectorAll('[data-pick]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const lib = pickableExercises().find((e) => e.id === btn.dataset.pick);
       if (lib) addExerciseToSession(lib);
     });
   });
-  container.querySelectorAll('[data-edit-lib]').forEach((btn) => {
+  root.querySelectorAll('[data-edit-lib]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const lib = library.find((l) => l.id === btn.dataset.editLib);
@@ -879,10 +898,14 @@ function wirePicker() {
       });
     });
   });
-  const addNewBtn = container.querySelector('#picker-add-new');
+  const addNewBtn = root.querySelector('#picker-add-new');
   if (addNewBtn) {
     addNewBtn.addEventListener('click', async () => {
-      const name = picker.query.trim();
+      const name = normalizeExerciseName(picker.query);
+      // One exercise per name (feedback 10.11): an existing one is picked
+      // instead of being created twice.
+      const existing = library.find((l) => sameExerciseName(l.name, name));
+      if (existing) { addExerciseToSession(existing); return; }
       const category = picker.category || '';
       const id = await addExerciseToLibrary({ name, category, defaultWeightMode: 'total' });
       const lib = { id, name, category, defaultWeightMode: 'total', isCustom: true };
@@ -997,13 +1020,14 @@ function buildExerciseCard(ex) {
         </div>`;
 
   el.innerHTML = `
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+    <div class="exercise-card-head" style="display:flex; align-items:center; gap:4px; margin-bottom:8px;">
       <button type="button" class="set-more-btn exercise-drag-handle" data-role="drag-handle" aria-label="גרירה לשינוי סדר התרגילים" style="flex:none;">${icon('grip-vertical', { className: 'icon--sm' })}</button>
       <span class="exercise-num" data-role="exercise-num">${esc(exNum)}</span>
       <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
         <span class="exercise-name">${esc(ex.name)}</span>
         <span class="exercise-meta${allDone ? ' exercise-meta--done' : ''}" data-role="exercise-meta">${esc(exerciseMetaText(ex))}</span>
       </div>
+      ${isCardio ? '' : `<button type="button" class="set-more-btn exercise-note-toggle" data-note-toggle aria-label="מכשיר או הערה לאימון הזה" aria-expanded="false">${icon('pencil', { className: 'icon--sm' })}<span class="exercise-note-dot" data-note-dot hidden></span></button>`}
       <button type="button" class="set-more-btn" data-last-time aria-label="פעם קודמת">${icon('clock', { className: 'icon--sm' })}</button>
       <button type="button" class="set-more-btn set-more-btn--danger" data-delete-exercise aria-label="מחיקת התרגיל">${icon('trash-2', { className: 'icon--sm' })}</button>
       <button type="button" class="set-more-btn" data-collapse-toggle aria-label="כיווץ/הרחבת התרגיל">
@@ -1012,6 +1036,14 @@ function buildExerciseCard(ex) {
     </div>
     <div class="history-detail${isOpen ? ' history-detail--open' : ''}" data-exercise-detail>
       <div class="history-detail-inner exercise-detail-inner">
+        ${isCardio ? '' : `
+        <div class="exercise-note-panel" data-note-panel hidden>
+          <label class="exercise-note-field">
+            <input type="text" data-exercise-note maxlength="80" value="${esc(ex.note || '')}"
+              placeholder="מכשיר / הערה לאימון הזה" aria-label="מכשיר או הערה לאימון הזה">
+          </label>
+          <p class="exercise-note-prev" data-prev-note hidden></p>
+        </div>`}
         ${controlsHtml}
         <div class="sets-list"></div>
         <div class="row" style="gap:8px; margin-top:10px;">
@@ -1019,9 +1051,28 @@ function buildExerciseCard(ex) {
           ${isCardio ? '<button type="button" class="btn btn-dashed" data-repeat-segments>חזרה ×</button>' : ''}
           <button type="button" class="btn btn-outline" data-finish-exercise style="flex:1;">סיום תרגיל</button>
         </div>
+
       </div>
     </div>
   `;
+
+  // A note for this exercise in this workout — which machine, seat… — so
+  // next time "פעם קודמת" says where it was done (feedback 9.11).
+  // Hidden until the pencil is tapped, so the card stays as clean as before
+  // (feedback 10.11). Open/closed is screen state only, never saved.
+  el.querySelector('[data-exercise-note]')?.addEventListener('input', (e) => {
+    ex.note = e.target.value;
+    persistSession();
+    patchPrevNote(ex, refs);
+  });
+  el.querySelector('[data-note-toggle]')?.addEventListener('click', () => {
+    if (noteOpen.has(ex)) noteOpen.delete(ex); else noteOpen.add(ex);
+    patchPrevNote(ex, refs);
+    if (noteOpen.has(ex)) {
+      if (ex.collapsed) toggleExerciseCollapse(ex);
+      el.querySelector('[data-exercise-note]')?.focus();
+    }
+  });
 
   el.querySelector('[data-last-time]').addEventListener('click', () => {
     lastTimeModal = isCardio
@@ -1107,8 +1158,13 @@ function buildExerciseCard(ex) {
     detailEl: el.querySelector('[data-exercise-detail]'),
     chevronEl: el.querySelector('[data-collapse-chevron]'),
     metaEl: el.querySelector('[data-role="exercise-meta"]'),
+    prevNoteEl: el.querySelector('[data-prev-note]'),
+    notePanelEl: el.querySelector('[data-note-panel]'),
+    noteToggleEl: el.querySelector('[data-note-toggle]'),
+    noteDotEl: el.querySelector('[data-note-dot]'),
   };
   exerciseRefs.set(ex._uid, refs);
+  patchPrevNote(ex, refs);
 
   patchToggleGroup(modeGroupEl, ex.weightMode);
   patchToggleGroup(unitGroupEl, ex.weightUnit);
@@ -1154,13 +1210,18 @@ function prefillForNewSet(ex) {
     // stage happened to be would silently start it as an (empty, confusing)
     // drop-set parent — that's only ever meant to happen when the user
     // explicitly picks it, so fall back to 'working' here.
-    const type = last.type === 'dropset' ? 'working' : last.type;
+    // Warm-ups don't repeat by themselves: the set after a warm-up starts as
+    // a working set (feedback 7.11 — every set after one warm-up was saved as
+    // a warm-up, so PRs skipped them). A second warm-up is one tap.
+    const type = typeAfter(last.type);
     return { type, weight: last.weight, reps: last.reps, notes: '' };
   }
   const prevSet = ex.prevLoaded ? ex.previous?.sets?.[newIdx] : null;
   if (prevSet) {
     const weight = convertWeight(prevSet.weight, prevSet.weightUnit || 'kg', ex.weightUnit);
-    const type = prevSet.type === 'dropset' ? 'working' : (prevSet.type ?? 'working');
+    // Last time's warm-ups are copied only into the leading sets; once a
+    // working set has been logged here, the rest are working sets.
+    const type = typeFromLastTime(prevSet.type, ex.sets);
     return { type, weight, reps: prevSet.reps, notes: '' };
   }
   return { type: 'working', weight: 20, reps: 8, notes: '' };
@@ -1178,8 +1239,29 @@ function patchExerciseCard(ex) {
   patchToggleGroup(refs.inputModeGroupEl, ex.inputMode);
   patchCardioSummary(ex, refs);
   patchExerciseMeta(ex, refs);
+  patchPrevNote(ex, refs);
   applyFocusMode();
   patchExerciseCollapse(ex);
+}
+
+// "פעם קודמת: מכונה Y" under the note field, once last time has loaded and
+// only when last time had a note.
+function patchPrevNote(ex, refs) {
+  const el = refs.prevNoteEl;
+  if (!el) return;
+  const prev = ex.previous?.note || '';
+  el.hidden = !prev;
+  el.textContent = prev ? `פעם קודמת: ${prev}` : '';
+  // The pencil is the only trace on a closed card: accent when this workout
+  // has a note, a small dot when only last time had one.
+  const open = noteOpen.has(ex);
+  const hasNote = !!ex.note?.trim();
+  if (refs.notePanelEl) refs.notePanelEl.hidden = !open;
+  if (refs.noteToggleEl) {
+    refs.noteToggleEl.classList.toggle('exercise-note-toggle--on', hasNote || open);
+    refs.noteToggleEl.setAttribute('aria-expanded', String(open));
+  }
+  if (refs.noteDotEl) refs.noteDotEl.hidden = open || hasNote || !prev;
 }
 
 function exerciseSetsSummary(ex) {
@@ -2435,16 +2517,16 @@ function headlineSet(sets) {
   }, null);
 }
 
-function toPoint(date, sets) {
+function toPoint(date, sets, note = '') {
   const set = headlineSet(sets);
-  return set ? { date, sets, set, profile: weightProfile(sets) } : null;
+  return set ? { date, sets, note, set, profile: weightProfile(sets) } : null;
 }
 
 function findExercisePR(ex) {
   // ex.history is oldest first; `>= 0` lets a later workout take over a tie.
   let best = null;
   for (const h of ex.history || []) {
-    const point = toPoint(h.date, h.sets);
+    const point = toPoint(h.date, h.sets, h.note);
     if (point && (!best || compareWeightProfiles(point.profile, best.profile) >= 0)) best = point;
   }
   // ex.previous comes from a separate lookup; never let it outrank the PR.
@@ -2457,7 +2539,7 @@ function findExercisePR(ex) {
 // (see getLastPerformance).
 function findExerciseLast(ex) {
   if (!ex.previous) return null;
-  return toPoint(ex.previous.workoutDate, ex.previous.sets);
+  return toPoint(ex.previous.workoutDate, ex.previous.sets, ex.previous.note);
 }
 
 function startWorkout(customDate, hasTime = false) {
@@ -2574,6 +2656,7 @@ function sessionExercisesFrom(savedExercises, { done }) {
       _uid: nextUid(),
       name: savedEx.name,
       category: savedEx.category || '',
+      note: savedEx.note || '',
       weightMode: sets[0]?.weightMode || 'total',
       weightUnit: sets[0]?.weightUnit || 'kg',
       ...lookups,
@@ -2915,6 +2998,7 @@ async function finishWorkout() {
         name: ex.name,
         category: ex.category,
         ...(ex.kind === 'cardio' ? { kind: 'cardio', activity: ex.activity, inputMode: ex.inputMode } : {}),
+        ...(ex.note?.trim() ? { note: ex.note.trim() } : {}),
         sets: buildSavedSets(ex),
       }))
       .filter((ex) => ex.sets.length > 0);

@@ -3634,3 +3634,84 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
   margin-inline-start: var(--space-1);
   vertical-align: middle;
 }
+
+
+/* This workout's note on an exercise (which machine…): a quiet one-line
+   field at the top of the open card; last time's note right under it. */
+.exercise-note-toggle {
+  position: relative;
+}
+
+.exercise-note-toggle--on {
+  color: var(--accent);
+}
+
+/* Last time had a note and this workout has none yet. */
+.exercise-note-dot {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.exercise-note-panel {
+  margin-bottom: var(--space-2);
+}
+
+.exercise-note-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-3);
+  min-height: 40px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+.exercise-note-field:focus-within {
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.exercise-note-field input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.exercise-note-prev {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 var(--space-3);
+  padding-inline-start: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.exercise-note-prev .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.exercise-note-panel[hidden],
+.exercise-note-prev[hidden],
+.exercise-note-dot[hidden] {
+  display: none;
+}
+
+/* Four icon buttons share the header with the name; slimmer (still full
+   height) so the name and "3/4 סטים" keep one line each at phone width. */
+.exercise-card-head .set-more-btn {
+  min-width: 36px;
+}
