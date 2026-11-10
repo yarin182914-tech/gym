@@ -7,9 +7,11 @@
 // was saved with, so changing the base later doesn't rewrite past days.
 
 import { shiftKey } from './body-weight.js';
+import { ACTIVITY } from './rules.js';
 
-export const BASE_KCAL = 1950;
-export const KCAL_PER_STEP = 0.04;
+// Both numbers live in rules.js; re-exported here for existing callers.
+export const BASE_KCAL = ACTIVITY.baseKcal;
+export const KCAL_PER_STEP = ACTIVITY.kcalPerStep;
 
 export const stepsKcal = (steps) => Math.round((steps || 0) * KCAL_PER_STEP);
 

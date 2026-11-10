@@ -10,7 +10,7 @@ import {
   devRenameExerciseEverywhere, devDeleteExerciseFromLibrary,
   devAddNutritionEntry, devListNutritionEntries, devUpdateNutritionEntry, devDeleteNutritionEntry,
   devSetBodyWeight, devListBodyWeights, devDeleteBodyWeight,
-  devSetDailyActivity, devListDailyActivity,
+  devSetDailyActivity, devGetDailyActivity, devMergeDailyActivity, devListDailyActivity,
   devGetPlannedWorkout, devUpdatePlannedWorkout,
   devSetSleep, devListSleep, devDeleteSleep,
   devNewHabitId, devSetHabit, devDeleteHabit, devListHabits, devSetHabitMark, devListHabitLogs,
@@ -338,6 +338,24 @@ export async function setDailyActivity(dateKey, data) {
     date: dateKey,
     loggedAt: serverTimestamp(),
   });
+}
+
+// One day's doc, or null.
+export async function getDailyActivity(dateKey) {
+  if (!useCloud) return devGetDailyActivity(dateKey);
+  const snap = await getDoc(doc(db, 'users', uidOrThrow(), 'dailyActivity', dateKey));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+// Updates only the given fields and keeps the rest (note, a coach's
+// workoutKcal…) — the steps import (js/lib/steps-import.js#mergeSteps).
+export async function mergeDailyActivity(dateKey, data) {
+  if (!useCloud) return devMergeDailyActivity(dateKey, data);
+  await setDoc(doc(db, 'users', uidOrThrow(), 'dailyActivity', dateKey), {
+    ...data,
+    date: dateKey,
+    loggedAt: serverTimestamp(),
+  }, { merge: true });
 }
 
 // Newest day first.

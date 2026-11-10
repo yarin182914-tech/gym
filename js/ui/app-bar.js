@@ -2,7 +2,7 @@
 // the profile button. Sticky, under the phone's status bar (safe-area
 // inset), and outside #app, so a route change only swaps its title.
 //
-// The profile sheet opens "התכנית שלי" (#/plan), the feedback button and
+// The profile sheet opens "התכנית שלי" (#/plan), "חיבורים", the feedback button and
 // the Feedback list (all off the bottom nav), and "install the app" for as
 // long as it's running in a browser tab. A screen with no tab of its own
 // gets a back arrow before its title.
@@ -23,10 +23,12 @@ const TITLES = {
   sleep: 'שינה',
   plan: 'התכנית שלי',
   feedback: 'משוב',
+  connections: 'חיבורים',
+  import: 'צעדים',
 };
 
 // Screens reached from the level bar or the profile sheet, not a tab.
-const NO_TAB = new Set(['dashboard', 'plan', 'feedback']);
+const NO_TAB = new Set(['dashboard', 'plan', 'feedback', 'connections']);
 
 let mounted = false;
 let cameFromApp = false; // a screen was showing before this one
@@ -83,6 +85,7 @@ function openProfileSheet() {
         <h3 style="margin:0 0 10px; color:var(--text);">פרופיל והגדרות</h3>
         <div class="settings-list">
           ${item('data-plan', 'target', 'התכנית שלי', 'מטרות, שינה, הרגלים, אימונים ותזונה')}
+          ${item('data-connections', 'plug', 'חיבורים', 'צעדים מהאייפון ומקורות נוספים')}
           ${isStandalone() ? '' : item('data-install', 'download', 'התקנת האפליקציה', 'פתיחה במסך מלא, בלי שורת הכתובת')}
           ${item('data-feedback-new', 'message-square', 'שליחת משוב')}
           ${item('data-feedback-list', 'sticky-note', 'כל המשובים')}
@@ -90,6 +93,10 @@ function openProfileSheet() {
       body.querySelector('[data-plan]').addEventListener('click', () => {
         sheetApi.close();
         navigate('plan');
+      });
+      body.querySelector('[data-connections]').addEventListener('click', () => {
+        sheetApi.close();
+        navigate('connections');
       });
       body.querySelector('[data-install]')?.addEventListener('click', () => {
         sheetApi.close();

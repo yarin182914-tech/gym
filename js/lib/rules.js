@@ -48,3 +48,32 @@ export const HABITS = {
   morningUntilHour: 12,
   eveningFromHour: 18,
 };
+
+// Calories out (dailyActivity, see docs/DATA.md). The base is resting +
+// daily life — Mifflin-St Jeor BMR × 1.2, sedentary — until M10 makes it
+// personal. Each saved day keeps the base it was saved with.
+export const ACTIVITY = {
+  baseKcal: 1950,
+  kcalPerStep: 0.04,
+};
+
+// Steps from the iPhone: an iOS Shortcut opens #/import?steps=N&date=…
+// (js/pages/import.js) and the "חיבורים" page explains how to set it up.
+export const STEPS_IMPORT = {
+  maxSteps: 100000,
+  // How far back `date` may go; today is 0. Never in the future.
+  maxDaysBack: 7,
+  // The day `date` defaults to, and the window it's checked against.
+  timeZone: 'Asia/Jerusalem',
+  // "חיבורים" hints that something's wrong after this long with no import.
+  staleAfterDays: 2,
+  // How many days of dailyActivity the "חיבורים" page reads for the
+  // last import.
+  statusDays: 30,
+  // The ready-made shortcut, shared from iCloud. ירין publishes it once;
+  // while it's empty the "הוספת הקיצור" button stays off.
+  shortcutUrl: 'https://www.icloud.com/shortcuts/18d3b3748dc544c2b28928cb007d90d9',
+  shortcutName: 'ג׳ימי צעדים',
+  // Suggested time for the daily automation (shown in the how-to).
+  automationTime: '21:00',
+};
