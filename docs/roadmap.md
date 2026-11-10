@@ -53,6 +53,15 @@ Plan: "סוגי אימון: פונקציונלי, קרוספיט, פילאטיס
 - PRs: same-name CrossFit WOD (faster time / more rounds+reps); functional: more rounds in the same format. History labels by type; progress chart per type.
 - Document the new kind in `docs/DATA.md` so the coach can log Pilates/CrossFit from chat.
 
+## M3d ☐ Fixes from the feedback board — `feature/m3d-feedback-fixes`
+No plan chapter; ירין asked 2026-11-10 to solve every open item on the in-app feedback board (`siteFeedback`). Each fix also flips that item's status to `done` on the board (the app's own feedback screen, by ירין).
+- **Wrong PR on deadlift (bug, 7.11).** Cause: a new set copies the previous set's `type`, so after one warm-up set every following set is saved as `warmup` too, and PRs/"last time" skip warm-ups. Found in 14 exercises across 13 workouts (e.g. deadlift 4.11: 31.25 kg ×3 all `warmup`, so the PR still shows 30). Fix: `prefillForNewSet` turns `warmup` into `working` for the next set (a second warm-up is one tap); the same when prefilling from last time. Old data: do NOT rewrite in the app; the coach lists the affected sets and fixes them only after ירין says yes.
+- **Typing a new exercise name jumps the screen up (bug, 5.11).** Cause: every keystroke in the picker search calls the full `render()`. Fix: on input re-render only `#picker-results`; keep focus and scroll.
+- **Slow, and page changes stutter on weak internet (30.10, 1.11).** Causes: (1) the service worker is network-first for every one of ~70 modules, so each screen waits on the network; (2) saves `await` the server ack (`setDoc`/`addDoc`), which on weak signal blocks the UI although the write is already in the local cache. Fix: service worker → cache-first (stale-while-revalidate) for same-origin files, cache name bumped on each release; writes resolve once queued locally (same pattern as the steps import: race with a short timeout), with a small "ממתין לסנכרון" dot until the server confirms; first paint of each screen from the Firestore cache, refresh after.
+- **A note per exercise (7.11).** Some machines differ (seat height, handle, which machine). New optional `note` on the `exerciseLibrary` entry, edited in the exercise edit sheet and shown under the exercise name during a workout and in "last time". Document in DATA.md.
+- **See that a workout is running in the background (9.11).** A web app can't show an iPhone Live Activity. Fix: (1) a sticky "אימון פעיל · 32:10" pill above the bottom nav on every screen, tap → back to the workout; (2) app-icon badge via `navigator.setAppBadge(1)` while a live workout is open (works for the home-screen app on iOS 16.4+ once notification permission exists, so it lights up fully after M9); cleared on finish/delete.
+- Done when: each item is reproduced before and checked after on the preview at 390px; a unit test covers the warm-up → working prefill; DATA.md documents `exerciseLibrary.note`.
+
 ## M4 ☐ Points, levels and reward moments — `feature/m4-rewards`
 Plan: "שלב 2: תכנית התגמול" (all subsections except "לאורך זמן").
 - Data: `users/{uid}/pointsLedger/{auto}` — one entry per award: `{ date, source: sleep|habit|meal|workout|..., ref, points, reason }`. Level, totals, streaks and badges are **derived** from the ledger (never stored as the only copy).
@@ -108,6 +117,9 @@ Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "w
 - Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
 ## M12 ☐ "קלוד" instructions page — `feature/m12-claude-page`
 Plan: "שלב 6", and the "ליזום, לא לחייב" rules in "שאלון חיים ותכנית אב": Claude reads `planDepth` and never assumes more; offers to go deeper at natural moments, max once a month; stops after two declines until asked; full-plan users get full initiative.
+
+## M13 ☐ Share achievements — `feature/m13-share`
+Asked by ירין 2026-11-10, for after the app is ready for other users (after the pilot). Share a level-up, badge, PR, streak or weekly summary as an image card (canvas → PNG) through the phone's share sheet (`navigator.share` with files), no raw data. Opt-in per share, nothing posted automatically.
 
 ## Later
 "לאורך זמן" (graduating habits, seasons, monthly recalibration, vacation mode), Garmin (שלב 7), pilot (שלב 8).
