@@ -1024,7 +1024,7 @@ function buildExerciseCard(ex) {
       <span class="exercise-num" data-role="exercise-num">${esc(exNum)}</span>
       <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
         <span class="exercise-name">${esc(ex.name)}</span>
-        ${exerciseNote(ex) ? `<span class="exercise-note">${icon('pencil', { className: 'icon--sm' })} ${esc(exerciseNote(ex))}</span>` : ''}
+        ${isCardio ? '' : `<button type="button" class="exercise-note exercise-note-btn" data-edit-note aria-label="הערה קבועה לתרגיל">${icon('pencil', { className: 'icon--sm' })} ${exerciseNote(ex) ? esc(exerciseNote(ex)) : 'הערה'}</button>`}
         <span class="exercise-meta${allDone ? ' exercise-meta--done' : ''}" data-role="exercise-meta">${esc(exerciseMetaText(ex))}</span>
       </div>
       <button type="button" class="set-more-btn" data-last-time aria-label="פעם קודמת">${icon('clock', { className: 'icon--sm' })}</button>
@@ -1045,6 +1045,23 @@ function buildExerciseCard(ex) {
       </div>
     </div>
   `;
+
+  // The standing note sits on the card itself (feedback 10.11: the pencil
+  // in the add-exercise list was too hidden). Opens the same edit sheet.
+  el.querySelector('[data-edit-note]')?.addEventListener('click', async () => {
+    let lib = library.find((l) => sameExerciseName(l.name, ex.name));
+    if (!lib) {
+      const id = await addExerciseToLibrary({ name: ex.name, category: ex.category || '', defaultWeightMode: ex.weightMode || 'total' });
+      lib = { id, name: normalizeExerciseName(ex.name), category: ex.category || '' };
+      library.push(lib);
+    }
+    openExerciseEditSheet(lib, {
+      onSaved: async () => {
+        library = await listExerciseLibrary();
+        render();
+      },
+    });
+  });
 
   el.querySelector('[data-last-time]').addEventListener('click', () => {
     lastTimeModal = isCardio

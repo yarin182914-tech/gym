@@ -3648,3 +3648,12 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
   width: 12px;
   height: 12px;
 }
+
+.exercise-note-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 2px 0;
+  cursor: pointer;
+  text-align: start;
+}
