@@ -12,6 +12,7 @@ import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { createSleepCard } from '../ui/sleep-card.js';
 import { handleQuickActions } from '../ui/quick-add.js';
 import { icon } from '../ui/icon.js';
+import { mountSleepTrend } from '../ui/sleep-trend.js';
 
 const WEEKDAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 // One word per night, its worst part (nightGrade) — grey when missed, never red.
@@ -22,6 +23,10 @@ let sleepCard = null;
 let nights = [];
 let settings = sleepSettings();
 let stopQuickActions = null;
+let trend = null; // the "מגמה" charts
+
+// A canvas chart doesn't follow CSS colour changes — redraw on a theme flip.
+window.addEventListener('gym-theme-change', () => trend?.redraw());
 
 const todayKey = () => dateKey(new Date());
 
@@ -45,14 +50,17 @@ export async function mountSleep(rootEl) {
     onChange(list) {
       nights = list;
       renderLog();
+      trend?.redraw();
     },
     onSettingsChange(next) {
       settings = next;
       renderLog();
+      trend?.redraw();
     },
   });
   container.innerHTML = `
     <div id="sleep-slot"></div>
+    <section data-sleep-trend aria-label="מגמה"></section>
     <section data-sleep-log aria-label="30 לילות אחרונים"></section>`;
   container.querySelector('#sleep-slot').replaceWith(sleepCard);
   container.querySelector('[data-sleep-log]').addEventListener('click', (e) => {
@@ -60,6 +68,11 @@ export async function mountSleep(rootEl) {
     if (row) sleepCard.openNight(row.dataset.night);
   });
   renderLog();
+  trend = mountSleepTrend(container.querySelector('[data-sleep-trend]'), {
+    getNights: () => nights,
+    getSettings: () => settings,
+    today: todayKey,
+  });
 
   // The + button's "שינה": last night's sheet.
   stopQuickActions = handleQuickActions('sleep', () => sleepCard?.openNight(todayKey()));
@@ -68,6 +81,8 @@ export async function mountSleep(rootEl) {
 export function unmountSleep() {
   stopQuickActions?.();
   stopQuickActions = null;
+  trend?.destroy();
+  trend = null;
   container = null;
   sleepCard = null;
   nights = [];

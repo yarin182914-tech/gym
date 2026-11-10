@@ -14,6 +14,7 @@ import { emptyState } from '../ui/empty-state.js';
 import { icon } from '../ui/icon.js';
 import { mountNumericField } from '../ui/numeric-input.js';
 import { createBodyWeightCard } from '../ui/body-weight-card.js';
+import { mountBodyWeightTrend } from '../ui/body-weight-trend.js';
 import { mountNutritionTrend } from '../ui/nutrition-trend.js';
 import { mountDateField, friendlyDate } from '../ui/date-time-picker.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
@@ -63,6 +64,11 @@ let aiStatus = null; // null | 'loading' | 'unavailable' | 'error' | 'reviewing'
 let reviewItems = null; // mutable copy of analyzeFoodPhoto()'s items while aiStatus === 'reviewing'
 let gramsFieldCtrls = []; // mountNumericField controllers, one per reviewItems row
 let bodyWeightCard = null; // created once per visit, re-attached by every render()
+// "משקל גוף" — the weight trend chart, at the bottom; like the weigh-in
+// card, one element per visit that every render() re-attaches.
+let weightTrendEl = null;
+let weightTrend = null;
+let weightsForTrend = [];
 let activities = []; // dailyActivity docs, newest day first
 let goals = { ...DEFAULT_GOALS };
 // The day the ring, the macro bars and the meal list show ('yyyy-mm-dd').
@@ -74,6 +80,7 @@ let trend = null; // the "מגמה" card's controller — its chart is destroyed
 // own — redraw the screen when the theme switch flips while it's showing.
 window.addEventListener('gym-theme-change', () => {
   if (container && trend) render();
+  weightTrend?.redraw();
 });
 
 const dayOf = (d) => dateInputValue(toDate(d));
@@ -113,7 +120,9 @@ export async function mountNutrition(rootEl) {
   entries = loaded;
   activities = acts;
   goals = goalsFrom(settings);
-  bodyWeightCard = createBodyWeightCard(weights);
+  bodyWeightCard = createBodyWeightCard(weights, { onSaved: () => weightTrend?.redraw() });
+  weightTrendEl = document.createElement('div');
+  weightsForTrend = weights;
   render();
   stopQuickActions = handleQuickActions('nutrition', onQuickAction);
 }
@@ -129,6 +138,10 @@ export function unmountNutrition() {
   reviewItems = null;
   gramsFieldCtrls = [];
   bodyWeightCard = null;
+  weightTrend?.destroy();
+  weightTrend = null;
+  weightTrendEl = null;
+  weightsForTrend = [];
   activities = [];
   selectedDay = todayKey();
   trend?.destroy();
@@ -381,9 +394,13 @@ function render() {
     </div>
 
     <div data-nut-trend></div>
+    <div id="weight-trend-slot"></div>
   `;
 
   container.querySelector('#body-weight-slot').replaceWith(bodyWeightCard);
+  container.querySelector('#weight-trend-slot').replaceWith(weightTrendEl);
+  // Mounted once it's on the page, so its toggle can measure itself.
+  if (!weightTrend) weightTrend = mountBodyWeightTrend(weightTrendEl, weightsForTrend);
 
   mountDateField(container.querySelector('[data-day-field]'), {
     value: selectedDay,
@@ -446,9 +463,17 @@ function openMealForm() {
 
 // The + button: "ארוחה" opens the add-meal form for today (or brings back
 // the one already open); "שקילה" brings up the morning weigh-in card,
-// ready to type.
+// ready to type; "צעדים" opens today's activity sheet.
 function onQuickAction(action) {
   if (!container) return;
+  if (action === 'steps') {
+    if (selectedDay !== todayKey()) {
+      selectedDay = todayKey();
+      render();
+    }
+    openActivitySheet();
+    return;
+  }
   if (action === 'meal') {
     if (!formOpen) {
       selectedDay = todayKey();

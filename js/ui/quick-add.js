@@ -1,9 +1,12 @@
 // The floating + button: quick logging from any screen. It opens a bottom
-// sheet of four, and each one opens the form that already exists for it:
+// sheet, and each item opens the form that already exists for it:
+//   אימון  → אימון, a new workout with the exercise picker open
+//   הליכה  → אימון, a new workout with a walk ready to fill in
 //   ארוחה  → תזונה, the add-meal form
 //   שקילה  → תזונה, the morning weigh-in card
+//   צעדים  → תזונה, today's activity sheet
 //   שינה   → שינה, last night's sheet
-//   הליכה  → אימון, a new workout with a walk ready to fill in
+//   הרגל   → היום, the habits (a new one when there are none)
 //
 // A screen takes its actions with handleQuickActions(route, fn) once it has
 // loaded. An action asked for while its screen is showing runs at once;
@@ -11,18 +14,23 @@
 // goes somewhere else first.
 //
 // The button hides itself (css/03-components.css) whenever it could cover
-// a form's save button — a sheet or dialog open, a field focused, the meal
-// form open.
+// a form's save button — a sheet or dialog open, the keyboard up, the meal
+// form open. "Keyboard up" is a focused field AND a visibly shorter
+// viewport: a field focused by code (שקילה) opens no keyboard on iPhone,
+// and hiding on focus alone left the button gone until the field blurred.
 
 import { icon } from './icon.js';
 import { openBottomSheet } from './bottom-sheet.js';
 import { navigate, onRouteChange } from '../lib/router.js';
 
 const ITEMS = [
+  { route: 'session', action: 'workout', icon: 'dumbbell', label: 'אימון' },
+  { route: 'session', action: 'walk', icon: 'walk', label: 'הליכה' },
   { route: 'nutrition', action: 'meal', icon: 'utensils', label: 'ארוחה' },
   { route: 'nutrition', action: 'weigh', icon: 'weight', label: 'שקילה' },
+  { route: 'nutrition', action: 'steps', icon: 'footprints', label: 'צעדים' },
   { route: 'sleep', action: 'sleep', icon: 'moon', label: 'שינה' },
-  { route: 'session', action: 'walk', icon: 'walk', label: 'הליכה' },
+  { route: 'today', action: 'habit', icon: 'list-checks', label: 'הרגל' },
 ];
 
 const handlers = {}; // route -> fn(action), while that screen is mounted
@@ -65,6 +73,31 @@ export function mountQuickAdd() {
 
   onRouteChange((name) => {
     if (pending && pending.route !== name) pending = null;
+  });
+
+  watchKeyboard();
+}
+
+const KEYBOARD_MIN_PX = 150; // shorter than this is a toolbar, not a keyboard
+
+function watchKeyboard() {
+  const vv = window.visualViewport;
+  if (!vv) return; // old browsers: the button simply stays
+  // The tallest the screen has been with nothing being typed into — the
+  // keyboard is up when the visible part is well short of it.
+  let fullHeight = vv.height;
+  const typing = () => document.activeElement?.matches('input, textarea, select, [contenteditable="true"]');
+  const update = () => {
+    if (!typing()) fullHeight = Math.max(fullHeight, vv.height);
+    const open = typing() && vv.height < fullHeight - KEYBOARD_MIN_PX;
+    document.body.classList.toggle('keyboard-open', open);
+  };
+  vv.addEventListener('resize', update);
+  document.addEventListener('focusin', update);
+  document.addEventListener('focusout', () => setTimeout(update, 0));
+  window.addEventListener('orientationchange', () => {
+    fullHeight = 0;
+    setTimeout(update, 300);
   });
 }
 

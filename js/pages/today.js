@@ -30,6 +30,7 @@ import { showToast } from '../ui/toast.js';
 import { icon } from '../ui/icon.js';
 import { esc } from '../core/dom.js';
 import { navigate } from '../lib/router.js';
+import { handleQuickActions } from '../ui/quick-add.js';
 
 const LEVEL_TEXT = { full: 'מלא', short: 'מקוצר', none: 'פחות מהמקוצר, לא נורא' };
 
@@ -47,6 +48,7 @@ let swallowClick = false; // the click that ends a long press
 // The day the habit cards show and mark: null = today. Picking an earlier
 // day (up to HABITS.backfillDays back) marks a habit you forgot to log.
 let habitDay = null;
+let stopQuickActions = null; // while mounted: the + button's "הרגל"
 
 const todayKey = () => dateKey(new Date());
 const habitKey = () => habitDay ?? todayKey();
@@ -104,9 +106,18 @@ export async function mountToday(rootEl) {
     },
   });
   render();
+  // The + button's "הרגל": today's habits, ready to mark (or a new one when
+  // there are none).
+  stopQuickActions = handleQuickActions('today', () => {
+    const title = container?.querySelector('.today-section-title');
+    if (!activeHabits().length || !title) addHabit();
+    else title.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 }
 
 export function unmountToday() {
+  stopQuickActions?.();
+  stopQuickActions = null;
   window.removeEventListener('gym-rewards', onRewards);
   document.removeEventListener('visibilitychange', flushIfHidden);
   window.removeEventListener('pagehide', flushSlips);

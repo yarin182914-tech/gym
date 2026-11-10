@@ -7,7 +7,9 @@
 
 process.env.TZ = 'Asia/Jerusalem';
 
-const { buildNight, evaluateNight, nightGrade, sleepSettings, sleepStreak } = await import('../js/lib/sleep.js');
+const {
+  buildNight, evaluateNight, nightGrade, sleepSettings, sleepStreak, sleepSeries, minutesAfterSix, clockFromMinutesAfterSix,
+} = await import('../js/lib/sleep.js');
 
 const settings = sleepSettings({}); // the defaults: 22:30 / 23:00, wake 06:30, 8h, Thu+Fri flexible
 
@@ -96,6 +98,19 @@ check('wake before bedtime → no night', buildNight('2026-11-11', '05:00', '04:
   ];
   check('streak of 4, stopping at the late Wednesday', sleepStreak(nights, settings, '2026-11-09'), 4);
   check('this morning not logged yet: streak from yesterday', sleepStreak(nights, settings, '2026-11-10'), 4);
+}
+
+// Chart series (js/ui/sleep-trend.js).
+{
+  check('22:30 is 270 after 18:00', minutesAfterSix(new Date(2026, 10, 9, 22, 30)), 270);
+  check('00:15 is 375 after 18:00', minutesAfterSix(new Date(2026, 10, 10, 0, 15)), 375);
+  check('375 back to 00:15', clockFromMinutesAfterSix(375), '00:15');
+  const nights = [night('2026-11-09', '22:20', '06:30'), night('2026-11-07', '01:00', '09:00')];
+  const s = sleepSeries(nights, settings, '2026-11-09', 3);
+  check('three mornings, oldest first', s.keys, ['2026-11-07', '2026-11-08', '2026-11-09']);
+  check('missing night is null', s.hours, [8, null, 8.2]);
+  check('Friday night is flexible, no target', [s.flexible[0], s.target[0]], [true, null]);
+  check('logged and on target', [s.logged, s.onTarget], [2, 2]);
 }
 
 console.log(failed ? `\n${failed} FAILED` : '\nall passed');

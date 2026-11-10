@@ -3459,17 +3459,18 @@ button.today-level > .icon {
 }
 
 /* Out of the way whenever it could cover something: a sheet or dialog is
-   open, a form is being typed into (the phone keyboard is up), the meal
+   open, the phone keyboard is up (js/ui/quick-add.js sets .keyboard-open —
+   a field focused by code, with no keyboard, keeps the button), the meal
    form is open, or the install banner sits where it would. */
 body:has(.sheet-overlay, .modal-overlay, .install-banner, [data-meal-form]) .fab,
-body:has(input:focus, textarea:focus, select:focus) .fab,
+body.keyboard-open .fab,
 #app.hidden ~ .fab {
   display: none;
 }
 
 .quick-add-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-2);
 }
 
@@ -3478,7 +3479,8 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: var(--space-4) var(--space-2);
+  padding: var(--space-3) var(--space-1);
+  font-size: var(--text-sm);
   background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -4520,6 +4522,10 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
   margin: 0 0 var(--space-3);
   font-size: var(--text-sm);
 }
+
+/* "מגמה" on the sleep screen (js/ui/sleep-trend.js) */
+.sleep-trend-sub { margin: 10px 0 6px; font-size: 0.85rem; color: var(--text-muted); font-weight: var(--weight-semibold); }
+.sleep-trend-note { font-size: 0.72rem; margin: 10px 0 0; text-align: center; }
 
 /* ---------- "ללמוד" (M8b) ---------- */
 .lib-page {

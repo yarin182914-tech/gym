@@ -43,7 +43,8 @@ function changeText(kg, prev) {
 }
 
 // weights: newest day first (listBodyWeights); kept that way in place.
-export function createBodyWeightCard(weights) {
+// onSaved() runs after each weigh-in is saved (the trend card redraws).
+export function createBodyWeightCard(weights, { onSaved } = {}) {
   const el = document.createElement('div');
   el.className = 'card bw-card';
   let editing = false;
@@ -179,6 +180,7 @@ export function createBodyWeightCard(weights) {
     editing = false;
     dateKey = todayKey();
     render();
+    onSaved?.();
   }
 
   render();
