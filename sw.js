@@ -5,7 +5,8 @@
 // build step, so every successful same-origin GET is just cached
 // opportunistically as it's fetched instead of enumerating every page module
 // here that would drift out of sync.
-const CACHE_NAME = 'gym-site-v3';
+const CACHE_NAME = 'gym-site-v4';
+const NETWORK_WAIT_MS = 1200;
 
 // The one exception: the top-level shell IS worth precaching explicitly, so
 // a launch from the home-screen icon is instant/offline even on the very
@@ -48,13 +49,23 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
 
-  event.respondWith(
-    fetch(req)
-      .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-        return res;
-      })
-      .catch(() => caches.match(req))
-  );
+  // Network first, but never wait long: on weak signal a screen used to hang
+  // on each of ~70 module files (feedback 30.10, 1.11). After NETWORK_WAIT_MS
+  // the cached copy is served, and the network answer still refreshes the
+  // cache for next time. No cached copy → keep waiting for the network.
+  const network = fetch(req).then((res) => {
+    if (res.ok) {
+      const copy = res.clone();
+      caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+    }
+    return res;
+  });
+  event.respondWith(new Promise((resolve) => {
+    let done = false;
+    const finish = (res) => { if (!done && res) { done = true; resolve(res); } };
+    const timer = setTimeout(() => caches.match(req).then(finish), NETWORK_WAIT_MS);
+    network
+      .then((res) => { clearTimeout(timer); finish(res); })
+      .catch(() => { clearTimeout(timer); caches.match(req).then((cached) => finish(cached || Response.error())); });
+  }));
 });

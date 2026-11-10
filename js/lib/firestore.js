@@ -1,5 +1,5 @@
 import {
-  collection, doc, setDoc, addDoc, getDoc, getDocs, updateDoc, deleteDoc,
+  collection, doc, setDoc as rawSetDoc, getDoc, getDocs, updateDoc as rawUpdateDoc, deleteDoc as rawDeleteDoc,
   query, orderBy, limit, where, serverTimestamp, deleteField,
 } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js';
 import { db, useCloud } from '../firebase-config.js';
@@ -19,6 +19,26 @@ import {
 } from './dev-store.js';
 import { lastPerformanceIn, exerciseHistoryIn, workoutDayKey } from './workout-types.js';
 import { bodyKgOn as bodyKgFrom, dayWorkoutKcal, workoutKcalPatch } from './workout-kcal.js';
+import { normalizeExerciseName, findByName } from './exercise-names.js';
+import { WRITE_WAIT_MS } from './rules.js';
+
+// Writes land in the persistent local cache at once and sync by themselves,
+// but Firestore's promise waits for the server. On weak signal that froze
+// every save button (feedback 1.11 "לא עובד חלק באינטרנט חלש"), so a write
+// counts as done once the server answers or WRITE_WAIT_MS passes, whichever
+// comes first. A real failure is still logged.
+function settle(write) {
+  write.catch((err) => console.error('[firestore] write failed', err));
+  return Promise.race([write, new Promise((r) => setTimeout(r, WRITE_WAIT_MS))]);
+}
+const setDoc = (...args) => settle(rawSetDoc(...args));
+const updateDoc = (...args) => settle(rawUpdateDoc(...args));
+const deleteDoc = (...args) => settle(rawDeleteDoc(...args));
+// The id is made on the device, so a new doc doesn't wait for the server.
+const addDoc = (colRef, data) => {
+  const ref = doc(colRef);
+  return setDoc(ref, data).then(() => ref);
+};
 
 function uidOrThrow() {
   const uid = currentUid();
@@ -239,12 +259,17 @@ export async function listExerciseLibrary() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+// One entry per name: a name that already exists (spaces and case
+// ignored) returns that entry's id instead of adding a second one.
 export async function addExerciseToLibrary(exercise) {
-  if (!useCloud) return devAddExerciseToLibrary(exercise);
+  const name = normalizeExerciseName(exercise.name);
+  const existing = findByName(await listExerciseLibrary(), name);
+  if (existing) return existing.id;
+  if (!useCloud) return devAddExerciseToLibrary({ ...exercise, name });
   const uid = uidOrThrow();
   const ref = collection(db, 'users', uid, 'exerciseLibrary');
   const docRef = await addDoc(ref, {
-    name: exercise.name,
+    name,
     category: exercise.category ?? '',
     defaultUnit: exercise.defaultUnit ?? 'kg',
     defaultWeightMode: exercise.defaultWeightMode ?? 'total',

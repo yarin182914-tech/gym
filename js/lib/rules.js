@@ -119,3 +119,7 @@ export const WORKOUTS = {
   // (dailyActivity.steps), so they add nothing here — history and streaks only.
   freeWalkRunKcal: 0,
 };
+
+// Saves stop waiting for the server after this long; the write is already
+// in the phone's local copy and syncs by itself (js/lib/firestore.js).
+export const WRITE_WAIT_MS = 1500;

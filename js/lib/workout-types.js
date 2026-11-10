@@ -205,7 +205,7 @@ export function lastPerformanceIn(workouts, exerciseName, excludeWorkoutId = nul
   for (const w of workouts || []) {
     if (w.id === excludeWorkoutId) continue;
     const ex = (w.exercises || []).find((e) => e.name === exerciseName && exerciseKind(e) !== 'session');
-    if (ex) return { workoutDate: w.date, sets: ex.sets || [] };
+    if (ex) return { workoutDate: w.date, sets: ex.sets || [], note: ex.note || '' };
   }
   return null;
 }
@@ -216,7 +216,7 @@ export function exerciseHistoryIn(workouts, exerciseName, excludeWorkoutId = nul
   for (const w of workouts || []) {
     if (w.id === excludeWorkoutId) continue;
     const ex = (w.exercises || []).find((e) => e.name === exerciseName && exerciseKind(e) !== 'session');
-    if (ex && (ex.sets || []).length) points.push({ date: w.date, sets: ex.sets });
+    if (ex && (ex.sets || []).length) points.push({ date: w.date, sets: ex.sets, note: ex.note || '' });
   }
   return points.reverse();
 }
