@@ -10,7 +10,7 @@ export const IOS_LANGS = ['he', 'en'];
 // The words to type in the actions search box. A short stem finds the
 // action even when its full name differs between iOS versions.
 export const IOS_SEARCH = {
-  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'טקסט', openUrls: 'URL' },
+  he: { findHealth: 'בריאות', getDetails: 'פרטים על', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'טקסט', openUrls: 'URL' },
   en: { findHealth: 'Health', getDetails: 'Details', roundNumber: 'Round', formatDate: 'Format Date', text: 'Text', openUrls: 'Open URL' },
 };
 
@@ -27,13 +27,13 @@ export const IOS_LABELS = {
     addShortcut: 'הוספת קיצור',
     // Building the shortcut by hand (until the iCloud link exists).
     rename: 'שינוי שם',
-    findHealth: 'מציאת דגימות בריאות',
+    findHealth: 'חיפוש דגימות בריאות',
     steps: 'צעדים',
     startDate: 'תאריך התחלה',
     today: 'היום',
     groupBy: 'קיבוץ לפי',
     day: 'יום',
-    getDetails: 'קבלת פרטי דגימות בריאות',
+    getDetails: 'קבלת פרטים על דגימות בריאות',
     value: 'ערך',
     roundNumber: 'עיגול מספר',
     formatDate: 'עיצוב תאריך',
