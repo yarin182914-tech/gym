@@ -10,7 +10,7 @@
 
 import { NUTRITION } from './rules.js';
 import { evaluateNight, nightGrade, shiftDays, parseKey, formatDuration } from './sleep.js';
-import { entryFor, isDue, weekStart } from './habits.js';
+import { entryFor, isDue, weekStart, isBad, badDayLevel, badMark } from './habits.js';
 import { nutritionGrades } from './rewards.js';
 import { trendAt } from './body-weight.js';
 
@@ -49,6 +49,13 @@ export function dayCell(row, key, ctx, today) {
     const night = ctx.nights.get(key);
     if (!night) return { status: key === today ? 'none' : 'miss', value: null };
     return { status: nightGrade(evaluateNight(night, ctx.sleep)), value: Math.round((Number(night.durationMin) || 0) / 6) / 10 };
+  }
+  if (row.habit && isBad(row.habit)) {
+    // Any slip is grey, like any miss (its 5 points still count); an
+    // unreported day stays an outline.
+    const level = badDayLevel(row.habit, badMark(row.habit, key, ctx.habitCtx));
+    const status = { full: 'full', short: 'miss', none: 'miss' }[level] || 'none';
+    return { status, value: { full: 1, short: 0.5, none: 0 }[level] ?? null };
   }
   if (row.habit) {
     const entry = entryFor(row.habit, key, ctx.habitCtx);
@@ -134,6 +141,7 @@ export function formatRowValue(row, v) {
   if (row.id === 'weight') return `${v} ק"ג`;
   if (row.id === 'protein') return `${fmt(v)}g`;
   if (row.id === 'calories') return `${fmt(v)}`;
+  if (row.habit && isBad(row.habit)) return v >= 1 ? 'נקי' : v > 0 ? 'כמעט נקי' : 'מעידה';
   if (row.habit) return v >= 1 ? 'מלא' : v > 0 ? 'מקוצר' : '—';
   return fmt(v);
 }

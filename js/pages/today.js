@@ -7,21 +7,23 @@
 // local cache and syncs when the connection is back.
 
 import {
-  getUserSettings, updateUserSettings, listSleep, listDailyActivity,
+  getUserSettings, updateUserSettings, listSleep, listDailyActivity, listWorkouts,
   listHabits, listHabitLogs, newHabitId, setHabit, deleteHabit, setHabitMark,
 } from '../lib/firestore.js';
 import {
   EXAMPLE_HABITS, normalizeHabit, habitContext, entryFor, isDone, isDue, isOpenToday,
-  weekCount, habitStreak, levelFor,
+  weekCount, habitStreak, levelFor, isGood, isBad, badMark, badDayLevel, slipsOf, routineLevel,
+  partsMark, AUTO_STRENGTH,
 } from '../lib/habits.js';
 import { dateKey, shiftDays, parseKey } from '../lib/sleep.js';
-import { HABITS, REWARDS } from '../lib/rules.js';
+import { HABITS, REWARDS, BAD_HABITS } from '../lib/rules.js';
+import { badHabitCardHtml, slipClock } from '../ui/bad-habit-card.js';
 import { rewardsState, rewardsLedger, rewardsUserDoc, markSeen } from '../lib/rewards-sync.js';
 import { daySummaryHtml } from '../ui/day-summary-card.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { createSleepCard } from '../ui/sleep-card.js';
 import { habitCardHtml, targetText } from '../ui/habit-card.js';
-import { openHabitForm } from '../ui/habit-form.js';
+import { openHabitWizard } from '../ui/habit-wizard.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
 import { mountNumericField } from '../ui/numeric-input.js';
 import { showToast } from '../ui/toast.js';
@@ -36,6 +38,7 @@ let sleepCard = null; // created once per visit, re-attached by render()
 let habits = []; // normalized, active and paused, in order
 let logs = []; // habitLogs docs
 let activities = []; // dailyActivity docs, for auto-counted steps
+let workouts = []; // for habits counted from strength workouts
 let ctx = habitContext();
 let sleepLoggedToday = false;
 let openId = null; // the habit whose buttons are showing
@@ -49,7 +52,12 @@ const todayKey = () => dateKey(new Date());
 const habitKey = () => habitDay ?? todayKey();
 const WEEKDAY_SHORT = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const sortHabits = (list) => [...list].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'he'));
-const activeHabits = () => habits.filter((h) => h.active);
+// Good habits are the "הרגלים" list (and the level bar's items); bad ones
+// have their own "להיגמל" section below it.
+const activeHabits = () => habits.filter((h) => h.active && isGood(h));
+const activeBadHabits = () => habits.filter((h) => h.active && isBad(h));
+// Slips waiting out their undo toast: `${habitId}|${day}` → { timer, commit }.
+const pendingSlips = new Map();
 const logFailed = (what) => (err) => {
   console.error(`[today] ${what} failed`, err);
   showToast('השמירה נכשלה — נסה שוב');
@@ -63,7 +71,7 @@ export async function mountToday(rootEl) {
     console.error(`[today] ${what} load failed`, err);
     return fallback;
   };
-  const [settings, nights, loadedHabits, loadedLogs, acts] = await Promise.all([
+  const [settings, nights, loadedHabits, loadedLogs, acts, loadedWorkouts] = await Promise.all([
     getUserSettings().catch(loadFailed('settings', {})),
     listSleep(60).catch(loadFailed('sleep', [])),
     // null, not [] — a failed load must never look like "no habits yet"
@@ -71,19 +79,23 @@ export async function mountToday(rootEl) {
     listHabits().catch(loadFailed('habits', null)),
     listHabitLogs(HABITS.logDaysToLoad).catch(loadFailed('habit logs', [])),
     listDailyActivity(HABITS.logDaysToLoad).catch(loadFailed('activity', [])),
+    listWorkouts(200).catch(loadFailed('workouts', [])),
   ]);
   if (isStale(token)) return;
 
   habits = sortHabits((loadedHabits || []).map(normalizeHabit));
   logs = loadedLogs;
   activities = acts;
-  ctx = habitContext(logs, activities);
+  workouts = loadedWorkouts;
+  ctx = habitContext(logs, activities, workouts);
   if (loadedHabits && !settings.habitsSeeded) {
     if (!loadedHabits.length) seedExamples();
     updateUserSettings({ habitsSeeded: true }).catch(logFailed('habitsSeeded'));
   }
 
   window.addEventListener('gym-rewards', onRewards);
+  document.addEventListener('visibilitychange', flushIfHidden);
+  window.addEventListener('pagehide', flushSlips);
   sleepLoggedToday = nights.some((n) => n.date === todayKey());
   sleepCard = createSleepCard(nights, settings, {
     onChange(list) {
@@ -96,12 +108,16 @@ export async function mountToday(rootEl) {
 
 export function unmountToday() {
   window.removeEventListener('gym-rewards', onRewards);
+  document.removeEventListener('visibilitychange', flushIfHidden);
+  window.removeEventListener('pagehide', flushSlips);
+  flushSlips();
   clearTimeout(pressTimer);
   container = null;
   sleepCard = null;
   habits = [];
   logs = [];
   activities = [];
+  workouts = [];
   ctx = habitContext();
   openId = null;
   pressTimer = null;
@@ -125,17 +141,21 @@ function render() {
   container.innerHTML = `
     <div data-today-top></div>
     <div id="sleep-slot"></div>
-    <section class="today-habits" data-today-habits aria-label="הרגלים"></section>`;
+    <section class="today-habits" data-today-habits aria-label="הרגלים"></section>
+    <section class="today-habits today-bad" data-today-bad aria-label="להיגמל"></section>`;
   container.querySelector('#sleep-slot').replaceWith(sleepCard);
   const section = container.querySelector('[data-today-habits]');
   bindHabitEvents(section);
+  bindBadEvents(container.querySelector('[data-today-bad]'));
   renderTop();
   renderHabits();
+  renderBad();
 }
 
 function rerender() {
   renderTop();
   renderHabits();
+  renderBad();
 }
 
 // ---------- level bar + next step ----------
@@ -299,7 +319,11 @@ function bindHabitEvents(section) {
     if (dayBtn) {
       habitDay = dayBtn.dataset.habitDay === todayKey() ? null : dayBtn.dataset.habitDay;
       openId = null;
-      return renderHabits();
+      // The "להיגמל" cards follow the same day: an unreported day is filled
+      // in from here.
+      renderHabits();
+      renderBad();
+      return;
     }
     const cardEl = e.target.closest('[data-habit]');
     const habit = cardEl && habits.find((h) => h.id === cardEl.dataset.habit);
@@ -313,6 +337,8 @@ function bindHabitEvents(section) {
       return;
     }
     if (!habit.active) return editHabit(habit);
+    // A routine is marked step by step.
+    if (habit.measure === 'steps' && habit.steps.length) return openRoutineSheet(habit);
     // A yes/no habit with no short level has nothing to choose: one tap.
     if (habit.measure === 'yesno' && habit.short === null && !entryFor(habit, habitKey(), ctx)) {
       return applyMark(habit, { level: 'full', value: null });
@@ -347,7 +373,9 @@ function bindHabitEvents(section) {
 }
 
 function onMarkButton(habit, kind) {
-  if (kind === 'full' || kind === 'none') applyMark(habit, { level: kind, value: null });
+  // A habit split into fields always asks for each one's number.
+  if (habit.parts.length && (kind === 'full' || kind === 'short')) openValueSheet(habit);
+  else if (kind === 'full' || kind === 'none') applyMark(habit, { level: kind, value: null });
   // "מקוצר" asks how much (minutes, steps…) when the habit has numeric
   // targets; the level then follows from the number.
   else if (kind === 'short') {
@@ -362,7 +390,7 @@ function undo(habitId) {
   const entry = habit && entryFor(habit, habitKey(), ctx);
   if (!entry) return;
   if (entry.auto) {
-    showToast('נספר אוטומטית מהצעדים של היום');
+    showToast(habit.autoSource === AUTO_STRENGTH ? 'נספר אוטומטית מאימוני הכוח של היום' : 'נספר אוטומטית מהצעדים של היום');
     return;
   }
   navigator.vibrate?.(15);
@@ -374,26 +402,225 @@ function undo(habitId) {
 // first; the write follows in the background.
 function applyMark(habit, mark) {
   const key = habitKey();
-  const stored = mark ? { level: mark.level, value: mark.value ?? null, source: 'manual' } : null;
+  const stored = mark
+    ? {
+      level: mark.level,
+      value: mark.value ?? null,
+      ...(mark.stepsDone ? { stepsDone: mark.stepsDone } : {}),
+      ...(mark.parts ? { parts: mark.parts } : {}),
+      source: 'manual',
+    }
+    : null;
+  setLocalMark(key, habit.id, stored);
+  openId = null;
+  rerender();
+  setHabitMark(key, habit.id, stored).catch(logFailed('habit mark'));
+}
+
+// The day's mark in this screen's copy of habitLogs (null clears it).
+function setLocalMark(key, habitId, stored) {
   let day = logs.find((l) => l.date === key);
   if (!day) {
     day = { id: key, date: key, habits: {} };
     logs = [...logs, day];
   }
   day.habits = { ...day.habits };
-  if (stored) day.habits[habit.id] = stored;
-  else delete day.habits[habit.id];
-  ctx = habitContext(logs, activities);
-  openId = null;
-  rerender();
-  setHabitMark(key, habit.id, stored).catch(logFailed('habit mark'));
+  if (stored) day.habits[habitId] = stored;
+  else delete day.habits[habitId];
+  ctx = habitContext(logs, activities, workouts);
+}
+
+// A routine, step by step: every step → מלא, the short steps → מקוצר.
+function openRoutineSheet(habit) {
+  const current = ctx.logsByDate.get(habitKey())?.habits?.[habit.id];
+  const done = new Set(current?.stepsDone || []);
+  openBottomSheet({
+    ariaLabel: habit.name,
+    render(body, sheetApi) {
+      body.innerHTML = `
+        <h3 style="margin:0 0 4px; color:var(--text);">${esc(habit.name)}</h3>
+        <p class="text-muted" style="margin:0 0 12px; font-size:0.85rem;">מלא: כל הצעדים${habit.shortSteps.length ? ` · מקוצר: ${habit.shortSteps.map((i) => esc(habit.steps[i])).join(', ')}` : ''}</p>
+        <div class="settings-list routine-list">
+          ${habit.steps.map((s, i) => `
+            <label class="track-check routine-step">
+              <input type="checkbox" data-routine-step="${i}" ${done.has(i) ? 'checked' : ''}>
+              <span>${esc(s)}</span>
+            </label>`).join('')}
+        </div>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-secondary" data-r-cancel>ביטול</button>
+          <button type="button" class="btn btn-primary" data-r-save>שמירה</button>
+        </div>`;
+      body.querySelectorAll('[data-routine-step]').forEach((cb) => cb.addEventListener('change', () => {
+        const i = Number(cb.dataset.routineStep);
+        if (cb.checked) done.add(i); else done.delete(i);
+      }));
+      body.querySelector('[data-r-cancel]').addEventListener('click', () => sheetApi.close());
+      body.querySelector('[data-r-save]').addEventListener('click', () => {
+        sheetApi.close();
+        const stepsDone = [...done].sort((a, b) => a - b);
+        const level = routineLevel(habit, stepsDone);
+        applyMark(habit, level ? { level, value: stepsDone.length, stepsDone } : null);
+      });
+    },
+  });
+}
+
+// ---------- להיגמל (bad habits) ----------
+
+function renderBad() {
+  const section = container?.querySelector('[data-today-bad]');
+  if (!section) return;
+  const list = activeBadHabits();
+  if (!list.length) {
+    section.innerHTML = '';
+    return;
+  }
+  const key = habitKey();
+  const today = todayKey();
+  section.innerHTML = `
+    <div class="today-section-head">
+      <h2 class="today-section-title">להיגמל</h2>
+    </div>
+    ${key === today ? '' : `<p class="today-backfill-note">מסמנים ל${esc(dayName(key))}</p>`}
+    <div class="habit-list">${list.map((h) => badHabitCardHtml(h, { key, today, ctx })).join('')}</div>`;
+}
+
+function bindBadEvents(section) {
+  section.addEventListener('click', (e) => {
+    const cardEl = e.target.closest('[data-bad]');
+    const habit = cardEl && habits.find((h) => h.id === cardEl.dataset.bad);
+    if (!habit) return;
+    if (e.target.closest('[data-bad-edit]')) return editHabit(habit);
+    if (e.target.closest('[data-bad-slip]')) return logSlip(habit);
+    if (e.target.closest('[data-bad-clean]')) return toggleClean(habit);
+    if (e.target.closest('[data-bad-value]')) return openBadValueSheet(habit);
+  });
+}
+
+// "מעדתי": the moment, on the chosen day. Shown at once; written only after
+// the undo toast has gone (or when the app is left), so a slip undone in
+// time never reaches the data — or the points.
+function logSlip(habit) {
+  const key = habitKey();
+  const now = new Date();
+  const when = parseKey(key);
+  when.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), 0);
+  const prev = badMark(habit, key, ctx);
+  const slips = [...slipsOf(prev), when];
+  setLocalMark(key, habit.id, badMarkWith(habit, slips));
+  renderBad();
+  navigator.vibrate?.(15);
+  const id = `${habit.id}|${key}`;
+  clearTimeout(pendingSlips.get(id)?.timer);
+  const commit = () => {
+    pendingSlips.delete(id);
+    setHabitMark(key, habit.id, badMark(habit, key, ctx)).catch(logFailed('slip'));
+  };
+  pendingSlips.set(id, { timer: setTimeout(commit, BAD_HABITS.slipUndoMs), commit });
+  showToast(`נרשם ${slipClock(when)} · כנות שווה ${BAD_HABITS.points.slipLog} נק׳`, {
+    duration: BAD_HABITS.slipUndoMs,
+    action: {
+      label: 'ביטול',
+      onClick: () => {
+        const left = slipsOf(badMark(habit, key, ctx)).filter((t) => t !== when);
+        setLocalMark(key, habit.id, left.length ? badMarkWith(habit, left) : null);
+        renderBad();
+        // Still waiting: write what's left (or nothing) right away.
+        const pending = pendingSlips.get(id);
+        if (pending) {
+          clearTimeout(pending.timer);
+          pending.commit();
+        } else {
+          setHabitMark(key, habit.id, badMark(habit, key, ctx)).catch(logFailed('slip undo'));
+        }
+      },
+    },
+  });
+}
+
+// The whole mark for a day with these slips (the clean tap no longer holds).
+function badMarkWith(habit, slips) {
+  return { clean: false, slips, value: slips.length, level: badDayLevel(habit, { slips }), source: 'manual' };
+}
+
+function flushSlips() {
+  for (const pending of [...pendingSlips.values()]) {
+    clearTimeout(pending.timer);
+    pending.commit();
+  }
+}
+
+const flushIfHidden = () => {
+  if (document.visibilityState === 'hidden') flushSlips();
+};
+
+// "יום נקי ✓" — reported clean; tapping it again takes it back. The points
+// come when the day is over (a later slip would win).
+function toggleClean(habit) {
+  const key = habitKey();
+  const prev = badMark(habit, key, ctx);
+  if (slipsOf(prev).length) return;
+  const wasClean = badDayLevel(habit, prev) === 'full';
+  const stored = wasClean ? null : { clean: true, slips: [], value: 0, level: 'full', source: 'manual' };
+  setLocalMark(key, habit.id, stored);
+  renderBad();
+  setHabitMark(key, habit.id, stored).catch(logFailed('clean day'));
+  if (!wasClean) {
+    navigator.vibrate?.(15);
+    showToast(`${icon('check', { className: 'icon--sm' })} יום נקי נרשם${key === todayKey() ? ' · הנקודות בסגירת היום' : ''}`);
+  }
+}
+
+// A limit (e.g. Instagram minutes): how much it was that day.
+function openBadValueSheet(habit) {
+  const key = habitKey();
+  const current = badMark(habit, key, ctx);
+  let value = current?.value ?? null;
+  const partValues = { ...(current?.parts || {}) };
+  openBottomSheet({
+    ariaLabel: habit.name,
+    render(body, sheetApi) {
+      body.innerHTML = `
+        <h3 style="margin:0 0 4px; color:var(--text);">${esc(habit.name)} · כמה ${key === todayKey() ? 'היום' : 'באותו יום'}?</h3>
+        <p class="text-muted" style="margin:0 0 12px; font-size:0.85rem;">${esc(targetText(habit))}</p>
+        <div data-bv-field></div>
+        <p class="text-muted" data-bv-total style="margin:10px 0 0; font-size:0.85rem;"></p>
+        <div class="sheet-actions">
+          ${current ? '<button type="button" class="btn btn-secondary" data-bv-clear>ניקוי</button>' : ''}
+          <button type="button" class="btn btn-secondary" data-bv-cancel>ביטול</button>
+          <button type="button" class="btn btn-primary" data-bv-save>שמירה</button>
+        </div>`;
+      const totalEl = body.querySelector('[data-bv-total]');
+      mountValueFields(body.querySelector('[data-bv-field]'), habit, value, partValues, (v) => {
+        value = v;
+        if (habit.parts.length) totalEl.textContent = v === null ? '' : `סה״כ ${v} ${habit.unit}`;
+      });
+      const write = (stored) => {
+        sheetApi.close();
+        setLocalMark(key, habit.id, stored);
+        renderBad();
+        setHabitMark(key, habit.id, stored).catch(logFailed('limit'));
+      };
+      body.querySelector('[data-bv-cancel]').addEventListener('click', () => sheetApi.close());
+      body.querySelector('[data-bv-clear]')?.addEventListener('click', () => write(null));
+      body.querySelector('[data-bv-save]').addEventListener('click', () => {
+        if (value === null) return showToast('הזינו מספר');
+        const level = levelFor(habit, value);
+        const parts = habit.parts.length ? partsMark(habit, partValues).parts : null;
+        write({ clean: level === 'full', slips: [], value, ...(parts ? { parts } : {}), level, source: 'manual' });
+      });
+    },
+  });
 }
 
 // "מקוצר": type how much was done, starting from the short target; the
 // level follows from the number.
 function openValueSheet(habit) {
   const current = entryFor(habit, habitKey(), ctx);
-  let value = current?.value ?? habit.short ?? null;
+  const currentParts = current && !current.auto ? ctx.logsByDate.get(habitKey())?.habits?.[habit.id]?.parts : null;
+  const partValues = { ...(currentParts || {}) };
+  let value = habit.parts.length ? partsMark(habit, partValues)?.value ?? null : current?.value ?? habit.short ?? null;
   openBottomSheet({
     ariaLabel: habit.name,
     render(body, sheetApi) {
@@ -407,12 +634,12 @@ function openValueSheet(habit) {
           <button type="button" class="btn btn-primary" data-v-save>שמירה</button>
         </div>`;
       const previewEl = body.querySelector('[data-v-preview]');
-      const refresh = () => { previewEl.textContent = value === null ? '' : LEVEL_TEXT[levelFor(habit, value)]; };
+      const refresh = () => {
+        const total = habit.parts.length && value !== null ? `סה״כ ${value} ${habit.unit} · ` : '';
+        previewEl.textContent = value === null ? '' : `${total}${LEVEL_TEXT[levelFor(habit, value)]}`;
+      };
       refresh();
-      mountNumericField(body.querySelector('[data-v-field]'), {
-        value, unitLabel: habit.unit, ariaLabel: habit.name, nullable: true, max: 100000,
-        onCommit: (v) => { value = v; refresh(); },
-      });
+      mountValueFields(body.querySelector('[data-v-field]'), habit, value, partValues, (v) => { value = v; refresh(); });
       body.querySelector('[data-v-cancel]').addEventListener('click', () => sheetApi.close());
       body.querySelector('[data-v-save]').addEventListener('click', () => {
         if (value === null) {
@@ -420,14 +647,40 @@ function openValueSheet(habit) {
           return;
         }
         sheetApi.close();
-        applyMark(habit, { level: levelFor(habit, value), value });
+        const parts = habit.parts.length ? partsMark(habit, partValues).parts : null;
+        applyMark(habit, { level: levelFor(habit, value), value, ...(parts ? { parts } : {}) });
       });
     },
   });
 }
 
+// The sheet's number: one field, or one per part (partValues is filled in
+// place) — onChange gets the value, the parts' sum, null while empty.
+function mountValueFields(host, habit, value, partValues, onChange) {
+  if (!habit.parts.length) {
+    mountNumericField(host, {
+      value, unitLabel: habit.unit, ariaLabel: habit.name, nullable: true, max: 100000, onCommit: onChange,
+    });
+    return;
+  }
+  host.innerHTML = habit.parts.map((name, i) => `
+    <div class="sheet-field-label">${esc(name)}</div>
+    <div data-part-field="${i}"></div>`).join('');
+  habit.parts.forEach((name, i) => {
+    mountNumericField(host.querySelector(`[data-part-field="${i}"]`), {
+      value: partValues[name] ?? null, unitLabel: habit.unit, ariaLabel: name, nullable: true, max: 100000,
+      onCommit: (v) => {
+        if (v === null) delete partValues[name];
+        else partValues[name] = v;
+        onChange(partsMark(habit, partValues)?.value ?? null);
+      },
+    });
+  });
+  onChange(partsMark(habit, partValues)?.value ?? null);
+}
+
 function addHabit() {
-  openHabitForm({
+  openHabitWizard({
     onSave(fields) {
       const id = newHabitId();
       const order = habits.reduce((max, h) => Math.max(max, h.order), -1) + 1;
@@ -440,7 +693,7 @@ function addHabit() {
 }
 
 function editHabit(habit) {
-  openHabitForm({
+  openHabitWizard({
     habit,
     onSave(fields) {
       habits = sortHabits(habits.map((h) => (h.id === habit.id ? normalizeHabit({ ...h, ...fields }) : h)));

@@ -138,6 +138,41 @@ export const NUTRITION = {
   maxMeals: 2,
 };
 
+// Bad habits (M5, plan: "הרגלים רעים: אשף גמילה"). A day is clean only
+// when reported ("יום נקי ✓", or the coach's mark); an unreported day
+// scores nothing and shows as unknown. A slip never takes points away.
+export const BAD_HABITS = {
+  points: {
+    // At day close: a reported clean day / one slip or within the short limit.
+    clean: { full: 10, short: 5 },
+    // Logging a slip (or an over-the-limit day) honestly, once a day.
+    slipLog: 2,
+    // The week's clean days reach the habit's target (outside the daily cap).
+    weekBonus: 20,
+  },
+  // Clean days a week for the bonus, unless the habit sets its own.
+  cleanWeekTarget: 5,
+  // Slips a day that still count as "מקוצר" on a slip counter.
+  shortSlips: 1,
+  // An unreported day can be filled in this many days back (the day strip);
+  // older and still empty, it ends the clean streak.
+  fillInDays: HABITS.backfillDays,
+  // Clean-streak bonuses, each once per streak, outside the daily cap.
+  // The one with `badge` also earns that badge ("נגמל").
+  streakMilestones: [
+    { days: 3, points: 15 },
+    { days: 7, points: 30 },
+    { days: 14, points: 60 },
+    { days: 30, points: 120 },
+    { days: 66, points: 250, badge: 'quit' },
+    { days: 100, points: 400 },
+  ],
+  // Milestones from this many days on get confetti too.
+  confettiFromDays: 30,
+  // "מעדתי" can be undone from its toast for this long.
+  slipUndoMs: 5000,
+};
+
 // Points, levels and badges (M4) — the plan's values ("שלב 2: תכנית
 // התגמול"). Points are worked out from the data (js/lib/rewards.js) and
 // written to users/{uid}/pointsLedger; they never go down.
@@ -145,7 +180,7 @@ export const REWARDS = {
   // A day's points stop here — except the rules in `uncapped`, so a good
   // day never loses its bonus.
   dailyCap: 200,
-  uncapped: ['habit-week', 'workout-week', 'pr', 'perfect-day'],
+  uncapped: ['habit-week', 'workout-week', 'pr', 'perfect-day', 'bad-week', 'bad-streak'],
   points: {
     sleepBedtime: { full: 20, close: 10 },
     sleepDuration: { full: 15, close: 8 },
@@ -196,6 +231,9 @@ export const REWARDS = {
   // .rewardsCheckedThrough) — re-checking this many days before it, for
   // late logs and late burns — up to today, at most catchUpMaxDays days.
   rescoreDays: 7,
+  // Days of habit logs read for scoring — enough for the longest
+  // bad-habit streak milestone with room to spare.
+  habitLogsToLoad: 400,
   catchUpMaxDays: 31,
   // A save is scored this long after it (several quick taps → one pass).
   syncDelayMs: 300,
@@ -222,6 +260,8 @@ export const REWARDS = {
     { id: 'perfect-3', area: 'habits', name: '3 ימים מושלמים ברצף', icon: 'sparkles', kind: 'streak', rule: 'perfect-day', n: 3 },
     { id: 'perfect-week', area: 'habits', name: 'שבוע מושלם', icon: 'sparkles', kind: 'streak', rule: 'perfect-day', n: 7 },
     { id: 'habits-100', area: 'habits', name: '100 סימונים', icon: 'check', kind: 'count', rule: 'habit', n: 100 },
+    { id: 'clean-first', area: 'habits', name: 'יום נקי ראשון', icon: 'check', kind: 'first', rule: 'bad-clean', grades: ['full'] },
+    { id: 'quit', area: 'habits', name: 'נגמל', icon: 'sparkles', kind: 'first', rule: 'bad-streak', grades: BAD_HABITS.streakMilestones.filter((m) => m.badge === 'quit').map((m) => String(m.days)) },
     { id: 'calories-7', area: 'nutrition', name: '7 ימים ביעד הקלורי', icon: 'target', kind: 'streak', rule: 'calories', grades: ['full'], n: 7 },
     { id: 'protein-week', area: 'nutrition', name: 'שבוע חלבון מלא', icon: 'utensils', kind: 'streak', rule: 'protein', grades: ['full'], n: 7 },
     { id: 'logged-30', area: 'nutrition', name: '30 ימים מתועדים', icon: 'utensils', kind: 'count', rule: 'meal-log', unit: 'days', n: 30 },

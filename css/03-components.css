@@ -3091,9 +3091,157 @@ th {
   justify-content: center;
 }
 
-.habit-form-hint {
+/* ===== Habit wizard (js/ui/habit-wizard.js, M5) ===== */
+
+.wizard-title {
+  margin: 0 0 var(--space-3);
+  color: var(--text);
+}
+
+.wizard-progress {
+  display: flex;
+  gap: 6px;
+  margin-bottom: var(--space-3);
+}
+
+.wizard-dot {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+}
+
+.wizard-dot--on {
+  background: var(--accent);
+}
+
+.wizard-hint {
   margin: 8px 0 0;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.wizard-body .wizard-hint:first-child {
+  margin: 0 0 8px;
+}
+
+.wizard-text {
+  min-height: 84px;
+  padding: 10px 12px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.wizard-time {
+  max-width: 160px;
+}
+
+.wizard-kind {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.wizard-kind .pill {
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+}
+
+.wizard-templates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.wizard-template {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.wizard-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.wizard-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.wizard-short {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.wizard-short input {
+  accent-color: var(--accent);
+}
+
+.wizard-summary-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.wizard-summary-head .wizard-title {
+  margin: 0;
+}
+
+.wizard-lines {
+  display: flex;
+  flex-direction: column;
+}
+
+.wizard-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.wizard-line-label {
+  flex: none;
+  width: 74px;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.wizard-line-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.wizard-points {
+  margin: var(--space-3) 0;
+  color: var(--accent);
+  font-weight: var(--weight-bold);
 }
 
 /* ===== Navigation (M3): placeholder tab, אימון · היסטוריה, sleep log,
@@ -4588,4 +4736,111 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
 
 .lib-hint[hidden] {
   display: none;
+}
+
+/* ===== "להיגמל" on Today (js/ui/bad-habit-card.js, M5) — neutral only:
+   a slip is grey, an unreported day an outline, never red. ===== */
+
+.bad-main {
+  cursor: default;
+}
+
+.bad-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent);
+  font-weight: var(--weight-bold);
+}
+
+.bad-week {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 14px 4px;
+}
+
+.bad-chain {
+  display: flex;
+  gap: 5px;
+}
+
+.bad-day {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--border);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+.bad-day--full {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+
+.bad-day--short,
+.bad-day--none {
+  background: var(--surface-raised);
+  border-color: var(--surface-raised);
+}
+
+.bad-day--future {
+  border-style: dashed;
+  opacity: 0.5;
+}
+
+.bad-day--selected {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text-muted);
+}
+
+.bad-week-count {
+  font-size: var(--text-sm);
+}
+
+.bad-day-line,
+.bad-instead {
+  margin: 4px 14px 0;
+  font-size: var(--text-sm);
+}
+
+.bad-card .habit-actions {
+  padding-top: 8px;
+}
+
+.bad-instead {
+  padding-bottom: 10px;
+}
+
+.routine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: var(--space-2);
+}
+
+.routine-step {
+  padding: 8px 0;
+}
+
+/* A toast with a button (e.g. "ביטול" after "מעדתי") takes taps. */
+.toast--action {
+  pointer-events: auto;
+  gap: 12px;
+}
+
+.toast-action {
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--bg) 20%, transparent);
+  color: inherit;
+  font: inherit;
+  font-weight: var(--weight-bold);
+  cursor: pointer;
 }
