@@ -10,7 +10,7 @@
 // Level, totals, streaks and badges are derived from the ledger here.
 // All numbers: REWARDS in js/lib/rules.js.
 
-import { REWARDS, NUTRITION, BAD_HABITS } from './rules.js';
+import { REWARDS, NUTRITION, BAD_HABITS, TASKS } from './rules.js';
 import { evaluateNight, sleepSettings, shiftDays, dateKey } from './sleep.js';
 import {
   habitContext, entryFor, isDone, isDue, weekStart, isBad, isGood, badMark, badDayLevel, slipReported,
@@ -20,6 +20,7 @@ import { totalOut } from './daily-activity.js';
 import { exerciseKind, workoutDayKey, brokenSessionRecord } from './workout-types.js';
 import { brokenCardioRecords } from './cardio.js';
 import { toDate } from './format.js';
+import { normalizeTask, isDoneOn, taskPoints } from './tasks.js';
 
 const P = REWARDS.points;
 
@@ -42,6 +43,8 @@ export const RULE_SOURCE = {
   'bad-slip': 'habit',
   'bad-week': 'habit',
   'bad-streak': 'habit',
+  task: 'task',
+  'task-start': 'task',
 };
 
 // Firestore ids can't hold '/', and stay short.
@@ -69,7 +72,7 @@ export function weeklyWorkoutGoal(userDoc = {}) {
 // ---------- the day's context ----------
 
 // data: { userDoc, nights, habits (normalized), logs, activities, meals,
-// weights, workouts, plans, today? } — any order, any range. Indexed once.
+// weights, workouts, plans, tasks, today? } — any order, any range. Indexed once.
 // today (default: now) only decides which unreported days of a bad habit
 // can still be filled in (js/lib/habits.js#cleanRuns).
 export function buildContext(data) {
@@ -113,6 +116,7 @@ export function buildContext(data) {
     workouts,
     plans: new Map((data.plans || []).map((p) => [p.date || p.id, p])),
     prs: prsByWorkout(data.workouts || []),
+    tasks: (data.tasks || []).map(normalizeTask),
   };
 }
 
@@ -265,6 +269,18 @@ export function scoreDay(key, ctx, { closed }) {
 
   // Bad habits: their own scoring (never part of the perfect day).
   for (const h of ctx.badHabits) out.push(...scoreBadHabit(h, key, ctx, { closed }));
+
+  // Tasks (M6): by size and importance, +5 done by the due date; and 5 for
+  // starting a stuck one ("התחלתי 10 דקות"). Not part of the perfect day.
+  for (const t of ctx.tasks || []) {
+    if (isDoneOn(t, key)) {
+      const { raw, onTime } = taskPoints(t, key);
+      out.push(award(key, 'task', { ref: t.id, raw, grade: onTime ? 'on-time' : null, reason: t.title }));
+    }
+    if (t.startedAt && dateKey(toDate(t.startedAt)) === key) {
+      out.push(award(key, 'task-start', { ref: t.id, raw: TASKS.startBonus, reason: `התחלתי — ${t.title}` }));
+    }
+  }
 
   if (closed) {
     const n = nutritionGrades(key, ctx);
