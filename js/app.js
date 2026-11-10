@@ -11,7 +11,7 @@ import { mountNutrition, unmountNutrition } from './pages/nutrition.js';
 import { mountPlan } from './pages/plan.js';
 import { mountToday, unmountToday } from './pages/today.js';
 import { mountFeedback, unmountFeedback } from './pages/feedback.js';
-import { mountTasks } from './pages/tasks.js';
+import { mountTasks, unmountTasks } from './pages/tasks.js';
 import { mountSleep, unmountSleep } from './pages/sleep.js';
 import { mountImport, stashImportFromUrl, hasPendingImport } from './pages/import.js';
 import { mountConnections, unmountConnections } from './pages/connections.js';
@@ -46,7 +46,7 @@ let routerStarted = false;
 // dashboard, plan and feedback have no tab of their own (see the nav's
 // data-routes in index.html) but keep their old URLs.
 registerRoute('today', () => mountToday(appRoot), unmountToday);
-registerRoute('tasks', () => mountTasks(appRoot));
+registerRoute('tasks', () => mountTasks(appRoot), unmountTasks);
 registerRoute('session', () => mountActiveSession(appRoot), unmountActiveSession);
 registerRoute('history', () => mountHistory(appRoot), unmountHistory);
 registerRoute('dashboard', () => mountDashboard(appRoot), unmountDashboard);
