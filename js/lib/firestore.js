@@ -1,6 +1,6 @@
 import {
   collection, doc, setDoc as rawSetDoc, getDoc, getDocs, updateDoc as rawUpdateDoc, deleteDoc as rawDeleteDoc,
-  query, orderBy, limit, where, serverTimestamp, deleteField,
+  query, orderBy, limit, where, serverTimestamp, deleteField, runTransaction,
 } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js';
 import { db, useCloud } from '../firebase-config.js';
 import { currentUid } from '../auth.js';
@@ -16,6 +16,7 @@ import {
   devNewHabitId, devSetHabit, devDeleteHabit, devListHabits, devSetHabitMark, devListHabitLogs,
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
   devListWorkoutTypes, devAddWorkoutType, devUpdateWorkoutType, devDeleteWorkoutType,
+  devListPlannedWorkouts, devListLedger, devWriteLedger,
 } from './dev-store.js';
 import { lastPerformanceIn, exerciseHistoryIn, workoutDayKey } from './workout-types.js';
 import { bodyKgOn as bodyKgFrom, dayWorkoutKcal, workoutKcalPatch } from './workout-kcal.js';
@@ -39,6 +40,14 @@ const addDoc = (colRef, data) => {
   const ref = doc(colRef);
   return setDoc(ref, data).then(() => ref);
 };
+
+// Tells the points (js/lib/rewards-sync.js) that something they score may
+// have changed. Called as each write is issued — Firestore's local cache
+// has it at once, and the scoring waits a moment (REWARDS.syncDelayMs)
+// before reading.
+function dataChanged() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('gym-data-changed'));
+}
 
 function uidOrThrow() {
   const uid = currentUid();
@@ -99,6 +108,7 @@ export async function createWorkout(workout) {
   } finally {
     invalidateWorkouts();
     syncWorkoutKcal([workout.startTime || workout.date ? workoutDayKey(workout) : null]);
+    dataChanged();
   }
 }
 
@@ -114,6 +124,7 @@ export async function updateWorkout(workoutId, patch) {
     invalidateWorkouts();
     // A date change moves the burn from one day to the other.
     syncWorkoutKcal([before, patch.startTime || patch.date ? workoutDayKey(patch) : null]);
+    dataChanged();
   }
 }
 
@@ -126,6 +137,7 @@ export async function deleteWorkout(workoutId) {
   } finally {
     invalidateWorkouts();
     syncWorkoutKcal([before]);
+    dataChanged();
   }
 }
 
@@ -348,6 +360,7 @@ export async function seedExerciseLibraryIfEmpty() {
 // ---------- nutrition ----------
 
 export async function addNutritionEntry(entry) {
+  dataChanged();
   if (!useCloud) return devAddNutritionEntry(entry);
   const uid = uidOrThrow();
   const ref = collection(db, 'users', uid, 'nutritionEntries');
@@ -365,11 +378,13 @@ export async function addNutritionEntry(entry) {
 }
 
 export async function updateNutritionEntry(entryId, patch) {
+  dataChanged();
   if (!useCloud) return devUpdateNutritionEntry(entryId, patch);
   await updateDoc(doc(db, 'users', uidOrThrow(), 'nutritionEntries', entryId), patch);
 }
 
 export async function deleteNutritionEntry(entryId) {
+  dataChanged();
   if (!useCloud) return devDeleteNutritionEntry(entryId);
   await deleteDoc(doc(db, 'users', uidOrThrow(), 'nutritionEntries', entryId));
 }
@@ -389,6 +404,7 @@ export async function listNutritionEntries(max = 200) {
 // overwrites that day's entry instead of adding a second one.
 
 export async function setBodyWeight(dateKey, { kg, note = '' }) {
+  dataChanged();
   if (!useCloud) return devSetBodyWeight(dateKey, { kg, note });
   const uid = uidOrThrow();
   await setDoc(doc(db, 'users', uid, 'bodyWeight', dateKey), {
@@ -400,6 +416,7 @@ export async function setBodyWeight(dateKey, { kg, note = '' }) {
 }
 
 export async function deleteBodyWeight(dateKey) {
+  dataChanged();
   if (!useCloud) return devDeleteBodyWeight(dateKey);
   await deleteDoc(doc(db, 'users', uidOrThrow(), 'bodyWeight', dateKey));
 }
@@ -433,6 +450,7 @@ export async function listBodyWeights(max = 400) {
 // a day again replaces it. Built by buildActivity() in daily-activity.js.
 
 export async function setDailyActivity(dateKey, data) {
+  dataChanged();
   if (!useCloud) return devSetDailyActivity(dateKey, data);
   const uid = uidOrThrow();
   await setDoc(doc(db, 'users', uid, 'dailyActivity', dateKey), {
@@ -454,6 +472,7 @@ export async function getDailyActivity(dateKey) {
 // burn. stamp: false leaves loggedAt alone, so a workout save doesn't pass
 // for the iPhone's last sync on the "חיבורים" screen.
 export async function mergeDailyActivity(dateKey, data, { stamp = true } = {}) {
+  dataChanged();
   if (!useCloud) return devMergeDailyActivity(dateKey, data, { stamp });
   await setDoc(doc(db, 'users', uidOrThrow(), 'dailyActivity', dateKey), {
     ...data,
@@ -478,6 +497,7 @@ export async function listDailyActivity(max = 60) {
 // isNew: stamp createdAt (kept as it was on later edits).
 
 export async function setSleep(dateKey, { bedtime, wakeTime, durationMin, source = 'manual' }, { isNew = false } = {}) {
+  dataChanged();
   if (!useCloud) return devSetSleep(dateKey, { bedtime, wakeTime, durationMin, source }, { isNew });
   await setDoc(doc(db, 'users', uidOrThrow(), 'sleep', dateKey), {
     date: dateKey,
@@ -491,6 +511,7 @@ export async function setSleep(dateKey, { bedtime, wakeTime, durationMin, source
 }
 
 export async function deleteSleep(dateKey) {
+  dataChanged();
   if (!useCloud) return devDeleteSleep(dateKey);
   await deleteDoc(doc(db, 'users', uidOrThrow(), 'sleep', dateKey));
 }
@@ -522,6 +543,7 @@ export function newHabitId() {
 
 // isNew: stamp createdAt (kept as it was on later edits).
 export function setHabit(habitId, data, { isNew = false } = {}) {
+  dataChanged();
   if (!useCloud) return devSetHabit(habitId, data, { isNew });
   return setDoc(doc(db, 'users', uidOrThrow(), 'habits', habitId), {
     ...data,
@@ -532,6 +554,7 @@ export function setHabit(habitId, data, { isNew = false } = {}) {
 
 // Its marks stay in habitLogs — harmless, and never shown without the habit.
 export function deleteHabit(habitId) {
+  dataChanged();
   if (!useCloud) return devDeleteHabit(habitId);
   return deleteDoc(doc(db, 'users', uidOrThrow(), 'habits', habitId));
 }
@@ -547,6 +570,7 @@ export async function listHabits() {
 // coach's included) are left alone. The whole mark is always written, so
 // nothing from an earlier mark (an old value) survives the merge.
 export function setHabitMark(dateKey, habitId, mark) {
+  dataChanged();
   if (!useCloud) return devSetHabitMark(dateKey, habitId, mark);
   return setDoc(doc(db, 'users', uidOrThrow(), 'habitLogs', dateKey), {
     date: dateKey,
@@ -576,11 +600,78 @@ export async function getPlannedWorkout(dateKey) {
 }
 
 export async function updatePlannedWorkout(dateKey, patch) {
+  dataChanged();
   if (!useCloud) return devUpdatePlannedWorkout(dateKey, patch);
   await updateDoc(doc(db, 'users', uidOrThrow(), 'plannedWorkouts', dateKey), {
     ...patch,
     updatedAt: serverTimestamp(),
   });
+}
+
+// Newest day first — the points read which days had a workout planned.
+export async function listPlannedWorkouts(max = 60) {
+  if (!useCloud) return devListPlannedWorkouts(max);
+  const ref = collection(db, 'users', uidOrThrow(), 'plannedWorkouts');
+  const snap = await getDocs(query(ref, orderBy('date', 'desc'), limit(max)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------- points ledger (M4) ----------
+// users/{uid}/pointsLedger/{date}_{rule}[_{ref}] — one entry per award,
+// written by the app only (js/lib/rewards-sync.js; the coach never writes
+// here, see docs/DATA.md). Upward only: an entry's points never drop.
+
+export async function listLedger() {
+  if (!useCloud) return devListLedger();
+  const snap = await getDocs(collection(db, 'users', uidOrThrow(), 'pointsLedger'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// entries: [{ id, date, source, rule, ref, points, raw, grade, reason }].
+// Online: one transaction per day reads each entry and writes only a
+// higher one, so two phones scoring at once can't lower each other's.
+// Offline (a transaction needs the server): the local copy is read, and
+// the entry written only if higher.
+export async function writeLedger(entries) {
+  if (!entries.length) return;
+  if (!useCloud) return devWriteLedger(entries);
+  const col = collection(db, 'users', uidOrThrow(), 'pointsLedger');
+  const higher = (e, cur) => !cur || e.points > (cur.points || 0) || e.raw > (cur.raw || 0);
+  const merged = (e, cur) => ({
+    date: e.date,
+    source: e.source,
+    rule: e.rule,
+    ref: e.ref ?? null,
+    grade: e.grade ?? null,
+    reason: e.reason,
+    points: Math.max(e.points, cur?.points || 0),
+    raw: Math.max(e.raw, cur?.raw || 0),
+    updatedAt: serverTimestamp(),
+    ...(cur ? {} : { createdAt: serverTimestamp() }),
+  });
+  const byDay = new Map();
+  for (const e of entries) byDay.set(e.date, [...(byDay.get(e.date) || []), e]);
+  for (const list of byDay.values()) {
+    const refs = list.map((e) => doc(col, e.id));
+    if (navigator.onLine) {
+      try {
+        await runTransaction(db, async (tx) => {
+          const snaps = await Promise.all(refs.map((r) => tx.get(r)));
+          snaps.forEach((snap, i) => {
+            const cur = snap.exists() ? snap.data() : null;
+            if (higher(list[i], cur)) tx.set(refs[i], merged(list[i], cur), { merge: true });
+          });
+        });
+        continue;
+      } catch (err) {
+        console.warn('[ledger] transaction failed — writing from the local copy', err);
+      }
+    }
+    await Promise.all(list.map(async (e, i) => {
+      const cur = await getDoc(refs[i]).then((s) => (s.exists() ? s.data() : null)).catch(() => null);
+      if (higher(e, cur)) await setDoc(refs[i], merged(e, cur), { merge: true });
+    }));
+  }
 }
 
 // ---------- site feedback ----------

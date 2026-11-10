@@ -24,6 +24,7 @@ public repo.
 | `users/{uid}/sleep` | `yyyy-mm-dd` (the **morning**) | One night's sleep |
 | `users/{uid}/habits` | auto | The user's habits (definitions) |
 | `users/{uid}/habitLogs` | `yyyy-mm-dd` | Which habits were done that day |
+| `users/{uid}/pointsLedger` | `{date}_{rule}[_{ref}]` | Points, one entry per award — app only, never written from outside |
 | `siteFeedback` (top level) | auto | App feedback board — don't write here |
 
 ---
@@ -183,7 +184,7 @@ sign-in. The "חיבורים" screen shows the newest `loggedAt` among
 |---|---|---|
 | `calorieDeficit` | number | kcal to stay under the day's burn: the target is `totalOutKcal − calorieDeficit`. `250` when missing; `0` allowed. |
 | `calorieTarget` | number | Calorie target for days with no `dailyActivity` doc. `2000` when missing. |
-| `proteinTarget` | number | Daily protein, grams. `140` when missing. |
+| `proteinTarget` | number | Daily protein, grams. `120` when missing (`NUTRITION` in `js/lib/rules.js`). |
 | `carbsTarget` | number | Daily carbs, grams. `250` when missing. |
 | `fatTarget` | number | Daily fat, grams. `65` when missing. |
 
@@ -207,6 +208,18 @@ Habits:
 | Field | Type | Notes |
 |---|---|---|
 | `habitsSeeded` | boolean | `true` once the app has created the three example habits (or found the user already had habits). Stops the examples coming back after they're deleted. Don't change it. |
+
+Points (M4 — see Points ledger). Only `weeklyWorkoutGoal` and
+`rewardGoal` are the user's to set; the `rewards…` fields are the app's
+bookkeeping — never write them.
+
+| Field | Type | Notes |
+|---|---|---|
+| `weeklyWorkoutGoal` | number | Workout days a week for the +50 bonus, `1`–`7`. `3` when missing. |
+| `rewardGoal` | string | The real reward the user picked for level 6, e.g. `"נעלי ריצה"`. Optional. |
+| `rewardsStartDate` | string | `yyyy-mm-dd` — the day scoring began. Set by the app on its first run. |
+| `rewardsCheckedThrough` | string | `yyyy-mm-dd` — the last day the app scored. |
+| `rewardsSeen` | map | What the screen has already celebrated: `{ level, badges: [ids], daySummary: 'yyyy-mm-dd' }`. Display only — the points are in the ledger. |
 
 The doc has other fields (`displayName`, `createdAt`…) — update only the
 field you mean to change (`set` with `merge: true`, or `update`), never
@@ -741,6 +754,70 @@ names; add to it only for a genuinely new exercise.
 
 ---
 
+## Points ledger — `users/{uid}/pointsLedger/{id}`
+
+One entry per award (M4). **Written by the app only — the coach never
+writes here** (rule 9 below). Points come from the data, not from who
+wrote it: a meal, a nightly burn or a plan the coach writes scores exactly
+like one typed in the app, the next time the app opens. Level, totals,
+streaks and badges are worked out from these entries (`js/lib/rewards.js`)
+and never stored anywhere else.
+
+**The doc id is fixed per award:** `{date}_{rule}` or `{date}_{rule}_{ref}`
+— e.g. `2026-11-10_sleep-bedtime`, `2026-11-10_meal-log_<mealId>`,
+`2026-11-10_habit_<habitId>`, `2026-11-10_pr_<workoutId>_<exercise>`.
+Weekly bonuses use the week's Sunday: `2026-11-08_habit-week_<habitId>`,
+`2026-11-08_workout-week`. Scoring the same day again, or a meal edited
+twice, lands on the same id — it never scores twice.
+
+**Upward only.** An entry's `points` are only ever raised (a close night
+re-logged as on time goes 10 → 20), never lowered or deleted: a deleted
+meal keeps its 5. Online, the app writes in a transaction that keeps the
+higher value, so two phones can't lower each other's entries.
+
+| Field | Type | Notes |
+|---|---|---|
+| `date` | string | `yyyy-mm-dd` — the day it counts for (a night: its morning) |
+| `source` | string | `sleep` · `habit` · `meal` · `nutrition` · `weight` · `workout` · `bonus` |
+| `rule` | string | `sleep-bedtime` · `sleep-duration` · `habit` · `habit-week` · `meal-log` · `calories` · `protein` · `meal-count` · `weigh-in` · `workout` · `workout-week` · `pr` · `perfect-day` |
+| `ref` | string \| null | The habit / meal / `<workoutId>_<exercise>` it's for |
+| `points` | number | Points awarded (after the daily cap) |
+| `raw` | number | What the rule earned before the cap |
+| `grade` | string \| null | `full` · `close` · `short` (habit) · `free` (a flexible night's bedtime) |
+| `reason` | string | Short Hebrew, e.g. `"נרדמת בזמן"` |
+| `createdAt`, `updatedAt` | Timestamp | Server timestamps |
+
+**How a day scores** (numbers: `REWARDS` in `js/lib/rules.js`):
+
+- Sleep, when the night is logged: bedtime 20 on time / 10 close; duration
+  15 / 8 (under 6 hours: 0). On a flexible night (Thu/Fri by default) the
+  bedtime is free — its 20 come automatically, only the duration is judged.
+- Habits: 10 full / 5 short; an N-per-week habit +20 on the day it reaches N.
+- Meals: 5 for each logged, up to 2 a day.
+- Weigh-in 5. Workout 30 (once a day); +50 on the day the week's workout
+  goal is reached (`weeklyWorkoutGoal`, 3); +20 for each exercise that set
+  a record (heavier than ever before; cardio and session records as in
+  their sections). A first time is no record.
+- **When the day is over** (the app scores it the next time it opens, and
+  again within a week if a burn or a meal arrives late — upward only):
+  calories 30 at most the target / 15 up to 10% over / 0 beyond, or with a
+  deficit over 1,000; protein 10 at `proteinTarget` / 5 above 80%; meal
+  count 10 at most 2 / 5 for one more. Days with no meal logged aren't
+  judged. The target is the burn less `calorieDeficit`, or `calorieTarget`
+  with no `dailyActivity` doc.
+- Perfect day +30: sleep both parts full (bedtime free counts), every
+  daily / fixed-weekday habit due that day done, calories, protein and
+  meal count full — and a workout only if the coach planned one that day
+  (not marked "לא היום"). A rest day never blocks it.
+- **Daily cap 200**, not counting the weekly bonuses, records and the
+  perfect day.
+- Scoring starts on the day the app first runs it (`rewardsStartDate`);
+  the past isn't scored. Each run scores from the last day checked
+  (`rewardsCheckedThrough`, less 7 days) to today, at most 31 days back —
+  a week away loses nothing.
+
+---
+
 ## Rules for writing from outside the app
 
 1. **Show, then write.** Before every write, show the user exactly what will
@@ -761,3 +838,6 @@ names; add to it only for a genuinely new exercise.
 8. **Never write `dailyActivity.workoutKcal`** — the app owns it. The
    nightly burn merges only `steps`, `stepsKcal` and `totalOutKcal` (see
    Daily activity).
+9. **Never write `pointsLedger`, or the `rewards…` fields on the user doc.**
+   Points follow from the data: write the meal, the burn or the plan, and
+   the app scores it the next time it opens (see Points ledger).

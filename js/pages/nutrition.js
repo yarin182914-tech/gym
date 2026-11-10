@@ -20,25 +20,22 @@ import { openBottomSheet } from '../ui/bottom-sheet.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
 import { showToast } from '../ui/toast.js';
 import { handleQuickActions } from '../ui/quick-add.js';
+import { NUTRITION } from '../lib/rules.js';
+import { nutritionGoals } from '../lib/rewards.js';
 
 // The daily goals, all editable in the "יעדים" sheet and kept on the user
-// doc (users/{uid}) under these same names. A day's calorie target is what
+// doc (users/{uid}) under these same names; defaults in NUTRITION
+// (js/lib/rules.js), shared with the points. A day's calorie target is what
 // was burned that day (its dailyActivity totalOutKcal) less calorieDeficit;
 // until the burn is logged, it's calorieTarget.
-const DEFAULT_GOALS = {
-  calorieDeficit: 250,
-  calorieTarget: 2000,
-  proteinTarget: 140,
-  carbsTarget: 250,
-  fatTarget: 65,
-};
+const DEFAULT_GOALS = NUTRITION.defaults;
 // Calorie fields go well past the numeric field's weight-sized default max.
 const MAX_KCAL = 9999;
 // Enough for the trend card's month and then some, at several meals a day.
 const MEALS_TO_LOAD = 400;
 // The eating plan is lunch and dinner only (intermittent fasting); a third
 // entry in a day — a snack, a shake — is flagged on the in-vs-out card.
-const MAX_MEALS = 2;
+const MAX_MEALS = NUTRITION.maxMeals;
 // 'snack' is kept only so older entries saved under it still display a
 // label instead of falling back to the raw key — the form itself now
 // offers three presets plus free text instead of a fixed 4th category.
@@ -88,16 +85,9 @@ function calorieTargetFor(day) {
   return out === null ? goals.calorieTarget : Math.max(0, out - goals.calorieDeficit);
 }
 
-// The user doc's saved goals over the defaults. The deficit may be 0;
-// every other goal must be above it.
-function goalsFrom(settings) {
-  const result = { ...DEFAULT_GOALS };
-  for (const key of Object.keys(DEFAULT_GOALS)) {
-    const v = Number(settings[key]);
-    if (Number.isFinite(v) && (v > 0 || (key === 'calorieDeficit' && v === 0))) result[key] = v;
-  }
-  return result;
-}
+// The user doc's saved goals over the defaults — the same reading the
+// points use (js/lib/rewards.js).
+const goalsFrom = nutritionGoals;
 
 export async function mountNutrition(rootEl) {
   const token = beginMount();

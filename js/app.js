@@ -1,6 +1,7 @@
 import { onAuthChange, signIn } from './auth.js';
 import { useCloud } from './firebase-config.js';
 import { ensureUserDoc } from './lib/firestore.js';
+import { startRewards } from './lib/rewards-sync.js';
 import { registerRoute, startRouter } from './lib/router.js';
 import { mountActiveSession, unmountActiveSession } from './pages/active-session.js';
 import { mountHistory, unmountHistory } from './pages/history.js';
@@ -62,6 +63,8 @@ async function enterApp() {
   mountAppBar(appRoot);
   mountQuickAdd();
   await ensureUserDoc();
+  // Points: scores the days since the last visit, then every save.
+  startRewards();
   // A stashed steps import runs first, whatever screen the hash says.
   if (hasPendingImport() && !/^#\/import(\?|$)/.test(location.hash)) location.replace('#/import');
   if (!routerStarted) {
