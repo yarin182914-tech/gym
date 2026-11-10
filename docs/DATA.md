@@ -576,7 +576,7 @@ One document per habit — what it is and what counts as done. Shown on the
 | Field | Type | Notes |
 |---|---|---|
 | `name` | string | Hebrew, short — `"קריאה"` |
-| `icon` | string | A Lucide icon name the app knows (`book-open`, `footprints`, `phone-off`, `droplet`, `brain`, `heart`, `languages`, `apple`, `leaf`, `moon`, `sun`, `dumbbell`, `pencil`, `sparkles`, `check`). Unknown → a check mark. |
+| `icon` | string | A Lucide icon name the app knows (`book-open`, `footprints`, `phone-off`, `smartphone`, `droplet`, `brain`, `heart`, `languages`, `apple`, `leaf`, `moon`, `sun`, `dumbbell`, `pencil`, `sparkles`, `check`). Unknown → a check mark. |
 | `area` | string | `body` (גוף) · `personal` (אישי) · `relationship` (זוגיות) · `career` (קריירה) |
 | `schedule` | map | `{ "type": "daily" }` · `{ "type": "weekly", "perWeek": 3 }` (any 3 days a week) · `{ "type": "days", "days": [1, 3] }` (fixed weekdays, `0` Sunday … `6` Saturday) |
 | `kind` | string | `good` (something to do) · `bad` (something to quit — see "Bad habits" below). **Missing = `good`**: every habit before M5 is a good one, and the app never converts one. |

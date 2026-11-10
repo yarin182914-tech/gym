@@ -51,9 +51,10 @@ export function dayCell(row, key, ctx, today) {
     return { status: nightGrade(evaluateNight(night, ctx.sleep)), value: Math.round((Number(night.durationMin) || 0) / 6) / 10 };
   }
   if (row.habit && isBad(row.habit)) {
-    // A slip is grey like any miss; an unreported day stays an outline.
+    // Any slip is grey, like any miss (its 5 points still count); an
+    // unreported day stays an outline.
     const level = badDayLevel(row.habit, badMark(row.habit, key, ctx.habitCtx));
-    const status = { full: 'full', short: 'close', none: 'miss' }[level] || 'none';
+    const status = { full: 'full', short: 'miss', none: 'miss' }[level] || 'none';
     return { status, value: { full: 1, short: 0.5, none: 0 }[level] ?? null };
   }
   if (row.habit) {

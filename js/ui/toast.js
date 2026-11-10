@@ -21,14 +21,33 @@ function ensureSlot() {
 // `html` is rendered via innerHTML so a toast can carry an icon — callers
 // must escape any user-supplied text themselves (see core/dom.js#esc)
 // before interpolating it in, same rule as everywhere else in this app.
-export function showToast(html) {
+//
+// action: { label, onClick } adds a button (e.g. "ביטול"); the toast then
+// stays `duration` ms and closes as soon as the button is tapped.
+export function showToast(html, { action = null, duration = 1800 } = {}) {
   const el = document.createElement('div');
-  el.className = 'toast';
+  el.className = `toast${action ? ' toast--action' : ''}`;
   el.innerHTML = html;
-  ensureSlot().appendChild(el);
-  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('toast--visible')));
-  setTimeout(() => {
+  let done = false;
+  const hide = () => {
+    if (done) return;
+    done = true;
     el.classList.remove('toast--visible');
     setTimeout(() => el.remove(), 300);
-  }, 1800);
+  };
+  if (action) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'toast-action';
+    btn.textContent = action.label;
+    btn.addEventListener('click', () => {
+      hide();
+      action.onClick();
+    });
+    el.appendChild(btn);
+  }
+  ensureSlot().appendChild(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('toast--visible')));
+  setTimeout(hide, duration);
+  return { close: hide };
 }

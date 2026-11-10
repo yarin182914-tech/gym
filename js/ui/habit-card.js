@@ -13,6 +13,9 @@ const fmt = (n) => Number(n).toLocaleString('he-IL');
 // "10 דקות · מקוצר 5", "עד 60 דקות", "8,000 צעדים".
 export function targetText(habit) {
   const { full, short, unit } = habit;
+  if (habit.measure === 'steps') {
+    return habit.steps.length ? `${habit.steps.length} צעדים${habit.shortSteps?.length ? ` · מקוצר ${habit.shortSteps.length}` : ''}` : '';
+  }
   if (full === null) return '';
   const u = unit ? ` ${unit}` : '';
   if (habit.measure === 'limit') return `עד ${fmt(full)}${u}${short !== null ? ` · מקוצר עד ${fmt(short)}` : ''}`;

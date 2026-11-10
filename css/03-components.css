@@ -4520,3 +4520,110 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
   margin: 0 0 var(--space-3);
   font-size: var(--text-sm);
 }
+
+/* ===== "להיגמל" on Today (js/ui/bad-habit-card.js, M5) — neutral only:
+   a slip is grey, an unreported day an outline, never red. ===== */
+
+.bad-main {
+  cursor: default;
+}
+
+.bad-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent);
+  font-weight: var(--weight-bold);
+}
+
+.bad-week {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 14px 4px;
+}
+
+.bad-chain {
+  display: flex;
+  gap: 5px;
+}
+
+.bad-day {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--border);
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+.bad-day--full {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+
+.bad-day--short,
+.bad-day--none {
+  background: var(--surface-raised);
+  border-color: var(--surface-raised);
+}
+
+.bad-day--future {
+  border-style: dashed;
+  opacity: 0.5;
+}
+
+.bad-day--selected {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text-muted);
+}
+
+.bad-week-count {
+  font-size: var(--text-sm);
+}
+
+.bad-day-line,
+.bad-instead {
+  margin: 4px 14px 0;
+  font-size: var(--text-sm);
+}
+
+.bad-card .habit-actions {
+  padding-top: 8px;
+}
+
+.bad-instead {
+  padding-bottom: 10px;
+}
+
+.routine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: var(--space-2);
+}
+
+.routine-step {
+  padding: 8px 0;
+}
+
+/* A toast with a button (e.g. "ביטול" after "מעדתי") takes taps. */
+.toast--action {
+  pointer-events: auto;
+  gap: 12px;
+}
+
+.toast-action {
+  padding: 4px 10px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--bg) 20%, transparent);
+  color: inherit;
+  font: inherit;
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+}

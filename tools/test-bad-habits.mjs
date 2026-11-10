@@ -113,5 +113,21 @@ check('bad habits aren\'t scored as good ones', R.scoreDay('2026-11-09', pctx, {
 const row = Pg.allRows(pctx).find((r) => r.id === 'habit:b2');
 check('progress: a slip is grey (miss), unreported an outline (none)', [Pg.dayCell(row, '2026-11-09', pctx, '2026-11-20').status, Pg.dayCell(row, '2026-11-10', pctx, '2026-11-20').status], ['miss', 'none']);
 
+console.log('wizard and templates');
+const W = await import('../js/ui/habit-wizard.js');
+const T = await import('../js/lib/habit-templates.js');
+const insTpl = T.BAD_TEMPLATES.find((t) => t.id === 'instagram');
+check('Instagram is a bad habit with a minutes limit', [insTpl.kind, insTpl.measure, insTpl.unit, insTpl.full], ['bad', 'limit', 'דקות', 30]);
+check('every template normalizes to its own kind', [...T.GOOD_TEMPLATES, ...T.BAD_TEMPLATES].map((t) => H.normalizeHabit(t).kind), [...T.GOOD_TEMPLATES.map(() => 'good'), ...T.BAD_TEMPLATES.map(() => 'bad')]);
+check('morning routine: short = water and bed', H.normalizeHabit(T.GOOD_TEMPLATES.find((t) => t.id === 'morning')).shortSteps, [0, 1]);
+check('expected week: reading 4×/week → 4×10 + 20', W.expectedWeekPoints(H.normalizeHabit(T.GOOD_TEMPLATES[0])), 60);
+check('expected week: bad, target 5 → 5×10 + 20', W.expectedWeekPoints(H.normalizeHabit(insTpl)), 70);
+const d = (patch) => ({ name: 'x', schedule: { type: 'daily' }, measure: 'quantity', full: 10, short: 5, steps: [], ...patch });
+check('a name is needed', W.problemOn(d({ name: ' ' }), 'what'), 'צריך שם להרגל');
+check('quantity: short below full', W.problemOn(d({ short: 12 }), 'done'), '"מקוצר" צריך להיות פחות מ"מלא"');
+check('limit: short allows more than full', W.problemOn(d({ measure: 'limit', full: 30, short: 20 }), 'measure'), 'במגבלה, "מקוצר" מרשה יותר מ"מלא"');
+check('a routine needs a step', W.problemOn(d({ measure: 'steps', steps: [' '] }), 'done'), 'צריך לפחות צעד אחד');
+check('fixed days need one', W.problemOn(d({ schedule: { type: 'days', days: [] } }), 'often'), 'בחרו לפחות יום אחד');
+
 console.log(failed ? `\n${failed} FAILED` : '\nall passed');
 process.exit(failed ? 1 : 0);
