@@ -3,11 +3,14 @@
 //
 // A day's marks live in habitLogs/{yyyy-mm-dd} (map habitId → mark). A
 // habit with `autoSource: 'dailyActivity.steps'` also reads that day's
-// steps from dailyActivity; a manual mark on the same day wins. Days are
+// steps from dailyActivity, and one with `autoSource: 'workouts.strength'`
+// counts that day's workouts with strength exercises; a manual mark on the
+// same day wins. Days are
 // the device's local dates — Israel, like the rest of the app (docs/DATA.md).
 
 import { HABITS, BAD_HABITS } from './rules.js';
 import { parseKey, shiftDays } from './sleep.js';
+import { workoutKind, workoutDayKey } from './workout-types.js';
 
 export const AREAS = { body: 'גוף', personal: 'אישי', relationship: 'זוגיות', career: 'קריירה' };
 export const MEASURES = ['yesno', 'quantity', 'limit', 'steps'];
@@ -20,6 +23,10 @@ export const PARTS_OF_DAY = { morning: 'בוקר', noon: 'צהריים', evening
 export const MARKED_BY = { me: 'אני בלחיצה', coach: 'העוזר שואל בערב', auto: 'אוטומטית' };
 export const LEVELS = ['full', 'short', 'none'];
 export const AUTO_STEPS = 'dailyActivity.steps';
+export const AUTO_STRENGTH = 'workouts.strength';
+export const AUTO_SOURCES = [AUTO_STEPS, AUTO_STRENGTH];
+// The most fields a quantity/limit habit splits into (e.g. אינסטגרם, פייסבוק).
+export const MAX_PARTS = 6;
 
 // Created once for a new user (users/{uid}.habitsSeeded stops it coming
 // back after they're deleted).
@@ -52,7 +59,11 @@ export function normalizeHabit(raw = {}) {
   let measure;
   if (kind === 'bad') measure = BAD_MEASURES.includes(raw.measure) ? raw.measure : 'clean';
   else measure = MEASURES.includes(raw.measure) ? raw.measure : 'yesno';
-  const autoSource = raw.autoSource === AUTO_STEPS && kind === 'good' ? AUTO_STEPS : null;
+  const autoSource = AUTO_SOURCES.includes(raw.autoSource) && kind === 'good' ? raw.autoSource : null;
+  // Several number fields summed into the day's value — quantity/limit only.
+  const parts = (measure === 'quantity' || measure === 'limit') && Array.isArray(raw.parts)
+    ? [...new Set(raw.parts.map(text).filter(Boolean))].slice(0, MAX_PARTS)
+    : [];
   return {
     ...raw,
     kind,
@@ -69,6 +80,7 @@ export function normalizeHabit(raw = {}) {
     shortSteps: Array.isArray(raw.shortSteps)
       ? [...new Set(raw.shortSteps.filter((i) => Number.isInteger(i) && i >= 0 && i < steps.length))].sort((a, b) => a - b)
       : [],
+    parts,
     autoSource,
     active: raw.active !== false,
     order: Number.isFinite(raw.order) ? raw.order : 0,
@@ -213,23 +225,48 @@ export function levelFor(habit, value) {
   return 'none';
 }
 
-// Lookups for entryFor(): habitLogs docs and dailyActivity docs, any order.
-export function habitContext(logs = [], activities = []) {
+// A split habit's sheet → what the mark stores: the entered fields
+// (name → number) and their sum as the value. Nothing entered → null.
+export function partsMark(habit, values = {}) {
+  const parts = {};
+  for (const name of habit.parts || []) {
+    const v = num(values[name]);
+    if (v !== null) parts[name] = v;
+  }
+  const entered = Object.values(parts);
+  return entered.length ? { value: entered.reduce((a, b) => a + b, 0), parts } : null;
+}
+
+// Lookups for entryFor(): habitLogs, dailyActivity and workout docs, any
+// order. strengthByDate: day → workouts holding a strength exercise.
+export function habitContext(logs = [], activities = [], workouts = []) {
+  const strengthByDate = new Map();
+  for (const w of workouts) {
+    if (!workoutKind(w).strength.length) continue;
+    const k = workoutDayKey(w);
+    strengthByDate.set(k, (strengthByDate.get(k) || 0) + 1);
+  }
   return {
     logsByDate: new Map(logs.map((l) => [l.date || l.id, l])),
     stepsByDate: new Map(activities.map((a) => [a.date || a.id, Number(a.steps) || 0])),
+    strengthByDate,
   };
 }
 
 // The habit's day: { level, value, auto } or null when nothing's there.
 // A manual mark wins; otherwise an auto-steps habit reads the day's steps
-// (0 = unknown, so nothing).
+// (0 = unknown, so nothing), and an auto-strength habit is full on a day
+// with a strength workout (value: how many).
 export function entryFor(habit, key, ctx) {
   const mark = ctx.logsByDate.get(key)?.habits?.[habit.id];
   if (mark && LEVELS.includes(mark.level)) return { level: mark.level, value: num(mark.value), auto: false };
   if (habit.autoSource === AUTO_STEPS) {
     const steps = ctx.stepsByDate.get(key);
     if (steps > 0) return { level: levelFor(habit, steps), value: steps, auto: true };
+  }
+  if (habit.autoSource === AUTO_STRENGTH) {
+    const count = ctx.strengthByDate?.get(key) || 0;
+    if (count > 0) return { level: 'full', value: count, auto: true };
   }
   return null;
 }

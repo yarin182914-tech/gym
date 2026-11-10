@@ -7,12 +7,13 @@
 // local cache and syncs when the connection is back.
 
 import {
-  getUserSettings, updateUserSettings, listSleep, listDailyActivity,
+  getUserSettings, updateUserSettings, listSleep, listDailyActivity, listWorkouts,
   listHabits, listHabitLogs, newHabitId, setHabit, deleteHabit, setHabitMark,
 } from '../lib/firestore.js';
 import {
   EXAMPLE_HABITS, normalizeHabit, habitContext, entryFor, isDone, isDue, isOpenToday,
   weekCount, habitStreak, levelFor, isGood, isBad, badMark, badDayLevel, slipsOf, routineLevel,
+  partsMark, AUTO_STRENGTH,
 } from '../lib/habits.js';
 import { dateKey, shiftDays, parseKey } from '../lib/sleep.js';
 import { HABITS, REWARDS, BAD_HABITS } from '../lib/rules.js';
@@ -37,6 +38,7 @@ let sleepCard = null; // created once per visit, re-attached by render()
 let habits = []; // normalized, active and paused, in order
 let logs = []; // habitLogs docs
 let activities = []; // dailyActivity docs, for auto-counted steps
+let workouts = []; // for habits counted from strength workouts
 let ctx = habitContext();
 let sleepLoggedToday = false;
 let openId = null; // the habit whose buttons are showing
@@ -69,7 +71,7 @@ export async function mountToday(rootEl) {
     console.error(`[today] ${what} load failed`, err);
     return fallback;
   };
-  const [settings, nights, loadedHabits, loadedLogs, acts] = await Promise.all([
+  const [settings, nights, loadedHabits, loadedLogs, acts, loadedWorkouts] = await Promise.all([
     getUserSettings().catch(loadFailed('settings', {})),
     listSleep(60).catch(loadFailed('sleep', [])),
     // null, not [] — a failed load must never look like "no habits yet"
@@ -77,13 +79,15 @@ export async function mountToday(rootEl) {
     listHabits().catch(loadFailed('habits', null)),
     listHabitLogs(HABITS.logDaysToLoad).catch(loadFailed('habit logs', [])),
     listDailyActivity(HABITS.logDaysToLoad).catch(loadFailed('activity', [])),
+    listWorkouts(200).catch(loadFailed('workouts', [])),
   ]);
   if (isStale(token)) return;
 
   habits = sortHabits((loadedHabits || []).map(normalizeHabit));
   logs = loadedLogs;
   activities = acts;
-  ctx = habitContext(logs, activities);
+  workouts = loadedWorkouts;
+  ctx = habitContext(logs, activities, workouts);
   if (loadedHabits && !settings.habitsSeeded) {
     if (!loadedHabits.length) seedExamples();
     updateUserSettings({ habitsSeeded: true }).catch(logFailed('habitsSeeded'));
@@ -113,6 +117,7 @@ export function unmountToday() {
   habits = [];
   logs = [];
   activities = [];
+  workouts = [];
   ctx = habitContext();
   openId = null;
   pressTimer = null;
@@ -368,7 +373,9 @@ function bindHabitEvents(section) {
 }
 
 function onMarkButton(habit, kind) {
-  if (kind === 'full' || kind === 'none') applyMark(habit, { level: kind, value: null });
+  // A habit split into fields always asks for each one's number.
+  if (habit.parts.length && (kind === 'full' || kind === 'short')) openValueSheet(habit);
+  else if (kind === 'full' || kind === 'none') applyMark(habit, { level: kind, value: null });
   // "מקוצר" asks how much (minutes, steps…) when the habit has numeric
   // targets; the level then follows from the number.
   else if (kind === 'short') {
@@ -383,7 +390,7 @@ function undo(habitId) {
   const entry = habit && entryFor(habit, habitKey(), ctx);
   if (!entry) return;
   if (entry.auto) {
-    showToast('נספר אוטומטית מהצעדים של היום');
+    showToast(habit.autoSource === AUTO_STRENGTH ? 'נספר אוטומטית מאימוני הכוח של היום' : 'נספר אוטומטית מהצעדים של היום');
     return;
   }
   navigator.vibrate?.(15);
@@ -396,7 +403,13 @@ function undo(habitId) {
 function applyMark(habit, mark) {
   const key = habitKey();
   const stored = mark
-    ? { level: mark.level, value: mark.value ?? null, ...(mark.stepsDone ? { stepsDone: mark.stepsDone } : {}), source: 'manual' }
+    ? {
+      level: mark.level,
+      value: mark.value ?? null,
+      ...(mark.stepsDone ? { stepsDone: mark.stepsDone } : {}),
+      ...(mark.parts ? { parts: mark.parts } : {}),
+      source: 'manual',
+    }
     : null;
   setLocalMark(key, habit.id, stored);
   openId = null;
@@ -414,7 +427,7 @@ function setLocalMark(key, habitId, stored) {
   day.habits = { ...day.habits };
   if (stored) day.habits[habitId] = stored;
   else delete day.habits[habitId];
-  ctx = habitContext(logs, activities);
+  ctx = habitContext(logs, activities, workouts);
 }
 
 // A routine, step by step: every step → מלא, the short steps → מקוצר.
@@ -564,6 +577,7 @@ function openBadValueSheet(habit) {
   const key = habitKey();
   const current = badMark(habit, key, ctx);
   let value = current?.value ?? null;
+  const partValues = { ...(current?.parts || {}) };
   openBottomSheet({
     ariaLabel: habit.name,
     render(body, sheetApi) {
@@ -571,14 +585,16 @@ function openBadValueSheet(habit) {
         <h3 style="margin:0 0 4px; color:var(--text);">${esc(habit.name)} · כמה ${key === todayKey() ? 'היום' : 'באותו יום'}?</h3>
         <p class="text-muted" style="margin:0 0 12px; font-size:0.85rem;">${esc(targetText(habit))}</p>
         <div data-bv-field></div>
+        <p class="text-muted" data-bv-total style="margin:10px 0 0; font-size:0.85rem;"></p>
         <div class="sheet-actions">
           ${current ? '<button type="button" class="btn btn-secondary" data-bv-clear>ניקוי</button>' : ''}
           <button type="button" class="btn btn-secondary" data-bv-cancel>ביטול</button>
           <button type="button" class="btn btn-primary" data-bv-save>שמירה</button>
         </div>`;
-      mountNumericField(body.querySelector('[data-bv-field]'), {
-        value, unitLabel: habit.unit, ariaLabel: habit.name, nullable: true, max: 100000,
-        onCommit: (v) => { value = v; },
+      const totalEl = body.querySelector('[data-bv-total]');
+      mountValueFields(body.querySelector('[data-bv-field]'), habit, value, partValues, (v) => {
+        value = v;
+        if (habit.parts.length) totalEl.textContent = v === null ? '' : `סה״כ ${v} ${habit.unit}`;
       });
       const write = (stored) => {
         sheetApi.close();
@@ -591,7 +607,8 @@ function openBadValueSheet(habit) {
       body.querySelector('[data-bv-save]').addEventListener('click', () => {
         if (value === null) return showToast('הזינו מספר');
         const level = levelFor(habit, value);
-        write({ clean: level === 'full', slips: [], value, level, source: 'manual' });
+        const parts = habit.parts.length ? partsMark(habit, partValues).parts : null;
+        write({ clean: level === 'full', slips: [], value, ...(parts ? { parts } : {}), level, source: 'manual' });
       });
     },
   });
@@ -601,7 +618,9 @@ function openBadValueSheet(habit) {
 // level follows from the number.
 function openValueSheet(habit) {
   const current = entryFor(habit, habitKey(), ctx);
-  let value = current?.value ?? habit.short ?? null;
+  const currentParts = current && !current.auto ? ctx.logsByDate.get(habitKey())?.habits?.[habit.id]?.parts : null;
+  const partValues = { ...(currentParts || {}) };
+  let value = habit.parts.length ? partsMark(habit, partValues)?.value ?? null : current?.value ?? habit.short ?? null;
   openBottomSheet({
     ariaLabel: habit.name,
     render(body, sheetApi) {
@@ -615,12 +634,12 @@ function openValueSheet(habit) {
           <button type="button" class="btn btn-primary" data-v-save>שמירה</button>
         </div>`;
       const previewEl = body.querySelector('[data-v-preview]');
-      const refresh = () => { previewEl.textContent = value === null ? '' : LEVEL_TEXT[levelFor(habit, value)]; };
+      const refresh = () => {
+        const total = habit.parts.length && value !== null ? `סה״כ ${value} ${habit.unit} · ` : '';
+        previewEl.textContent = value === null ? '' : `${total}${LEVEL_TEXT[levelFor(habit, value)]}`;
+      };
       refresh();
-      mountNumericField(body.querySelector('[data-v-field]'), {
-        value, unitLabel: habit.unit, ariaLabel: habit.name, nullable: true, max: 100000,
-        onCommit: (v) => { value = v; refresh(); },
-      });
+      mountValueFields(body.querySelector('[data-v-field]'), habit, value, partValues, (v) => { value = v; refresh(); });
       body.querySelector('[data-v-cancel]').addEventListener('click', () => sheetApi.close());
       body.querySelector('[data-v-save]').addEventListener('click', () => {
         if (value === null) {
@@ -628,10 +647,36 @@ function openValueSheet(habit) {
           return;
         }
         sheetApi.close();
-        applyMark(habit, { level: levelFor(habit, value), value });
+        const parts = habit.parts.length ? partsMark(habit, partValues).parts : null;
+        applyMark(habit, { level: levelFor(habit, value), value, ...(parts ? { parts } : {}) });
       });
     },
   });
+}
+
+// The sheet's number: one field, or one per part (partValues is filled in
+// place) — onChange gets the value, the parts' sum, null while empty.
+function mountValueFields(host, habit, value, partValues, onChange) {
+  if (!habit.parts.length) {
+    mountNumericField(host, {
+      value, unitLabel: habit.unit, ariaLabel: habit.name, nullable: true, max: 100000, onCommit: onChange,
+    });
+    return;
+  }
+  host.innerHTML = habit.parts.map((name, i) => `
+    <div class="sheet-field-label">${esc(name)}</div>
+    <div data-part-field="${i}"></div>`).join('');
+  habit.parts.forEach((name, i) => {
+    mountNumericField(host.querySelector(`[data-part-field="${i}"]`), {
+      value: partValues[name] ?? null, unitLabel: habit.unit, ariaLabel: name, nullable: true, max: 100000,
+      onCommit: (v) => {
+        if (v === null) delete partValues[name];
+        else partValues[name] = v;
+        onChange(partsMark(habit, partValues)?.value ?? null);
+      },
+    });
+  });
+  onChange(partsMark(habit, partValues)?.value ?? null);
 }
 
 function addHabit() {

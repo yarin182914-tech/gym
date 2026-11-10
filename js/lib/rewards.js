@@ -75,7 +75,7 @@ export function weeklyWorkoutGoal(userDoc = {}) {
 export function buildContext(data) {
   const today = data.today || dateKey(new Date());
   const active = (data.habits || []).filter((h) => h.active !== false);
-  const habitCtx = habitContext(data.logs || [], data.activities || []);
+  const habitCtx = habitContext(data.logs || [], data.activities || [], data.workouts || []);
   const badHabits = active.filter(isBad);
   const byDay = (list, keyOf) => {
     const map = new Map();

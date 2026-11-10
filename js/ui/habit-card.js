@@ -59,7 +59,7 @@ export function habitCardHtml(habit, view) {
           <span class="habit-icon">${icon(habit.icon) || icon('check')}</span>
           <span class="habit-text">
             <span class="habit-name">${esc(habit.name)}</span>
-            <span class="habit-meta">${meta.join(' · ')}${entry?.auto ? ' · מהצעדים' : ''}</span>
+            <span class="habit-meta">${meta.join(' · ')}${entry?.auto ? (habit.autoSource === 'workouts.strength' ? ' · מהאימונים' : ' · מהצעדים') : ''}</span>
           </span>
           ${mark ? `<span class="habit-mark">${mark}</span>` : ''}
           ${streakHtml}
