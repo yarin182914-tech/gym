@@ -1024,7 +1024,6 @@ function buildExerciseCard(ex) {
       <span class="exercise-num" data-role="exercise-num">${esc(exNum)}</span>
       <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
         <span class="exercise-name">${esc(ex.name)}</span>
-        ${isCardio ? '' : `<button type="button" class="exercise-note exercise-note-btn" data-edit-note aria-label="הערה קבועה לתרגיל">${icon('pencil', { className: 'icon--sm' })} ${exerciseNote(ex) ? esc(exerciseNote(ex)) : 'הערה'}</button>`}
         <span class="exercise-meta${allDone ? ' exercise-meta--done' : ''}" data-role="exercise-meta">${esc(exerciseMetaText(ex))}</span>
       </div>
       <button type="button" class="set-more-btn" data-last-time aria-label="פעם קודמת">${icon('clock', { className: 'icon--sm' })}</button>
@@ -1035,6 +1034,7 @@ function buildExerciseCard(ex) {
     </div>
     <div class="history-detail${isOpen ? ' history-detail--open' : ''}" data-exercise-detail>
       <div class="history-detail-inner exercise-detail-inner">
+        ${!isCardio && exerciseNote(ex) ? `<button type="button" class="exercise-note-strip" data-edit-note aria-label="עריכת ההערה">${icon('pencil', { className: 'icon--sm' })}<span>${esc(exerciseNote(ex))}</span></button>` : ''}
         ${controlsHtml}
         <div class="sets-list"></div>
         <div class="row" style="gap:8px; margin-top:10px;">
@@ -1042,6 +1042,7 @@ function buildExerciseCard(ex) {
           ${isCardio ? '<button type="button" class="btn btn-dashed" data-repeat-segments>חזרה ×</button>' : ''}
           <button type="button" class="btn btn-outline" data-finish-exercise style="flex:1;">סיום תרגיל</button>
         </div>
+        ${!isCardio && !exerciseNote(ex) ? '<button type="button" class="exercise-note-add" data-edit-note>+ הערה קבועה לתרגיל</button>' : ''}
       </div>
     </div>
   `;
@@ -1059,6 +1060,8 @@ function buildExerciseCard(ex) {
       onSaved: async () => {
         library = await listExerciseLibrary();
         render();
+        // The sliding toggles measure themselves once laid out again.
+        requestAnimationFrame(() => session?.exercises.forEach(patchExerciseCard));
       },
     });
   });
