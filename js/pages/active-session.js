@@ -430,7 +430,7 @@ function render() {
   container.querySelector('#session-when-btn').addEventListener('click', openWorkoutDetailsSheet);
   container.querySelector('#delete-workout-btn').addEventListener('click', deleteCurrentWorkout);
   container.querySelector('#add-exercise-btn').addEventListener('click', () => {
-    picker = { open: true, query: '', category: null };
+    picker = { open: true, query: '', category: null, mode: defaultPickerMode() };
     render();
     loadRecentExercises();
   });
@@ -847,21 +847,36 @@ function openTypeSheet(doc = null) {
   });
 }
 
+// The add screen starts with the kind of workout (feedback 10.11): כוח and
+// אירובי open their own lists, any other type is added straight away. It
+// reopens on the kind of the last exercise added, so a second strength
+// exercise is one tap; searching always covers every kind.
+function defaultPickerMode() {
+  const last = session?.exercises[session.exercises.length - 1];
+  if (!last) return null;
+  const kind = exerciseKind(last);
+  return kind === 'session' ? null : kind;
+}
+
 function renderPicker() {
   const q = picker.query.trim();
+  const mode = picker.mode || null;
   const pickable = pickableExercises();
-  const byCategory = picker.category ? pickable.filter((e) => e.category === picker.category) : pickable;
-  const matches = byCategory.filter((e) => e.name.includes(q));
   const exactMatch = pickable.some((e) => sameExerciseName(e.name, q));
+  const strengthLib = library.filter((e) => exerciseKind(e) === 'strength');
+  let matches = [];
+  if (q) matches = pickable.filter((e) => e.name.includes(q));
+  else if (mode === 'strength') matches = picker.category ? strengthLib.filter((e) => e.category === picker.category) : strengthLib;
+  else if (mode === 'cardio') matches = CARDIO_LIBRARY;
 
   // Skips exercises already in this session — the point is speeding up
   // what to add *next*, not re-suggesting what's already on screen.
   const alreadyAdded = new Set(session.exercises.map((e) => e.name));
-  const recentEntries = recentExerciseNames
+  const recentEntries = mode ? recentExerciseNames
     .filter((name) => !alreadyAdded.has(name))
     .map((name) => pickable.find((e) => e.name === name))
-    .filter(Boolean)
-    .slice(0, 5);
+    .filter((e) => e && exerciseKind(e) === mode)
+    .slice(0, 5) : [];
 
   const pillRow = (label, categories) => `
     <div class="pill-row-label">${label}</div>
@@ -869,26 +884,29 @@ function renderPicker() {
       ${categories.map((c) => `<button class="pill ${picker.category === c ? 'active' : ''}" data-category="${c}">${c}</button>`).join('')}
     </div>`;
 
+  const loading = !libraryReady && library.length === 0 && mode === 'strength';
   return `
     <div class="card" id="picker-card">
+      <div class="pill-row-label">סוג אימון</div>
+      <div class="pill-row picker-kinds">
+        <button class="pill ${mode === 'strength' ? 'active' : ''}" data-picker-mode="strength">כוח</button>
+        <button class="pill ${mode === 'cardio' ? 'active' : ''}" data-picker-mode="cardio">אירובי</button>
+      </div>
+      <div class="pill-row-label">אימון אחר — נכנס ישר</div>
+      <div class="pill-row">
+        ${typeLibrary(workoutTypes).map((e) => `<button class="pill" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
+        <button class="pill" data-new-type>+ סוג משלך</button>
+      </div>
       ${recentEntries.length ? `
         <div class="pill-row-label">לאחרונה</div>
         <div class="pill-row" style="margin-bottom:10px;">
           ${recentEntries.map((e) => `<button class="pill" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
         </div>
       ` : ''}
-      <button class="pill ${!picker.category ? 'active' : ''}" data-category="" style="margin-bottom:10px;">הכל</button>
-      ${CATEGORY_GROUPS.map((g) => pillRow(g.label, g.categories)).join('')}
-      <div class="pill-row-label">${CARDIO_CATEGORY}</div>
-      <div class="pill-row">
-        ${CARDIO_LIBRARY.map((e) => `<button class="pill" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
-      </div>
-      <div class="pill-row-label">סוגי אימון</div>
-      <div class="pill-row">
-        ${typeLibrary(workoutTypes).map((e) => `<button class="pill" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
-        <button class="pill" data-new-type>+ סוג משלך</button>
-      </div>
-      <input type="text" id="picker-input" class="search-bar" placeholder="חיפוש תרגיל..." value="${esc(picker.query)}"
+      ${mode === 'strength' ? `
+        <button class="pill ${!picker.category ? 'active' : ''}" data-category="" style="margin-bottom:10px;">הכל</button>
+        ${CATEGORY_GROUPS.map((g) => pillRow(g.label, g.categories)).join('')}` : ''}
+      <input type="text" id="picker-input" class="search-bar" placeholder="${mode ? 'חיפוש תרגיל...' : 'או חיפוש בכל התרגילים...'}" value="${esc(picker.query)}"
         style="margin:10px 0;">
       <div id="picker-results">
         ${matches.map((e) => `
@@ -898,18 +916,22 @@ function renderPicker() {
               ? `<button type="button" class="set-more-btn" style="min-width:var(--control-h); min-height:var(--control-h);" data-edit-type="${esc(e.docId)}" aria-label="עריכת סוג האימון">${icon('pencil', { className: 'icon--sm' })}</button>`
               : e.kind === 'cardio' || e.kind === 'session' ? '' : `<button type="button" class="set-more-btn" style="min-width:var(--control-h); min-height:var(--control-h);" data-edit-lib="${esc(e.id)}" aria-label="עריכת התרגיל">${icon('pencil', { className: 'icon--sm' })}</button>`}
           </div>`).join('')}
-        ${!libraryReady && library.length === 0
+        ${loading
           ? `<p class="text-muted" style="text-align:center;">טוען תרגילים...</p>`
-          : `${matches.length === 0 ? emptyState('אין תרגילים בקטגוריה הזו.', { centered: true }) : ''}
-        ${q && !exactMatch ? `<button class="btn btn-primary btn-block" id="picker-add-new">+ הוספת "${esc(q)}" כתרגיל חדש</button>` : ''}`}
+          : `${(q || mode) && matches.length === 0 ? emptyState(q ? 'לא נמצא תרגיל בשם הזה.' : 'אין תרגילים בקטגוריה הזו.', { centered: true }) : ''}
+        ${q && !exactMatch ? `<button class="btn btn-primary btn-block" id="picker-add-new">+ הוספת "${esc(q)}" כתרגיל כוח חדש</button>` : ''}`}
       </div>
     </div>`;
 }
 
 function wirePicker() {
   const input = container.querySelector('#picker-input');
-  input.focus();
-  input.setSelectionRange(input.value.length, input.value.length);
+  // Typing resumes where it was; a fresh screen leaves the keyboard closed
+  // so the workout kinds stay in view.
+  if (picker.query) {
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
   // Typing only refreshes the results list: a full render() rebuilt the
   // whole screen on every keystroke and made it jump (feedback 5.11).
   input.addEventListener('input', (e) => {
@@ -926,6 +948,13 @@ function wirePicker() {
   container.querySelectorAll('[data-category]').forEach((btn) => {
     btn.addEventListener('click', () => {
       picker.category = btn.dataset.category || null;
+      render();
+    });
+  });
+  container.querySelectorAll('[data-picker-mode]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      picker.mode = picker.mode === btn.dataset.pickerMode ? null : btn.dataset.pickerMode;
+      picker.category = null;
       render();
     });
   });
