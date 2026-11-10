@@ -37,7 +37,7 @@ export const IOS_LABELS = {
     value: 'ערך',
     getWord: 'קבלת',
     roundNumber: 'עיגול מספר',
-    formatDate: 'עיצוב תאריך',
+    formatDate: 'המרת מבנה תאריך',
     currentDate: 'תאריך נוכחי',
     custom: 'מותאם אישית',
     text: 'טקסט',
