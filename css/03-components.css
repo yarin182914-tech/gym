@@ -3634,3 +3634,87 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
   margin-inline-start: var(--space-1);
   vertical-align: middle;
 }
+
+/* ---------- workout types: a session's form (js/ui/session-form.js) ---------- */
+
+.session-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 var(--space-3);
+  align-items: end;
+}
+
+.session-form .sheet-field-label {
+  margin: 10px 0 4px;
+}
+
+.session-field--wide {
+  grid-column: 1 / -1;
+}
+
+.session-form-pills {
+  margin-bottom: 0;
+}
+
+.session-form-hint {
+  margin-top: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.session-stations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.session-station {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px auto auto;
+  gap: 6px;
+  align-items: end;
+}
+
+/* History: one row per value — label, then the value. */
+.session-detail-row {
+  justify-content: space-between;
+}
+
+/* ---------- "סוג משלך" builder (js/ui/workout-type-sheet.js) ---------- */
+
+.wt-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wt-field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.wt-field-kind {
+  flex: none;
+  font-size: var(--text-sm);
+}
+
+/* Nutrition's activity sheet: the workout burn, worked out, not typed. */
+.activity-workout-kcal {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: 14px;
+  font-size: var(--text-sm);
+}
+
+.activity-workout-kcal .num {
+  font-size: 1rem;
+  font-weight: var(--weight-bold);
+}

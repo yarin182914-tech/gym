@@ -24,16 +24,27 @@ import {
 import {
   listExerciseLibrary, seedExerciseLibraryIfEmpty, addExerciseToLibrary,
   getLastPerformance, createWorkout, updateWorkout, deleteWorkout, getExerciseHistory, listWorkouts, CATEGORY_GROUPS,
-  getPlannedWorkout, updatePlannedWorkout,
+  getPlannedWorkout, updatePlannedWorkout, listWorkoutTypes, bodyKgOn,
 } from '../lib/firestore.js';
 import {
   CARDIO_CATEGORY, CARDIO_LIBRARY, CARDIO_FIELDS, SEGMENT_KEYS, cardioActivity, hasInputModes,
   segmentFields, segmentMetrics, isEmptySegment, formatClock, formatKm, formatSpeed,
   summarizeSegments, formatSummary, findCardioRecords, brokenCardioRecords,
 } from '../lib/cardio.js';
+import {
+  SESSION_CATEGORY, typeLibrary, resolveType, exerciseKind, sessionsOfType, prefillFrom, emptyValues,
+  valuesFromSaved, sessionToSaved, sessionSummary, brokenSessionRecord, workoutDayKey,
+} from '../lib/workout-types.js';
+import { workoutKcal } from '../lib/workout-kcal.js';
+import { WORKOUTS } from '../lib/rules.js';
+import { mountSessionForm } from '../ui/session-form.js';
+import { openWorkoutTypeSheet } from '../ui/workout-type-sheet.js';
 
 let container = null;
 let library = [];
+// The user's own workout types (workoutTypes docs) — the built-in ones
+// live in js/lib/workout-types.js.
+let workoutTypes = [];
 let libraryReady = false; // the library has loaded at least once this app session
 // { id, startedAt, realStartedAt, hasTime, live, exercises: [...] } — plus
 // editingWorkoutId / originalStartedAt / originalEndTime for a saved
@@ -116,8 +127,8 @@ export async function mountActiveSession(rootEl) {
 }
 
 // A new workout, started now, with a walk ready to fill in — the same
-// cardio exercise the picker adds, so it counts in the burn and history
-// like any other. Beside a workout already open, not instead of it.
+// cardio exercise the picker adds, so it counts in history like any other
+// (an outdoor walk adds no workout burn: the steps already count it). Beside a workout already open, not instead of it.
 function startQuickWalk() {
   const before = session;
   startWorkout();
@@ -129,6 +140,12 @@ function startQuickWalk() {
 // background. It stays in memory across visits, so after the first load
 // the picker opens instantly while a fresh copy is fetched behind it.
 async function loadLibrary(token) {
+  listWorkoutTypes()
+    .then((types) => {
+      workoutTypes = types;
+      if (!isStale(token) && picker.open) render();
+    })
+    .catch((err) => console.error('workout types load failed', err));
   try {
     let loaded = await listExerciseLibrary();
     if (loaded.length === 0) {
@@ -210,6 +227,9 @@ function serializeSession(s) {
       kind: ex.kind,
       activity: ex.activity,
       inputMode: ex.inputMode,
+      typeId: ex.typeId,
+      values: ex.values,
+      touched: ex.touched,
       sets: ex.sets,
     })),
   };
@@ -311,6 +331,10 @@ function rehydrateSession(s) {
 // from storage rather than from the picker — same fetch, same patch-in-place
 // (only if that workout is still the one on screen).
 async function rehydrateExercise(entry, owner) {
+  if (entry.kind === 'session') {
+    loadSessionLookups(entry, owner);
+    return;
+  }
   const [prev, hist] = await Promise.all([
     getLastPerformance(entry.name, owner.editingWorkoutId),
     getExerciseHistory(entry.name, owner.editingWorkoutId),
@@ -419,17 +443,20 @@ function render() {
 // while one of its segment timers runs. "+" opens another, up to
 // MAX_SESSIONS.
 
+// A session (Pilates, CrossFit…) takes the strength dot — no new colour —
+// and its type's name in the title.
 function sessionKinds(s) {
-  const cardio = s.exercises.filter((ex) => ex.kind === 'cardio');
-  const strength = s.exercises.some((ex) => ex.kind !== 'cardio');
+  const cardio = s.exercises.filter((ex) => exerciseKind(ex) === 'cardio');
+  const typed = [...new Set(s.exercises.filter((ex) => exerciseKind(ex) === 'session').map((ex) => ex.name))];
+  const lifting = s.exercises.some((ex) => exerciseKind(ex) === 'strength');
   const activities = [...new Set(cardio.map((ex) => cardioActivity(ex.activity).name))];
-  return { strength, cardio: cardio.length > 0, activities };
+  return { strength: lifting || typed.length > 0, lifting, typed, cardio: cardio.length > 0, activities };
 }
 
 function sessionTabTitle(s) {
   if (s.planTitle) return s.planTitle;
-  const { strength, activities } = sessionKinds(s);
-  const parts = [...(strength ? ['כוח'] : []), ...activities];
+  const { lifting, typed, activities } = sessionKinds(s);
+  const parts = [...typed, ...(lifting ? ['כוח'] : []), ...activities];
   if (parts.length === 0) return 'אימון';
   return parts.length > 2 ? `${parts.slice(0, 2).join(' + ')}…` : parts.join(' + ');
 }
@@ -789,9 +816,31 @@ async function loadRecentExercises() {
   if (picker.open) render();
 }
 
-// The library plus the built-in cardio activities, which aren't stored in it.
+// The library plus the built-in cardio activities, which aren't stored in
+// it, and the workout types (built in and the user's own).
 function pickableExercises() {
-  return [...library, ...CARDIO_LIBRARY];
+  return [...library, ...CARDIO_LIBRARY, ...typeLibrary(workoutTypes)];
+}
+
+// "סוג משלך" — a new type, or one of the user's own to edit. A new one is
+// added to the workout straight away.
+function openTypeSheet(doc = null) {
+  openWorkoutTypeSheet(doc, {
+    order: workoutTypes.length,
+    onSaved: (saved) => {
+      workoutTypes = [...workoutTypes.filter((t) => t.id !== saved.id), saved];
+      if (doc) {
+        render();
+        return;
+      }
+      const lib = typeLibrary(workoutTypes).find((t) => t.docId === saved.id);
+      if (lib && session) addExerciseToSession(lib);
+    },
+    onDeleted: (id) => {
+      workoutTypes = workoutTypes.filter((t) => t.id !== id);
+      render();
+    },
+  });
 }
 
 function renderPicker() {
@@ -830,13 +879,20 @@ function renderPicker() {
       <div class="pill-row">
         ${CARDIO_LIBRARY.map((e) => `<button class="pill" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
       </div>
+      <div class="pill-row-label">סוגי אימון</div>
+      <div class="pill-row">
+        ${typeLibrary(workoutTypes).map((e) => `<button class="pill" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
+        <button class="pill" data-new-type>+ סוג משלך</button>
+      </div>
       <input type="text" id="picker-input" class="search-bar" placeholder="חיפוש תרגיל..." value="${esc(picker.query)}"
         style="margin:10px 0;">
       <div id="picker-results">
         ${matches.map((e) => `
           <div class="row" style="gap:6px; margin-bottom:4px;">
             <button class="btn btn-secondary" style="flex:1; justify-content:flex-start;" data-pick="${esc(e.id)}">${esc(e.name)}</button>
-            ${e.kind === 'cardio' ? '' : `<button type="button" class="set-more-btn" style="min-width:var(--control-h); min-height:var(--control-h);" data-edit-lib="${esc(e.id)}" aria-label="עריכת התרגיל">${icon('pencil', { className: 'icon--sm' })}</button>`}
+            ${e.kind === 'session' && e.custom
+              ? `<button type="button" class="set-more-btn" style="min-width:var(--control-h); min-height:var(--control-h);" data-edit-type="${esc(e.docId)}" aria-label="עריכת סוג האימון">${icon('pencil', { className: 'icon--sm' })}</button>`
+              : e.kind === 'cardio' || e.kind === 'session' ? '' : `<button type="button" class="set-more-btn" style="min-width:var(--control-h); min-height:var(--control-h);" data-edit-lib="${esc(e.id)}" aria-label="עריכת התרגיל">${icon('pencil', { className: 'icon--sm' })}</button>`}
           </div>`).join('')}
         ${!libraryReady && library.length === 0
           ? `<p class="text-muted" style="text-align:center;">טוען תרגילים...</p>`
@@ -866,6 +922,14 @@ function wirePicker() {
       if (lib) addExerciseToSession(lib);
     });
   });
+  container.querySelector('[data-new-type]')?.addEventListener('click', () => openTypeSheet());
+  container.querySelectorAll('[data-edit-type]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const doc = workoutTypes.find((t) => t.id === btn.dataset.editType);
+      if (doc) openTypeSheet(doc);
+    });
+  });
   container.querySelectorAll('[data-edit-lib]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -893,6 +957,10 @@ function wirePicker() {
 }
 
 async function addExerciseToSession(lib) {
+  if (lib.kind === 'session') {
+    addSessionToWorkout(lib);
+    return;
+  }
   const entry = {
     _uid: nextUid(),
     name: lib.name,
@@ -926,6 +994,117 @@ async function addExerciseToSession(lib) {
   patchExerciseCard(entry);
 }
 
+// ---------- sessions (Pilates, CrossFit…: js/lib/workout-types.js) ----------
+// A session has no sets: one form (session-form.js) holds its values.
+// `sets` stays an empty array so everything that walks sets skips it.
+
+function addSessionToWorkout(lib) {
+  const entry = {
+    _uid: nextUid(),
+    name: lib.name,
+    category: SESSION_CATEGORY,
+    kind: 'session',
+    typeId: lib.typeId,
+    values: emptyValues(),
+    touched: false,
+    previous: null,
+    prevLoaded: false,
+    history: null,
+    sets: [],
+  };
+  session.exercises.push(entry);
+  picker = { open: false, query: '', category: null };
+  persistSession();
+  render();
+  loadSessionLookups(entry, session);
+}
+
+// The past sessions of the same type: the last one fills the form (quick
+// log) until something is typed, and all of them judge records.
+async function loadSessionLookups(entry, owner) {
+  let past = [];
+  try {
+    past = sessionsOfType(await listWorkouts(500), entry.typeId, owner.editingWorkoutId);
+  } catch (err) {
+    console.error('session history load failed', err);
+  }
+  entry.history = past;
+  entry.previous = past[0]?.ex || null;
+  entry.prevLoaded = true;
+  if (!entry.touched && entry.previous) {
+    entry.values = prefillFrom(entry.previous, sessionType(entry));
+    persistSession();
+    if (container && owner === session && exerciseRefs.has(entry._uid)) render();
+  }
+}
+
+const sessionType = (ex) => resolveType(ex.typeId, workoutTypes, ex.name);
+
+// A record is announced once per value — re-committing the same result
+// doesn't toast again.
+function checkSessionRecord(ex) {
+  const saved = sessionToSaved(ex, sessionType(ex));
+  const label = brokenSessionRecord(saved, ex.history);
+  if (!label || ex.announcedRecord === `${label}|${JSON.stringify(saved.fields)}`) return;
+  ex.announcedRecord = `${label}|${JSON.stringify(saved.fields)}`;
+  if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
+  showToast(`${icon('trophy', { className: 'icon--sm' })} שיא חדש — ${esc(label)}!`);
+}
+
+function buildSessionCard(ex) {
+  const el = document.createElement('div');
+  el.className = 'card';
+  const isOpen = !ex.collapsed;
+  const exNum = String(session.exercises.indexOf(ex) + 1).padStart(2, '0');
+  el.innerHTML = `
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+      <button type="button" class="set-more-btn exercise-drag-handle" data-role="drag-handle" aria-label="גרירה לשינוי סדר התרגילים" style="flex:none;">${icon('grip-vertical', { className: 'icon--sm' })}</button>
+      <span class="exercise-num" data-role="exercise-num">${esc(exNum)}</span>
+      <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;">
+        <span class="exercise-name">${esc(ex.name)}</span>
+        <span class="exercise-meta" data-role="exercise-meta">${esc(exerciseMetaText(ex))}</span>
+      </div>
+      <button type="button" class="set-more-btn set-more-btn--danger" data-delete-exercise aria-label="מחיקת התרגיל">${icon('trash-2', { className: 'icon--sm' })}</button>
+      <button type="button" class="set-more-btn" data-collapse-toggle aria-label="כיווץ/הרחבת התרגיל">
+        <span class="history-chevron${isOpen ? ' history-chevron--open' : ''}" data-collapse-chevron aria-hidden="true">${icon('chevron-down', { className: 'icon--sm' })}</span>
+      </button>
+    </div>
+    <div class="history-detail${isOpen ? ' history-detail--open' : ''}" data-exercise-detail>
+      <div class="history-detail-inner exercise-detail-inner">
+        <div data-session-form></div>
+        <div class="row" style="gap:8px; margin-top:10px;">
+          <button type="button" class="btn btn-outline" data-finish-exercise style="flex:1;">סיום</button>
+        </div>
+      </div>
+    </div>`;
+
+  el.querySelector('[data-delete-exercise]').addEventListener('click', () => requestDeleteExercise(ex));
+  el.querySelector('[data-collapse-toggle]').addEventListener('click', () => toggleExerciseCollapse(ex));
+  el.querySelector('[data-finish-exercise]').addEventListener('click', () => toggleExerciseCollapse(ex));
+  wireExerciseDragHandle(el.querySelector('[data-role="drag-handle"]'), ex, el);
+
+  ex.values ||= emptyValues();
+  mountSessionForm(el.querySelector('[data-session-form]'), {
+    values: ex.values,
+    type: sessionType(ex),
+    onChange: () => {
+      ex.touched = true;
+      persistSession();
+      patchExerciseMeta(ex, exerciseRefs.get(ex._uid));
+      checkSessionRecord(ex);
+    },
+  });
+
+  exerciseRefs.set(ex._uid, {
+    root: el,
+    setsEls: new Map(),
+    detailEl: el.querySelector('[data-exercise-detail]'),
+    chevronEl: el.querySelector('[data-collapse-chevron]'),
+    metaEl: el.querySelector('[data-role="exercise-meta"]'),
+  });
+  return el;
+}
+
 // Unit and weighting belong to the exercise, so a change applies to every set
 // already logged in this session as well as future ones.
 //
@@ -953,6 +1132,7 @@ function convertExerciseWeightUnit(ex, newUnit) {
 // ---------- exercise card (built once; patched afterwards) ----------
 
 function buildExerciseCard(ex) {
+  if (ex.kind === 'session') return buildSessionCard(ex);
   const el = document.createElement('div');
   el.className = 'card';
 
@@ -1172,6 +1352,11 @@ function prefillForNewSet(ex) {
 function patchExerciseCard(ex) {
   const refs = exerciseRefs.get(ex._uid);
   if (!refs) return;
+  if (ex.kind === 'session') {
+    patchExerciseMeta(ex, refs);
+    patchExerciseCollapse(ex);
+    return;
+  }
   syncSetRows(ex, refs);
   patchToggleGroup(refs.modeGroupEl, ex.weightMode);
   patchToggleGroup(refs.unitGroupEl, ex.weightUnit);
@@ -1187,12 +1372,15 @@ function exerciseSetsSummary(ex) {
 }
 
 function exerciseMetaText(ex) {
+  if (ex.kind === 'session') {
+    return sessionSummary(sessionToSaved(ex, sessionType(ex)), sessionType(ex)) || 'למלא משך ומאמץ';
+  }
   const { done, total } = exerciseSetsSummary(ex);
   return `${ex.category} · ${done}/${total} ${ex.kind === 'cardio' ? 'קטעים' : 'סטים'}`;
 }
 
 function patchExerciseMeta(ex, refs) {
-  if (!refs.metaEl) return;
+  if (!refs?.metaEl) return;
   const { done, total } = exerciseSetsSummary(ex);
   const allDone = total > 0 && done === total;
   refs.metaEl.textContent = exerciseMetaText(ex);
@@ -2534,6 +2722,20 @@ export function openWorkoutForEditing(workout) {
 function sessionExercisesFrom(savedExercises, { done }) {
   return (savedExercises || []).map((savedEx) => {
     const lookups = { previous: null, prevLoaded: false, history: null };
+    if (exerciseKind(savedEx) === 'session') {
+      return {
+        _uid: nextUid(),
+        name: savedEx.name,
+        category: SESSION_CATEGORY,
+        kind: 'session',
+        typeId: savedEx.typeId,
+        values: valuesFromSaved(savedEx),
+        // What's already there is kept — "last time" never overwrites it.
+        touched: true,
+        ...lookups,
+        sets: [],
+      };
+    }
     if (savedEx.kind === 'cardio') {
       return {
         _uid: nextUid(),
@@ -2910,18 +3112,22 @@ async function finishWorkout() {
   }
 
   try {
+    // A session is saved whatever was filled in — doing Pilates is the
+    // fact; its values are extra. Strength and cardio need a set.
     const exercises = session.exercises
-      .map((ex) => ({
+      .map((ex) => (ex.kind === 'session' ? sessionToSaved(ex, sessionType(ex)) : {
         name: ex.name,
         category: ex.category,
         ...(ex.kind === 'cardio' ? { kind: 'cardio', activity: ex.activity, inputMode: ex.inputMode } : {}),
         sets: buildSavedSets(ex),
       }))
-      .filter((ex) => ex.sets.length > 0);
+      .filter((ex) => ex.kind === 'session' || ex.sets.length > 0);
 
     const elapsedMs = Date.now() - session.realStartedAt.getTime();
     const start = session.startedAt.getTime();
     const noTime = !session.hasTime;
+    // The burn (js/lib/workout-kcal.js), with the weight on that day.
+    const burnOf = async (w) => workoutKcal(w, await bodyKgOn(workoutDayKey(w)).catch(() => WORKOUTS.defaultBodyKg));
     if (isEdit) {
       // The end moves with the start if the date/time was changed, and the
       // time spent now is added on top of it, covering a workout closed by
@@ -2934,7 +3140,9 @@ async function finishWorkout() {
         endTime: new Date(session.originalEndTime.getTime() + shiftMs + elapsedMs),
         noTime,
       };
-      await updateWorkout(session.editingWorkoutId, exercises.length > 0 ? { ...when, exercises } : when);
+      await updateWorkout(session.editingWorkoutId, exercises.length > 0
+        ? { ...when, exercises, kcal: await burnOf({ ...when, exercises }) }
+        : when);
     } else if (exercises.length > 0) {
       // A live workout ends now — even if its start was moved earlier
       // because "התחלת אימון" was pressed late. One logged afterwards is
@@ -2944,12 +3152,16 @@ async function finishWorkout() {
         ? Math.max(Date.now(), start + elapsedMs)
         : start + elapsedMs;
       const planId = session.planId || null;
-      const workoutId = await createWorkout({
+      const workout = {
         date: session.startedAt,
         startTime: session.startedAt,
         endTime: new Date(endMs),
         noTime,
         exercises,
+      };
+      const workoutId = await createWorkout({
+        ...workout,
+        kcal: await burnOf(workout),
         ...(planId ? { planId } : {}),
       });
       if (planId) {
