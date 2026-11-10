@@ -1,8 +1,8 @@
-import { listWorkouts, deleteWorkout, listBodyWeights } from '../lib/firestore.js';
+import { listWorkouts, deleteWorkout, listBodyWeights, listWorkoutTypes } from '../lib/firestore.js';
 import { formatDateHe, formatMonthHe, toDate, formatTimeHe, workoutHasTime } from '../lib/format.js';
 import { esc } from '../core/dom.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
-import { setsTable, cardioTable } from '../ui/sets-table.js';
+import { setsTable, cardioTable, sessionTable } from '../ui/sets-table.js';
 import { emptyState } from '../ui/empty-state.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
@@ -14,9 +14,13 @@ import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 import { cardioActivity, summarizeSegments, formatSummary, formatKm } from '../lib/cardio.js';
 import { mountBodyWeightHistory } from '../ui/body-weight-history.js';
 import { workoutSwitch } from '../ui/workout-switch.js';
+import {
+  workoutKind, workoutLabel, exerciseKind, resolveType, sessionSummary,
+} from '../lib/workout-types.js';
 
 let container = null;
 let workouts = [];
+let workoutTypes = []; // the user's own (workoutTypes docs), for labels
 let weights = []; // body weigh-ins, newest day first
 // 'workouts' | 'weight' — kept across visits, so coming back lands on the
 // same view.
@@ -42,17 +46,23 @@ export async function mountHistory(rootEl) {
   const token = beginMount();
   container = rootEl;
   renderLoading(container, 'טוען היסטוריית אימונים...');
-  const [loaded, loadedWeights] = await Promise.all([
+  const [loaded, loadedWeights, loadedTypes] = await Promise.all([
     listWorkouts(200),
     // A failed weigh-in load shouldn't take the workouts with it.
     listBodyWeights(1000).catch((err) => {
       console.error('[body-weight] load failed', err);
       return [];
     }),
+    // Nor a failed type list — sessions then show under their saved names.
+    listWorkoutTypes().catch((err) => {
+      console.error('[workout-types] load failed', err);
+      return [];
+    }),
   ]);
   if (isStale(token)) return;
   workouts = loaded;
   weights = loadedWeights;
+  workoutTypes = loadedTypes;
   // Open the month the most recent workout falls in — usually "this month",
   // but never assumes that: a user who hasn't trained yet this month would
   // otherwise land on an all-collapsed, seemingly-empty screen.
@@ -193,10 +203,10 @@ function renderCalendar() {
   for (const w of workouts) {
     const d = toDate(w.date);
     if (d.getFullYear() !== year || d.getMonth() !== month) continue;
-    const { kind } = workoutKind(w);
+    const { look } = kindOf(w);
     const set = kindsByDay.get(d.getDate()) || new Set();
-    if (kind !== 'cardio') set.add('strength');
-    if (kind !== 'strength') set.add('cardio');
+    if (look !== 'cardio') set.add('strength');
+    if (look !== 'strength') set.add('cardio');
     kindsByDay.set(d.getDate(), set);
   }
 
@@ -322,49 +332,53 @@ function syncCalendarToDate(date) {
 }
 
 // ---------- workout type ----------
-// Strength, cardio or both — drives each row's colour, icon and summary,
-// and the calendar's dots.
+// Strength, cardio, a session type (js/lib/workout-types.js) or a mix —
+// drives each row's label, icon and summary, and the calendar's dots.
+// Sessions use the strength colour; the label names the type.
 
 const ACTIVITY_ICON = { run: 'run', walk: 'walk', bike: 'bike', stairs: 'stairs' };
 
-function workoutKind(w) {
-  const exercises = w.exercises || [];
-  const cardio = exercises.filter((ex) => ex.kind === 'cardio');
-  const strength = exercises.filter((ex) => ex.kind !== 'cardio');
-  const activities = [...new Set(cardio.map((ex) => ex.activity))];
-  let kind = 'strength';
-  if (cardio.length) kind = strength.length ? 'mixed' : 'cardio';
-  return { kind, cardio, strength, activities };
-}
-
-// "כוח", "ריצה", "ריצה + הליכה", "כוח + ריצה"
-function kindLabel({ kind, activities }) {
-  const names = activities.map((a) => cardioActivity(a).name).join(' + ');
-  if (kind === 'cardio') return names;
-  if (kind === 'mixed') return `כוח + ${names}`;
-  return 'כוח';
-}
+const kindOf = (w) => workoutKind(w, workoutTypes);
 
 // Strength: exercises and sets; cardio: distance, time and pace (pace only
-// for a single activity — a walk-and-run average means nothing); both: the
-// two, short. The workout's own length closes it when there's room.
-function kindSummary({ kind, cardio, strength, activities }, durationMin) {
+// for a single activity — a walk-and-run average means nothing); a single
+// session: its own one-liner; a mix: the parts, short. The workout's own
+// length, then its burn, close it when there's room.
+function kindSummary({ kind, cardio, strength, sessions, activities }, durationMin, kcal) {
   const sets = strength.reduce((n, ex) => n + (ex.sets || []).length, 0);
   const cardioTotals = summarizeSegments(cardio.flatMap((ex) => ex.sets || []));
   const parts = [];
+  const burn = kcal > 0 ? `${kcal} קק"ל` : '';
   if (kind === 'cardio') {
     const text = formatSummary(cardioTotals, { withPace: activities.length === 1 });
     if (text) parts.push(text);
     else if (durationMin) parts.push(`${durationMin} דק'`);
+    if (burn) parts.push(burn);
     return parts.join(' · ') || `${cardio.length} פעילויות`;
   }
-  parts.push(`${strength.length} תרגילים`);
-  if (kind === 'strength') parts.push(`${sets} סטים`);
-  if (kind === 'mixed' && cardioTotals.distanceKm) {
+  if (kind === 'session' && sessions.length === 1) {
+    const ex = sessions[0];
+    const text = sessionSummary(ex, resolveType(ex.typeId, workoutTypes, ex.name));
+    if (text) parts.push(text);
+    else if (durationMin) parts.push(`${durationMin} דק'`);
+    if (burn) parts.push(burn);
+    return parts.join(' · ');
+  }
+  if (strength.length) parts.push(`${strength.length} תרגילים`);
+  if (strength.length && !cardio.length) parts.push(`${sets} סטים`);
+  if (cardio.length && cardioTotals.distanceKm) {
     parts.push(`${cardioActivity(activities[0]).name} ${formatKm(cardioTotals.distanceKm)} ק"מ`);
   }
   if (durationMin) parts.push(`${durationMin} דק'`);
+  if (burn) parts.push(burn);
   return parts.join(' · ');
+}
+
+function exerciseDetail(ex) {
+  const kind = exerciseKind(ex);
+  if (kind === 'cardio') return cardioTable(ex);
+  if (kind === 'session') return sessionTable(ex, resolveType(ex.typeId, workoutTypes, ex.name));
+  return setsTable(ex.sets);
 }
 
 function buildMonthSection(key, group) {
@@ -401,8 +415,8 @@ function buildMonthSection(key, group) {
 
 function buildWorkoutRow(w) {
   const el = document.createElement('div');
-  const type = workoutKind(w);
-  el.className = `card history-row history-row--${type.kind}`;
+  const type = kindOf(w);
+  el.className = `card history-row history-row--${type.look}`;
   const start = w.startTime ? toDate(w.startTime) : toDate(w.date);
   const end = w.endTime ? toDate(w.endTime) : null;
   const durationMin = end ? Math.round((end - start) / 60000) : null;
@@ -411,14 +425,15 @@ function buildWorkoutRow(w) {
   const date = toDate(w.date);
   const dayMonth = date.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
   const weekday = date.toLocaleDateString('he-IL', { weekday: 'short' });
-  const badgeIcon = type.kind === 'cardio' ? ACTIVITY_ICON[type.activities[0]] || 'run' : 'dumbbell';
+  const badgeIcon = type.kind === 'cardio' ? ACTIVITY_ICON[type.activities[0]] || 'run'
+    : type.kind === 'session' ? 'activity' : 'dumbbell';
 
   el.innerHTML = `
     <div class="row history-row-head" data-toggle style="cursor:pointer;">
-      <span class="history-badge history-badge--${type.kind}">${icon(badgeIcon)}</span>
+      <span class="history-badge history-badge--${type.look}">${icon(badgeIcon)}</span>
       <div class="history-row-text">
-        <strong>${esc(kindLabel(type))}</strong>${w.planId ? ' <span class="history-plan-tag">לפי תוכנית</span>' : ''}
-        <div class="history-row-summary">${esc(kindSummary(type, durationMin))}</div>
+        <strong>${esc(workoutLabel(type))}</strong>${w.planId ? ' <span class="history-plan-tag">לפי תוכנית</span>' : ''}
+        <div class="history-row-summary">${esc(kindSummary(type, durationMin, w.kcal))}</div>
       </div>
       <div class="history-row-when">
         <span>${esc(dayMonth)}</span>
@@ -431,7 +446,7 @@ function buildWorkoutRow(w) {
         ${(w.exercises || []).map((ex) => `
           <div style="margin-bottom:14px;">
             <strong>${esc(ex.name)}</strong>
-            ${ex.kind === 'cardio' ? cardioTable(ex) : setsTable(ex.sets)}
+            ${exerciseDetail(ex)}
           </div>`).join('')}
         <div class="sheet-actions" style="margin-top:6px;">
           <button class="btn btn-secondary" data-edit>${icon('pencil', { className: 'icon--sm' })} עריכת אימון</button>
