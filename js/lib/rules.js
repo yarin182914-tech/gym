@@ -232,3 +232,13 @@ export const REWARDS = {
     { id: 'comeback', area: 'general', name: 'קאמבק', icon: 'undo-2', kind: 'comeback', rule: 'calories', grades: ['full'] },
   ],
 };
+
+// "ללמוד" (M8b): the areas where your own data is weakest go first.
+export const LIBRARY_RULES = {
+  // Days looked back at for "weak".
+  lookbackDays: 7,
+  // Sleep counts as weak only with at least this many nights logged.
+  minNights: 3,
+  // Areas in order when nothing is weak.
+  defaultOrder: ['sleep', 'training', 'nutrition', 'habits', 'mind', 'longevity'],
+};
