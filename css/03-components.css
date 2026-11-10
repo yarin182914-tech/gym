@@ -810,7 +810,10 @@ th {
   min-width: 0;
   height: 1.15rem;
   margin: 0;
-  padding: 0;
+  /* A few px on the right: the text is right-aligned, and with no padding
+     iOS Safari draws the typing caret just outside the box, so it vanished
+     in every number field (feedback 10.11). */
+  padding: 0 3px 0 0;
   line-height: 1;
   border: none;
   background: transparent;
@@ -3764,6 +3767,7 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
 .exercise-note-field input {
   flex: 1;
   min-width: 0;
+  padding: 0 3px;
   border: none;
   background: none;
   color: var(--text);
