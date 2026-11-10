@@ -4,7 +4,7 @@
 // Nothing missed is ever red — an unmarked or missed day is just grey.
 
 import { takesValue } from '../lib/habits.js';
-import { WEEKDAY_LETTERS } from './habit-form.js';
+import { WEEKDAY_LETTERS } from './habit-wizard.js';
 import { icon } from './icon.js';
 import { esc } from '../core/dom.js';
 

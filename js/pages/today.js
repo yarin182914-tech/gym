@@ -21,7 +21,7 @@ import { daySummaryHtml } from '../ui/day-summary-card.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { createSleepCard } from '../ui/sleep-card.js';
 import { habitCardHtml, targetText } from '../ui/habit-card.js';
-import { openHabitForm } from '../ui/habit-form.js';
+import { openHabitWizard } from '../ui/habit-wizard.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
 import { mountNumericField } from '../ui/numeric-input.js';
 import { showToast } from '../ui/toast.js';
@@ -427,7 +427,7 @@ function openValueSheet(habit) {
 }
 
 function addHabit() {
-  openHabitForm({
+  openHabitWizard({
     onSave(fields) {
       const id = newHabitId();
       const order = habits.reduce((max, h) => Math.max(max, h.order), -1) + 1;
@@ -440,7 +440,7 @@ function addHabit() {
 }
 
 function editHabit(habit) {
-  openHabitForm({
+  openHabitWizard({
     habit,
     onSave(fields) {
       habits = sortHabits(habits.map((h) => (h.id === habit.id ? normalizeHabit({ ...h, ...fields }) : h)));
