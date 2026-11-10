@@ -126,7 +126,16 @@ export async function mountActiveSession(rootEl) {
   // The + button's "הליכה".
   stopQuickActions = handleQuickActions('session', (action) => {
     if (action === 'walk') startQuickWalk();
+    else if (action === 'workout') startQuickWorkout();
   });
+}
+
+// A new workout, started now, with the exercise picker open.
+function startQuickWorkout() {
+  const before = session;
+  startWorkout();
+  if (session === before) return; // MAX_SESSIONS — startWorkout said so
+  container?.querySelector('#add-exercise-btn')?.click();
 }
 
 // A new workout, started now, with a walk ready to fill in — the same

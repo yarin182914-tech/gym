@@ -1,9 +1,12 @@
 // The floating + button: quick logging from any screen. It opens a bottom
-// sheet of four, and each one opens the form that already exists for it:
+// sheet, and each item opens the form that already exists for it:
+//   אימון  → אימון, a new workout with the exercise picker open
+//   הליכה  → אימון, a new workout with a walk ready to fill in
 //   ארוחה  → תזונה, the add-meal form
 //   שקילה  → תזונה, the morning weigh-in card
+//   צעדים  → תזונה, today's activity sheet
 //   שינה   → שינה, last night's sheet
-//   הליכה  → אימון, a new workout with a walk ready to fill in
+//   הרגל   → היום, the habits (a new one when there are none)
 //
 // A screen takes its actions with handleQuickActions(route, fn) once it has
 // loaded. An action asked for while its screen is showing runs at once;
@@ -19,10 +22,13 @@ import { openBottomSheet } from './bottom-sheet.js';
 import { navigate, onRouteChange } from '../lib/router.js';
 
 const ITEMS = [
+  { route: 'session', action: 'workout', icon: 'dumbbell', label: 'אימון' },
+  { route: 'session', action: 'walk', icon: 'walk', label: 'הליכה' },
   { route: 'nutrition', action: 'meal', icon: 'utensils', label: 'ארוחה' },
   { route: 'nutrition', action: 'weigh', icon: 'weight', label: 'שקילה' },
+  { route: 'nutrition', action: 'steps', icon: 'footprints', label: 'צעדים' },
   { route: 'sleep', action: 'sleep', icon: 'moon', label: 'שינה' },
-  { route: 'session', action: 'walk', icon: 'walk', label: 'הליכה' },
+  { route: 'today', action: 'habit', icon: 'list-checks', label: 'הרגל' },
 ];
 
 const handlers = {}; // route -> fn(action), while that screen is mounted
