@@ -62,7 +62,7 @@ No plan chapter; ירין asked 2026-11-10 to solve every open item on the in-ap
 - **See that a workout is running in the background (9.11).** A web app can't show an iPhone Live Activity. Fix: (1) a sticky "אימון פעיל · 32:10" pill above the bottom nav on every screen, tap → back to the workout; (2) app-icon badge via `navigator.setAppBadge(1)` while a live workout is open (works for the home-screen app on iOS 16.4+ once notification permission exists, so it lights up fully after M9); cleared on finish/delete.
 - Done when: each item is reproduced before and checked after on the preview at 390px; a unit test covers the warm-up → working prefill; DATA.md documents `exerciseLibrary.note`.
 
-## M4 ◐ Points, levels and reward moments — `feature/m4-rewards`
+## M4 ☑ Points, levels and reward moments — `feature/m4-rewards`
 Plan: "שלב 2: תכנית התגמול" (all subsections except "לאורך זמן").
 - Data: `users/{uid}/pointsLedger/{auto}` — one entry per award: `{ date, source: sleep|habit|meal|workout|..., ref, points, reason }`. Level, totals, streaks and badges are **derived** from the ledger (never stored as the only copy).
 - Daily cap, partial ("close") scoring, no negative points.
@@ -70,7 +70,7 @@ Plan: "שלב 2: תכנית התגמול" (all subsections except "לאורך ז
 - Progress screen: 7-day grid per area, streaks, badge shelf, level road with the real reward at the end.
 - Progress screen covers **everything tracked**, not just workouts (asked by ירין 2026-11-09): one row per area (sleep, each habit, bad habits once M5 exists, meals: count vs 2 and on-target days, protein, calorie deficit, workouts vs weekly goal, weigh-ins / 7-day average) with a week view (7 dots) and a month view (calendar heat-grid), tap a row for its detail chart. The user picks which rows show and their order ("מה אני עוקב אחריו", saved on the user doc); missed = grey, never red. Workout history stays as its own list inside אימון.
 
-## M5 ☐ Habit wizard + bad habits — `feature/m5-wizard`
+## M5 ◐ Habit wizard + bad habits — `feature/m5-wizard`
 Plan: "הגדרת הרגל: אשף של 6 שאלות", "הרגלים רעים: אשף גמילה".
 - 6-step wizard, one question per screen, templates (reading, morning routine, English, screen time, water, meditation).
 - Bad-habit mode: trigger, replacement, friction, measure (clean day | limit | slip counter). "מעדתי" one-tap button logging the time. Separate "להיגמל" section on Today with a clean-days chain.

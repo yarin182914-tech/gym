@@ -17,7 +17,7 @@
 import { esc } from '../core/dom.js';
 import { icon } from './icon.js';
 import { showToast } from './toast.js';
-import { REWARDS } from '../lib/rules.js';
+import { REWARDS, BAD_HABITS } from '../lib/rules.js';
 import { rewardsUserDoc, markSeen } from '../lib/rewards-sync.js';
 
 let lastTap = { x: 0, y: 0, t: 0 };
@@ -61,6 +61,14 @@ function onRewards({ summary, writes }) {
     haptic([30, 60, 30]);
     chime([660, 880, 1100]);
   }
+  // A clean-streak milestone (M5): a toast of its own, confetti from 30 days.
+  writes.filter((w) => w.rule === 'bad-streak' && !w.before).forEach((w, i) => setTimeout(() => {
+    const days = Number(w.grade);
+    showToast(`${icon('flame', { className: 'icon--sm' })} ${days} ימים נקיים — +${w.points}`);
+    if (days >= BAD_HABITS.confettiFromDays) confetti();
+    haptic([30, 60, 30]);
+    chime([660, 990]);
+  }, 300 + i * 2000));
 
   const fresh = summary.badges.filter((b) => b.earnedOn && !(seen.badges || []).includes(b.id));
   fresh.forEach((b, i) => setTimeout(() => {
