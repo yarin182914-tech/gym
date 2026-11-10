@@ -217,6 +217,7 @@ bookkeeping — never write them.
 |---|---|---|
 | `weeklyWorkoutGoal` | number | Workout days a week for the +50 bonus, `1`–`7`. `3` when missing. |
 | `rewardGoal` | string | The real reward the user picked for level 6, e.g. `"נעלי ריצה"`. Optional. |
+| `trackedRows` | map | The progress screen's rows ("מה אני עוקב אחריו"): `{ order: [rowId], hidden: [rowId] }`. Row ids: `sleep`, `habit:<habitId>`, `meals`, `protein`, `calories`, `workouts`, `weight`. A row not listed shows (a new habit appears until hidden). |
 | `rewardsStartDate` | string | `yyyy-mm-dd` — the day scoring began. Set by the app on its first run. |
 | `rewardsCheckedThrough` | string | `yyyy-mm-dd` — the last day the app scored. |
 | `rewardsSeen` | map | What the screen has already celebrated: `{ level, badges: [ids], daySummary: 'yyyy-mm-dd' }`. Display only — the points are in the ledger. |

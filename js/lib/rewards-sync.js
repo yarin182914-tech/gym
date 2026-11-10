@@ -21,6 +21,7 @@ import {
 
 let ledger = null; // every entry, kept after the first read
 let summary = null;
+let lastCtx = null; // the data of the last pass — the progress screen reads it
 let userDoc = {};
 let timer = null;
 let running = null;
@@ -32,6 +33,15 @@ const todayKey = () => dateKey(new Date());
 export const rewardsState = () => summary;
 export const rewardsLedger = () => ledger || [];
 export const rewardsUserDoc = () => userDoc;
+export const rewardsContext = () => lastCtx;
+
+// Scores now and resolves when it's done — the progress screen waits on it
+// so it shows today's data.
+export async function syncRewardsNow() {
+  clearTimeout(timer);
+  run();
+  while (running) await running;
+}
 
 // Once, after sign-in: score, then listen for saves.
 export function startRewards() {
@@ -100,6 +110,7 @@ async function reconcile() {
   const ctx = buildContext({
     userDoc, nights, habits: habits.map(normalizeHabit), logs, activities, meals, weights, workouts, plans,
   });
+  lastCtx = ctx;
   const awards = days.flatMap((key) => scoreDay(key, ctx, { closed: key < today }));
   const writes = planLedgerWrites(awards, ledger);
   if (writes.length) {

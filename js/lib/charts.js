@@ -380,3 +380,29 @@ export async function renderCaloriesChart(canvas, { labels, calories, proteins, 
     options,
   });
 }
+
+// One bar per day or week for a progress row's detail (js/ui/progress-rows.js):
+// the latest day with a value in the accent, the rest faded. null values
+// leave a gap.
+export async function renderBarsChart(canvas, { labels, values, formatValue }, existingChart) {
+  const Chart = await loadChartLib();
+  if (existingChart) existingChart.destroy();
+  const colors = themeColors();
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  return new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: highlightBars(values.length, values.findLastIndex((v) => v !== null && v !== undefined), colors, accent),
+        borderRadius: 4,
+        maxBarThickness: 22,
+      }],
+    },
+    options: cardioChartOptions(colors, {
+      yTicks: (v) => formatValue(v),
+      tooltipLabel: (ctx) => formatValue(ctx.parsed.y),
+    }),
+  });
+}

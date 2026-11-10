@@ -89,6 +89,7 @@ export function buildContext(data) {
     activities: new Map((data.activities || []).map((a) => [a.date || a.id, a])),
     meals,
     weights: new Set((data.weights || []).map((w) => w.date)),
+    weightList: [...(data.weights || [])].sort((a, b) => (a.date < b.date ? 1 : -1)),
     workouts,
     plans: new Map((data.plans || []).map((p) => [p.date || p.id, p])),
     prs: prsByWorkout(data.workouts || []),

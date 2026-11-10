@@ -162,5 +162,31 @@ check('comeback: on target after a logged day that wasn\'t', badge([entry('2026-
 check('calories streak counts back from today', R.ledgerStreak([entry('2026-11-08', 'calories', 'full'), entry('2026-11-09', 'calories', 'full')], 'calories', ['full'], '2026-11-10'), 2);
 check('summary totals', R.rewardsSummary(ledger, '2026-11-10').today, ledger.reduce((s, e) => s + e.points, 0));
 
+console.log('progress rows');
+const Pg = await import('../js/lib/progress.js');
+const rows = Pg.allRows(ctx);
+const row = (id) => rows.find((r) => r.id === id);
+check('a row per area and per habit', rows.map((r) => r.id), ['sleep', 'habit:h1', 'habit:h2', 'meals', 'protein', 'calories', 'workouts', 'weight']);
+check('hidden rows drop out, order is kept, a new habit shows', Pg.visibleRows(ctx, { order: ['weight', 'sleep'], hidden: ['meals'] }).map((r) => r.id).slice(0, 3), ['weight', 'sleep', 'habit:h1']);
+check('sleep: full night', Pg.dayCell(row('sleep'), '2026-11-10', ctx, '2026-11-11'), { status: 'full', value: 8.3 });
+check('sleep: no night logged on a past day → miss (grey)', Pg.dayCell(row('sleep'), '2026-11-09', ctx, '2026-11-11').status, 'miss');
+check('sleep: tonight not logged yet → none', Pg.dayCell(row('sleep'), '2026-11-11', ctx, '2026-11-11').status, 'none');
+check('habit short → close', Pg.dayCell(row('habit:h2'), '2026-11-09', ctx, '2026-11-11').status, 'close');
+check('N-per-week habit not done → rest, not a miss', Pg.dayCell(row('habit:h2'), '2026-11-08', ctx, '2026-11-11').status, 'rest');
+check('no workout → rest, not a miss', Pg.dayCell(row('workouts'), '2026-11-09', ctx, '2026-11-11').status, 'rest');
+check('calories: the day\'s deficit', Pg.dayCell(row('calories'), '2026-11-10', ctx, '2026-11-11'), { status: 'full', value: 400 });
+check('today\'s calories over target are "so far", not a miss', Pg.dayCell(row('calories'), '2026-11-10', R.buildContext({ ...data, meals: [meal('a', '2026-11-10', '13', 3000, 50)] }), '2026-11-10').status, 'none');
+check('future days', Pg.dayCell(row('weight'), '2026-11-12', ctx, '2026-11-11').status, 'future');
+check('week runs Sunday → Saturday', [Pg.weekDays('2026-11-11')[0], Pg.weekDays('2026-11-11')[6]], ['2026-11-08', '2026-11-14']);
+check('November 2026 starts on a Sunday: no blanks', Pg.monthGrid('2026-11-11').slice(0, 2), ['2026-11-01', '2026-11-02']);
+check('December 2026 starts Tuesday: 2 blanks', Pg.monthGrid('2026-12-05').slice(0, 3), [null, null, '2026-12-01']);
+check('workouts row: this week vs the goal', Pg.rowSummary(row('workouts'), Pg.weekDays('2026-11-11'), ctx, '2026-11-11'), '1/3 השבוע');
+check('detail series: 30 days, oldest first', Pg.rowSeries(row('weight'), '2026-11-11', ctx).values.slice(-2), [80, null]);
+
+console.log('workout type results');
+const { typeResults } = await import('../js/ui/workout-type-stats.js');
+const cf = (date, wod, resultSec) => ({ date: at(date), ex: { typeId: 'crossfit', fields: { wod, format: 'For Time', resultSec } } });
+check('best Fran is the fastest', typeResults('crossfit', [cf('2026-11-01', 'Fran', 320), cf('2026-11-05', 'Fran', 290), cf('2026-11-08', 'Fran', 300)]).map((r) => [r.label, r.text]), [['Fran · For Time', '4:50']]);
+
 console.log(failed ? `\n${failed} FAILED` : '\nall passed');
 process.exit(failed ? 1 : 0);
