@@ -581,11 +581,12 @@ names; add to it only for a genuinely new exercise.
 
 | Field | Type | Notes |
 |---|---|---|
-| `name` | string | Hebrew, unique |
+| `name` | string | Hebrew, unique — compared with spaces and case ignored; the app refuses a second entry with the same name, so check before adding |
 | `category` | string | One of `חזה` · `כתפיים` · `יד אחורית` · `בטן` · `גב` · `רגליים` · `יד קדמית` |
 | `defaultUnit` | string | `kg` |
 | `defaultWeightMode` | string | `total` · `perSide` |
 | `isCustom` | boolean | `true` for anything added later |
+| `note` | string, optional | A standing note on the exercise (which machine, seat height…). Shown under the name in every workout and in "פעם קודמת". Missing or `''` = no note |
 
 ---
 

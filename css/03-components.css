@@ -3634,3 +3634,17 @@ body:has(input:focus, textarea:focus, select:focus) .fab,
   margin-inline-start: var(--space-1);
   vertical-align: middle;
 }
+
+/* A standing note on an exercise (which machine, seat height…). */
+.exercise-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin: 0;
+}
+.exercise-note .icon {
+  width: 12px;
+  height: 12px;
+}
