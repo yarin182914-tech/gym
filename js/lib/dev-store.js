@@ -411,3 +411,35 @@ export async function devWriteLedger(entries) {
   state.pointsLedger = list;
   save(state);
 }
+
+// ---------- "ללמוד" (M8b) ----------
+
+export async function devListLibraryMarks() {
+  const marks = load().libraryMarks || {};
+  return Object.entries(marks).map(([id, m]) => ({ id, ...m }));
+}
+
+export async function devSetLibraryMark(itemId, patch) {
+  const state = load();
+  state.libraryMarks = state.libraryMarks || {};
+  state.libraryMarks[itemId] = { ...(state.libraryMarks[itemId] || {}), ...patch, updatedAt: new Date().toISOString() };
+  save(state);
+}
+
+export async function devListLibraryPicks() {
+  return load().libraryPicks || [];
+}
+
+export async function devAddLibraryPick(pick) {
+  const state = load();
+  const id = uid();
+  state.libraryPicks = [{ ...pick, id, createdAt: new Date().toISOString() }, ...(state.libraryPicks || [])];
+  save(state);
+  return id;
+}
+
+export async function devDeleteLibraryPick(pickId) {
+  const state = load();
+  state.libraryPicks = (state.libraryPicks || []).filter((p) => p.id !== pickId);
+  save(state);
+}

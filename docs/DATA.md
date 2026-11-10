@@ -587,7 +587,7 @@ One document per habit — what it is and what counts as done. Shown on the
 | `autoSource` | string \| null | `"dailyActivity.steps"` — the day's level comes from `steps` in that day's `dailyActivity` doc (see below); `null` — marked by hand. |
 | `active` | boolean | `false` = paused (kept, not counted). |
 | `order` | number | Position on the screen, smallest first. |
-| `source` | string | `manual` (added in the app) · `example` (the starter habits) · `coach` (written from outside) |
+| `source` | string | `manual` (added in the app) · `example` (the starter habits) · `coach` (written from outside) · `library` (from "להפוך להרגל" in ללמוד) |
 | `createdAt` | Timestamp | First saved |
 | `updatedAt` | Timestamp | Last saved |
 
@@ -816,6 +816,52 @@ higher value, so two phones can't lower each other's entries.
   the past isn't scored. Each run scores from the last day checked
   (`rewardsCheckedThrough`, less 7 days) to today, at most 31 days back —
   a week away loses nothing.
+
+---
+
+## Library marks ("ללמוד") — `users/{uid}/libraryMarks/{itemId}`
+
+The "ללמוד" screen lists books, podcasts and channels. The shared list lives
+in the code (`js/data/library.js`, ids like `atomic-habits`); this
+collection only holds the user's own marks on it. The doc id is the item
+id, or `pick:<libraryPicks id>` for a personal pick. No doc = not marked.
+
+| Field | Type | Notes |
+|---|---|---|
+| `saved` | boolean | Bookmarked ("שמירה") — shown under the "שמורים" filter |
+| `doneAt` | Timestamp \| null | When the user marked it finished ("סיימתי"); finished items sink to the bottom |
+| `updatedAt` | Timestamp | Last saved |
+
+"להפוך להרגל" on an item adds a normal habit doc (see Habits) with
+`source: 'library'`.
+
+---
+
+## Library picks — `users/{uid}/libraryPicks/{auto}`
+
+Personal recommendations shown at the top of "ללמוד", before the shared
+list. Added by the user ("+ הוספת המלצה") or by the coach.
+
+| Field | Type | Notes |
+|---|---|---|
+| `title` | string | Hebrew or the original title |
+| `type` | string | `book` · `podcast` · `episode` · `video` · `article` |
+| `area` | string | `sleep` · `nutrition` · `training` · `habits` · `mind` · `longevity` |
+| `link` | string \| null | https URL |
+| `reason` | string | One line: why it's for this user (≤ 140 chars) |
+| `author` | string | Optional |
+| `summary` | string | Optional, one or two sentences |
+| `takeaways` | string[] | Optional, up to 3 short points |
+| `source` | string | `user` (added in the app) · `coach` (written from outside) |
+| `createdAt` | Timestamp | First saved |
+
+```json
+// users/{uid}/libraryPicks/<auto id>
+{ "title": "Atomic Habits", "type": "book", "area": "habits",
+  "link": "https://jamesclear.com/atomic-habits",
+  "reason": "מתאים לבנייה של שגרת הבוקר", "source": "coach",
+  "createdAt": "serverTimestamp()" }
+```
 
 ---
 

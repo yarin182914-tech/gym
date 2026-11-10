@@ -15,6 +15,7 @@ import { mountTasks } from './pages/tasks.js';
 import { mountSleep, unmountSleep } from './pages/sleep.js';
 import { mountImport, stashImportFromUrl, hasPendingImport } from './pages/import.js';
 import { mountConnections, unmountConnections } from './pages/connections.js';
+import { mountLibrary, unmountLibrary } from './pages/library.js';
 import { mountQuickAdd } from './ui/quick-add.js';
 import { captureInstallPrompt, notifyAppEntered } from './ui/install-banner.js';
 import { mountAppBar } from './ui/app-bar.js';
@@ -55,6 +56,7 @@ registerRoute('plan', () => mountPlan(appRoot));
 registerRoute('feedback', () => mountFeedback(appRoot), unmountFeedback);
 registerRoute('connections', () => mountConnections(appRoot), unmountConnections);
 registerRoute('import', () => mountImport(appRoot));
+registerRoute('library', () => mountLibrary(appRoot), unmountLibrary);
 
 async function enterApp() {
   authScreen.classList.add('hidden');
