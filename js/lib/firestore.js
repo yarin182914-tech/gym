@@ -623,6 +623,26 @@ export async function listTasks() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+// ---------- personal keys ----------
+// users/{uid}/apiKeys/{sha256 of the secret} — see js/lib/api-key.js and
+// docs/DATA.md. The key itself is never stored.
+
+export async function listApiKeys() {
+  if (!useCloud) return [];
+  const snap = await getDocs(collection(db, 'users', uidOrThrow(), 'apiKeys'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export function addApiKey(hash, data) {
+  if (!useCloud) return Promise.resolve();
+  return setDoc(doc(db, 'users', uidOrThrow(), 'apiKeys', hash), { ...data, createdAt: serverTimestamp(), lastUsedAt: null });
+}
+
+export function deleteApiKey(hash) {
+  if (!useCloud) return Promise.resolve();
+  return deleteDoc(doc(db, 'users', uidOrThrow(), 'apiKeys', hash));
+}
+
 // ---------- planned workouts ----------
 // The coach's proposed workout for a day, written from outside the app (see
 // docs/DATA.md) — one document per local day, keyed yyyy-mm-dd. The app

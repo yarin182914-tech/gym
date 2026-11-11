@@ -25,6 +25,7 @@ public repo.
 | `users/{uid}/habits` | auto | The user's habits (definitions) |
 | `users/{uid}/habitLogs` | `yyyy-mm-dd` | Which habits were done that day |
 | `users/{uid}/tasks` | auto | Tasks: one-off, daily and repeating ("משימות") |
+| `users/{uid}/apiKeys` | sha-256 of the key's secret | Personal keys for sending data from outside (the steps shortcut) — app only |
 | `users/{uid}/pointsLedger` | `{date}_{rule}[_{ref}]` | Points, one entry per award — app only, never written from outside |
 | `mcpKeys` (top level) | SHA-256 of the key | Claude connector keys → their user — app and server only, never written from outside |
 | `siteFeedback` (top level) | auto | App feedback board — don't write here |
@@ -1087,6 +1088,32 @@ and `scheduledAt` as above; to add one, write the whole document with
 { "title": "לנקות את מכונת הקפה", "type": "recurring",
   "recurrence": { "every": "week", "day": 5 }, "complexity": "S", "...": "..." }
 ```
+
+---
+
+## Personal keys — `users/{uid}/apiKeys/{hash}`
+
+A key lets something outside the app send data for this user without
+signing in — first the iPhone steps shortcut ("שליחה שקטה" on חיבורים).
+The key is `gymi.<uid>.<secret>`, shown to the user once; only the
+SHA-256 hex of `<secret>` is stored, as the doc id. Created and revoked
+(deleted) only in the app, never from outside.
+
+| Field | Type | Notes |
+|---|---|---|
+| `label` | string | What it's for, e.g. `"קיצור הצעדים"` |
+| `scopes` | string[] | What it may do: `["steps"]` |
+| `createdAt` | Timestamp | Made |
+| `lastUsedAt` | Timestamp \| null | Last accepted request (written by the server) |
+
+**`POST /api/steps`** (a Vercel function, `api/steps.js`) —
+`Authorization: Bearer gymi.<uid>.<secret>`, JSON body
+`{ "steps": 12450, "date": "2026-11-10" }` (`date` optional, today in
+Israel by default, up to 7 days back). The same rules as the in-app import
+below: steps only ever go up, and `stepsKcal` / `totalOutKcal` are
+recomputed; it writes `dailyActivity/{date}` with `source: "shortcut"`.
+Answers `{ ok, saved, steps, date, message }`, the message in Hebrew. Needs
+the `FIREBASE_SA_JSON` environment variable on Vercel.
 
 ---
 

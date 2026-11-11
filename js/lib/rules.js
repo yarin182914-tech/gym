@@ -74,6 +74,10 @@ export const STEPS_IMPORT = {
   // while it's empty the "הוספת הקיצור" button stays off.
   shortcutUrl: 'https://www.icloud.com/shortcuts/18d3b3748dc544c2b28928cb007d90d9',
   shortcutName: 'ג׳ימי צעדים',
+  // The silent shortcut (posts to /api/steps), shared from iCloud with an
+  // import question that asks for the personal key. ירין publishes it once;
+  // while it's empty, "חיבורים" shows the build-it-yourself steps instead.
+  silentShortcutUrl: '',
   // Suggested time for the daily automation (shown in the how-to).
   automationTime: '21:00',
 };
