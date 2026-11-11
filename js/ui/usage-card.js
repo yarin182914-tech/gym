@@ -137,12 +137,14 @@ export function mountUsageCard(host, getLang) {
     const openText = `${app.name} ${OPEN_WORD}`;
     const closeText = `${app.name} ${CLOSE_WORD}`;
     return list([
-      `ב${chip(L.shortcutsApp)} עוברים ל${chip(L.automationTab)} ולוחצים ${chip('+')} (או ${chip(L.newAutomation)}).`,
-      `בוחרים ${chip(L.appTrigger)}, ליד ${chip(L.appTrigger)} לוחצים ${chip(L.choose)}, מסמנים את ${chip(ios)} ולוחצים ${chip(L.done)}.`,
-      `משאירים מסומן רק את ${chip(L.isOpened)}, בוחרים ${chip(L.runImmediately)} ולוחצים ${chip(L.next)} ← ${chip(L.blankAutomation)}.`,
-      `בחיפוש מקלידים ${chip(S.text)}, מוסיפים את ${chip(L.text)} וכותבים בו בדיוק: ${code(openText, 'auto')} ${copyBtn(`text:${openText}`, 'העתקה')}`,
-      `בחיפוש מקלידים ${chip(S.runShortcut)}, מוסיפים את ${chip(L.runShortcut)} ובוחרים בו את ${chip(shortcutName)}. אם יש בו שדה קלט, בוחרים בו את ${chip(L.text)}. לוחצים ${chip(L.done)}.`,
-      `עוד אוטומציה בדיוק כזאת, אבל עם ${chip(L.isClosed)} ובטקסט: ${code(closeText, 'auto')} ${copyBtn(`text:${closeText}`, 'העתקה')}`,
+      `ב${chip(L.shortcutsApp)} עוברים ללשונית ${chip(L.automationTab)} (למטה) ולוחצים ${chip('+')}.`,
+      `בוחרים ${chip(L.appTrigger)}. ליד ${chip(L.appTrigger)} לוחצים ${chip(L.choose)}, מסמנים את ${chip(ios)} ולוחצים ${chip(L.done)}.`,
+      `מסמנים רק את ${chip(L.isOpened)}, בוחרים ${chip(L.runImmediately)} ולוחצים ${chip(L.next)}.`,
+      `לוחצים על הריבוע האפור ${chip(L.blankAutomation)}. לא על ${chip(shortcutName)}: בלי המלל שלפניו, ג׳ימי לא יודע איזו אפליקציה נפתחה.`,
+      `בחיפוש הפעולות מקלידים ${chip(S.text)}, מוסיפים את ${chip(L.text)} וכותבים בו בדיוק: ${code(openText, 'auto')} ${copyBtn(`text:${openText}`, 'העתקה')}`,
+      `בחיפוש מקלידים ${chip(S.runShortcut)} ומוסיפים. לוחצים על המילה הכחולה ${chip(L.shortcutWord)} ובוחרים ${chip(shortcutName)}. בשורה ${chip(L.input)} צריך להופיע ${chip(L.text)}. לוחצים ${chip(L.done)}.`,
+      `עוד אוטומציה בדיוק כזאת, אבל מסמנים רק את ${chip(L.isClosed)}, ובמלל: ${code(closeText, 'auto')} ${copyBtn(`text:${closeText}`, 'העתקה')}`,
+      `בדיקה: פותחים את ${esc(app.name)} לדקה וסוגרים. כאן למעלה יופיע "היום: ${esc(app.name)} 1 דק׳".`,
     ]);
   }
 
