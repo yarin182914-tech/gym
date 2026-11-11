@@ -1,19 +1,20 @@
-// POST /api/usage — two iPhone shortcuts, run by the "app opened" and
-// "app closed" automations, send the moments here; the minutes in between
-// fill the app's part of a limit habit (אינסטגרם in "אינסטגרם + פייסבוק").
-// iOS gives no app with Screen Time numbers, so this is the closest thing.
+// POST /api/usage — one shared iPhone shortcut, run by an "app opened" and
+// an "app closed" automation per app, sends the moments here; the minutes
+// in between fill the app's part of a limit habit (אינסטגרם in "אינסטגרם +
+// פייסבוק"). iOS gives no app with Screen Time numbers, so this is the
+// closest thing.
 //
 //   Authorization: Bearer gymi.<uid>.<secret>   (a key with scope "usage")
-//   Body (JSON):   { "app": "instagram", "event": "open" | "close" }
+//   Body (JSON):   { "input": "אינסטגרם נפתח" }  — the automation's text
+//              or  { "app": "instagram", "event": "open" | "close" }
 //
 // Writes users/{uid}/appSessions/{app} (the open session),
 // appUsage/{date} (the day's seconds and opens) and, on a close, that
 // habit's mark in habitLogs/{date}. See docs/DATA.md "App usage".
 
 import { begin, reply, touchKey, FieldValue } from './_shared.js';
-import { applyEvent, findUsageHabit, usageMark, minutesOf, isApp, EVENTS } from '../js/lib/app-usage.js';
+import { applyEvent, findUsageHabit, usageMark, minutesOf, parseUsageBody } from '../js/lib/app-usage.js';
 import { israelDateKey } from '../js/lib/steps-import.js';
-import { USAGE } from '../js/lib/rules.js';
 
 export default async function handler(req, res) {
   let ctx;
@@ -25,15 +26,14 @@ export default async function handler(req, res) {
   }
   if (!ctx) return;
   const { store, userRef, keyRef, body } = ctx;
-  const app = String(body.app || '').toLowerCase();
-  const event = String(body.event || '').toLowerCase();
-  if (!isApp(app)) return reply(res, 400, { ok: false, message: 'אפליקציה לא מוכרת' });
-  if (!EVENTS.includes(event)) return reply(res, 400, { ok: false, message: 'event צריך להיות open או close' });
-  const name = USAGE.apps[app].name;
+  const parsed = parseUsageBody(body);
+  if (parsed.error) return reply(res, 400, { ok: false, message: parsed.error });
+  const { event } = parsed;
+  const { id: app, name } = parsed.app;
 
   try {
     const habitDocs = await userRef.collection('habits').get();
-    const target = findUsageHabit(habitDocs.docs.map((d) => ({ id: d.id, ...d.data() })), app);
+    const target = findUsageHabit(habitDocs.docs.map((d) => ({ id: d.id, ...d.data() })), parsed.app);
     const stateRef = userRef.collection('appSessions').doc(app);
 
     const out = await store.runTransaction(async (tx) => {
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
       const minutes = minutesOf(seconds);
       tx.set(dayRef, {
         date: step.add.day,
-        apps: { [app]: { seconds, opens, minutes } },
+        apps: { [app]: { name, seconds, opens, minutes } },
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
       if (logRef) {

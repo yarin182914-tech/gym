@@ -26,8 +26,8 @@ public repo.
 | `users/{uid}/habitLogs` | `yyyy-mm-dd` | Which habits were done that day |
 | `users/{uid}/tasks` | auto | Tasks: one-off, daily and repeating ("משימות") |
 | `users/{uid}/apiKeys` | sha-256 of the key's secret | Personal keys for sending data from outside (the steps shortcut) — app only |
-| `users/{uid}/appUsage` | `yyyy-mm-dd` | Minutes in an app (Instagram), from the iPhone shortcuts — server only |
-| `users/{uid}/appSessions` | the app (`instagram`) | The app's open session, if any — server only |
+| `users/{uid}/appUsage` | `yyyy-mm-dd` | Minutes in apps (Instagram, TikTok, any app the user picked), from the iPhone shortcut — server only |
+| `users/{uid}/appSessions` | the app id (`instagram`, `c-strava`) | The app's open session, if any — server only |
 | `users/{uid}/pointsLedger` | `{date}_{rule}[_{ref}]` | Points, one entry per award — app only, never written from outside |
 | `siteFeedback` (top level) | auto | App feedback board — don't write here |
 
@@ -191,6 +191,7 @@ sign-in. The "חיבורים" screen shows the newest `loggedAt` among
 | `proteinTarget` | number | Daily protein, grams. `120` when missing (`NUTRITION` in `js/lib/rules.js`). |
 | `carbsTarget` | number | Daily carbs, grams. `250` when missing. |
 | `fatTarget` | number | Daily fat, grams. `65` when missing. |
+| `usageApps` | string[] | Apps the user measures with the iPhone shortcut (names, e.g. `["אינסטגרם", "Strava"]`), see App usage. Missing → the apps that already sent minutes today. Written by the app. |
 
 All integers, all set in the app's "יעדים" sheet (tap the line under the
 calorie ring on the nutrition screen), which writes them with `merge`.
@@ -1074,18 +1075,25 @@ the `FIREBASE_SA_JSON` environment variable on Vercel.
 
 ## App usage — `users/{uid}/appUsage/{yyyy-mm-dd}`
 
-iOS lets no app read Screen Time, so two iPhone shortcuts, run by the
-"Instagram opened" and "Instagram closed" automations, tell the server the
-moments; the time in between is the app's time ("אינסטגרם מהאייפון" on
-חיבורים). **Written only by the server** — never from outside or the app.
+iOS lets no app read Screen Time, so one shared iPhone shortcut ("ג׳ימי זמן
+באפליקציה"), run by an "app opened" and an "app closed" automation for each
+app, tells the server the moments; the time in between is the app's time
+("זמן באפליקציות" on חיבורים). **Written only by the server** — never from
+outside or the app.
 
 | Field | Type | Notes |
 |---|---|---|
 | `date` | string | Same as the doc id — the day a session **started** (Israel time) |
-| `apps` | map | app → `{ seconds, opens, minutes }`: the day's total seconds, how many opens, and `minutes` = seconds ÷ 60 rounded |
+| `apps` | map | app id → `{ name, seconds, opens, minutes }`: the app's Hebrew/display name, the day's total seconds, how many opens, and `minutes` = seconds ÷ 60 rounded. Docs from before 2026-11-11 have no `name` — use the ready-made app's name. |
 | `updatedAt` | Timestamp | Last event |
 
-`users/{uid}/appSessions/{app}` holds the open session:
+**App ids.** The ready-made apps in `USAGE.apps` (`js/lib/rules.js`) keep
+their id (`instagram`, `facebook`, `tiktok`, `youtube`, `whatsapp`, `x`,
+`snapchat`, `netflix`) and are matched by id, Hebrew name, iPhone name or
+alias, any case. Any other name gets `c-` + the name, lower case, spaces → `-`
+(`"Google Maps"` → `c-google-maps`).
+
+`users/{uid}/appSessions/{appId}` holds the open session:
 `{ openSince: Timestamp | null, openDay: "yyyy-mm-dd" | null, updatedAt }`.
 A "closed" with no open session, or more than `USAGE.maxSessionMin`
 (js/lib/rules.js) after it, is a missed event and isn't counted.
@@ -1093,21 +1101,29 @@ A "closed" with no open session, or more than `USAGE.maxSessionMin`
 **Into the habit.** On every close the day's minutes are written into the
 habit's mark in `habitLogs/{date}` (`source: "shortcut"`, the whole bad-habit
 mark: `clean`, `slips`, `value`, `parts`, `level`). The habit is the first
-active `limit` habit that has `usageApp: "instagram"`, else whose `parts`
-include the app's part — `"אינסטגרם"` / `"פייסבוק"` (only that part is set; the others, typed by hand, are
-kept and summed), else one named with "אינסטגרם" and no parts. None → the
-minutes are only kept here. Optional habit field: `usageApp` (string) to
-pick the habit explicitly.
+active `limit` habit that has `usageApp: "<app id>"`, else whose `parts`
+include the app's name (`"אינסטגרם"`, `"Strava"`, any case; only that part
+is set, the others, typed by hand, are kept and summed), else one whose name
+contains the app's name and has no parts. None → the minutes are only kept
+here. Optional habit field: `usageApp` (string, an app id) to pick the habit
+explicitly.
+
+**Which apps the user measures:** `usageApps` on the user doc (see User
+settings) — only for the card on חיבורים; the server takes any app.
 
 **`POST /api/usage`** (`api/usage.js`) — a key with scope `usage`, JSON body
-`{ "app": "instagram" | "facebook", "event": "open" | "close" }`. Answers
+either `{ "input": "<app name> <event word>" }` — the automation's text,
+e.g. `"אינסטגרם נפתח"`, `"Strava נסגר"`; the last word is the event
+(`נפתח`/`open` or `נסגר`/`close`, list in `USAGE.events`), the rest the app —
+or `{ "app": "instagram", "event": "open" | "close" }`. Answers
 `{ ok, app, event, minutes, opens, habit, message }`, the message in Hebrew
 (`"אינסטגרם היום: 22 דק׳"`).
 
 ```json
-// users/{uid}/appUsage/2026-11-11 — two sessions, 12 and 10 minutes
+// users/{uid}/appUsage/2026-11-11 — Instagram twice (12 + 10 minutes), Strava once
 { "date": "2026-11-11",
-  "apps": { "instagram": { "seconds": 1320, "opens": 2, "minutes": 22 } },
+  "apps": { "instagram": { "name": "אינסטגרם", "seconds": 1320, "opens": 2, "minutes": 22 },
+            "c-strava":  { "name": "Strava", "seconds": 300, "opens": 1, "minutes": 5 } },
   "updatedAt": "serverTimestamp()" }
 ```
 

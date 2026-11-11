@@ -48,6 +48,23 @@ check('facebook fills its own part', U.findUsageHabit([ig], 'facebook').part, '�
 check('no mark yet', U.usageMark(habit, 'אינסטגרם', null, 9).level, 'full');
 check('over the short limit: none', U.usageMark(habit, 'אינסטגרם', null, 40).level, 'none');
 
+console.log('apps and input');
+check('built-in by Hebrew name', U.appMeta('אינסטגרם'), { id: 'instagram', name: 'אינסטגרם', builtIn: true });
+check('built-in by iPhone name, any case', U.appMeta('tikTok').id, 'tiktok');
+check('alias', U.appMeta('twitter').id, 'x');
+check('any other app', U.appMeta('  Strava '), { id: 'c-strava', name: 'Strava', builtIn: false });
+check('other app with spaces and slash', U.appMeta('Google / Maps').id, 'c-google-maps');
+check('too long: none', U.appMeta('x'.repeat(USAGE.maxNameLength + 1)), null);
+check('input: Hebrew', U.parseUsageBody({ input: 'אינסטגרם נפתח' }), { app: U.appMeta('instagram'), event: 'open' });
+check('input: two-word app, close', [U.parseUsageBody({ input: 'Google Maps נסגר' }).app.id, U.parseUsageBody({ input: 'Google Maps נסגר' }).event], ['c-google-maps', 'close']);
+check('input: English, quotes, extra space', U.parseUsageBody({ input: ' "TikTok  open" ' }).event, 'open');
+check('old body still works', U.parseUsageBody({ app: 'facebook', event: 'close' }).app.id, 'facebook');
+check('no event word: error', !!U.parseUsageBody({ input: 'אינסטגרם' }).error, true);
+check('no app: error', !!U.parseUsageBody({ input: 'נפתח' }).error, true);
+check('chosen apps: no repeats, built-in folded', U.chosenApps(['Instagram', 'אינסטגרם', 'Strava', '']).map((a) => a.id), ['instagram', 'c-strava']);
+check('custom app fills its part', U.findUsageHabit([{ ...ig, parts: ['אינסטגרם', 'Strava'] }], U.appMeta('strava')).part, 'Strava');
+check('custom app by habit name', U.findUsageHabit([{ ...ig, id: 't', name: 'טיקטוק', parts: [] }], U.appMeta('TikTok')).habit.id, 't');
+
 if (failed) {
   console.log(`\n${failed} failed`);
   process.exit(1);

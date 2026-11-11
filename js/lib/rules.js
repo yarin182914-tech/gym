@@ -82,27 +82,40 @@ export const STEPS_IMPORT = {
   automationTime: '21:00',
 };
 
-// App time from the iPhone (M3e): two shortcuts, run by "app opened" /
-// "app closed" automations, post to /api/usage; the minutes between them
-// fill the app's part of a limit habit (e.g. אינסטגרם in "אינסטגרם +
-// פייסבוק"). See docs/DATA.md "App usage".
+// App time from the iPhone (M3e): one shared shortcut, run by an "app
+// opened" and an "app closed" automation per app, posts to /api/usage; the
+// minutes between them fill that app's part of a limit habit (e.g.
+// אינסטגרם in "אינסטגרם + פייסבוק"). See docs/DATA.md "App usage".
 export const USAGE = {
+  // Ready-made choices on חיבורים. Any other app can be added by name.
+  // `name`: Hebrew, also the habit part (or habit name) the minutes go
+  // into and the word typed in the automation; `ios`: how the app is
+  // called in the iPhone's app list; `aliases`: other names the shortcut
+  // may send.
   apps: {
-    // `part`: the habit part (or habit name) the minutes go into.
-    instagram: { name: 'אינסטגרם', part: 'אינסטגרם' },
-    facebook: { name: 'פייסבוק', part: 'פייסבוק' },
+    instagram: { name: 'אינסטגרם', ios: 'Instagram', aliases: ['instagram', 'insta'] },
+    facebook: { name: 'פייסבוק', ios: 'Facebook', aliases: ['facebook', 'fb'] },
+    tiktok: { name: 'טיקטוק', ios: 'TikTok', aliases: ['tiktok', 'tik tok'] },
+    youtube: { name: 'יוטיוב', ios: 'YouTube', aliases: ['youtube'] },
+    whatsapp: { name: 'וואטסאפ', ios: 'WhatsApp', aliases: ['whatsapp', 'ווטסאפ'] },
+    x: { name: 'X', ios: 'X', aliases: ['twitter', 'טוויטר'] },
+    snapchat: { name: 'סנאפצ׳ט', ios: 'Snapchat', aliases: ['snapchat', 'סנאפ'] },
+    netflix: { name: 'נטפליקס', ios: 'Netflix', aliases: ['netflix'] },
+  },
+  // How many apps one user can pick, and the longest custom name.
+  maxApps: 12,
+  maxNameLength: 24,
+  // The words after the app's name in the automation's text.
+  events: {
+    open: ['open', 'opened', 'נפתח', 'נפתחת', 'פתיחה'],
+    close: ['close', 'closed', 'נסגר', 'נסגרת', 'סגירה'],
   },
   // A session longer than this is a missed "closed" — not counted.
   maxSessionMin: 120,
-  // The shared shortcuts (iCloud links, with an import question for the
-  // key). ירין publishes them once; while empty, חיבורים shows how to
-  // build them by hand.
-  shortcuts: {
-    instagram: { open: '', close: '' },
-  },
-  shortcutNames: {
-    instagram: { open: 'ג׳ימי אינסטגרם נפתח', close: 'ג׳ימי אינסטגרם נסגר' },
-  },
+  // The shared shortcut: an iCloud link with an import question for the
+  // key. ירין publishes it once; while empty, חיבורים shows how to build
+  // it by hand.
+  shortcut: { url: '', name: 'ג׳ימי זמן באפליקציה' },
 };
 
 // Workout burn (M3b) — kcal = MET × body kg × hours, summed per day into
