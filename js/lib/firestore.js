@@ -763,13 +763,10 @@ export async function listMcpKeys() {
 }
 
 // Waits for the server, unlike the other writes: the key must really
-// exist before it's handed out. Offline → rejects after a while.
-// scope: 'steps' for the iPhone shortcut's steps-only key, else omitted.
-export async function createMcpKey(hash, preview, scope = null) {
-  if (!useCloud) return devCreateMcpKey(hash, preview, scope);
-  const write = rawSetDoc(doc(db, 'mcpKeys', hash), {
-    uid: uidOrThrow(), preview, createdAt: serverTimestamp(), ...(scope ? { scope } : {}),
-  });
+// exist before it's handed to Claude. Offline → rejects after a while.
+export async function createMcpKey(hash, preview) {
+  if (!useCloud) return devCreateMcpKey(hash, preview);
+  const write = rawSetDoc(doc(db, 'mcpKeys', hash), { uid: uidOrThrow(), preview, createdAt: serverTimestamp() });
   const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('offline')), 12000));
   await Promise.race([write, timeout]);
 }

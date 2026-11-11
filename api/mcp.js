@@ -9,9 +9,35 @@
 // so the function runs in Israel time too (Vercel defaults to UTC).
 process.env.TZ = 'Asia/Jerusalem';
 
+import { isKeyShaped, hashKey } from '../js/lib/mcp-keys.js';
 import { handleBody } from './_lib/rpc.js';
-import { store, touchKey, markChecked } from './_lib/store.js';
-import { resolveKey, readBody, send } from './_lib/http.js';
+import { store, lookupKey, touchKey, markChecked } from './_lib/store.js';
+
+function keyFrom(req) {
+  const auth = req.headers.authorization || '';
+  if (auth.startsWith('Bearer ')) return auth.slice(7).trim();
+  const q = req.query?.key ?? new URL(req.url, 'http://x').searchParams.get('key');
+  return Array.isArray(q) ? q[0] : q;
+}
+
+async function readBody(req) {
+  if (req.body !== undefined && req.body !== null && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) return req.body;
+  let text = typeof req.body === 'string' ? req.body : Buffer.isBuffer(req.body) ? req.body.toString('utf8') : null;
+  if (text === null) {
+    const chunks = [];
+    for await (const c of req) chunks.push(c);
+    text = Buffer.concat(chunks).toString('utf8');
+  }
+  return JSON.parse(text);
+}
+
+function send(res, status, body) {
+  res.statusCode = status;
+  res.setHeader('Cache-Control', 'no-store');
+  if (body === undefined) return res.end();
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  return res.end(JSON.stringify(body));
+}
 
 const rpcError = (code, message) => ({ jsonrpc: '2.0', id: null, error: { code, message } });
 
@@ -22,11 +48,16 @@ export default async function handler(req, res) {
     return send(res, 405, rpcError(-32000, 'Use POST'));
   }
 
-  const auth = await resolveKey(req);
-  if (!auth.key) return send(res, auth.status, rpcError(auth.status === 401 ? -32001 : -32603, auth.message));
-  const found = auth.key;
-  // A steps-only key (the iPhone shortcut's) can't open the connector.
-  if (found.scope !== 'full') return send(res, 403, rpcError(-32001, 'This key only sends steps — make a Claude key in ג׳ימי → חיבורים'));
+  const key = keyFrom(req);
+  if (!isKeyShaped(key)) return send(res, 401, rpcError(-32001, 'Missing or malformed key — copy the connector address again from ג׳ימי → חיבורים'));
+  let found;
+  try {
+    found = await lookupKey(await hashKey(key));
+  } catch (err) {
+    console.error('[mcp] key lookup failed', err.message);
+    return send(res, 500, rpcError(-32603, 'Server not configured'));
+  }
+  if (!found) return send(res, 401, rpcError(-32001, 'Unknown or revoked key — make a new one in ג׳ימי → חיבורים'));
 
   let body;
   try {

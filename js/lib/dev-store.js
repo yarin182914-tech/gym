@@ -469,9 +469,9 @@ export async function devListMcpKeys() {
   return load().mcpKeys || [];
 }
 
-export async function devCreateMcpKey(hash, preview, scope = null) {
+export async function devCreateMcpKey(hash, preview) {
   const state = load();
-  state.mcpKeys = [...(state.mcpKeys || []), { id: hash, uid: 'dev', preview, createdAt: new Date().toISOString(), ...(scope ? { scope } : {}) }];
+  state.mcpKeys = [...(state.mcpKeys || []), { id: hash, uid: 'dev', preview, createdAt: new Date().toISOString() }];
   save(state);
 }
 
