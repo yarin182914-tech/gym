@@ -77,7 +77,7 @@ export const STEPS_IMPORT = {
   // The silent shortcut (posts to /api/steps), shared from iCloud with an
   // import question that asks for the personal key. ירין publishes it once;
   // while it's empty, "חיבורים" shows the build-it-yourself steps instead.
-  silentShortcutUrl: '',
+  silentShortcutUrl: 'https://www.icloud.com/shortcuts/a3c3f5470d604144a36977a4d4404c6e',
   // Suggested time for the daily automation (shown in the how-to).
   automationTime: '21:00',
 };
