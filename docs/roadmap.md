@@ -4,7 +4,17 @@ Each milestone = one branch + one PR. Build them in order; each one must leave t
 Section names in quotes refer to headings in `docs/upgrade-plan.md` (Hebrew).
 Defaults for every number come from the plan and live in one config module (`js/lib/rules.js`).
 
-Status legend: ☐ not started · ◐ in progress · ☑ merged
+Status legend: ☐ not started · ◐ in progress (branch or PR open) · ☑ merged
+
+**Adding work:** run `/feature <request>` in Claude Code (`.claude/commands/feature.md`). It asks questions, writes a spec in `docs/specs/`, adds or updates the milestone here and waits for ירין's "כן" before building. A new milestone goes where it fits in the build order, with the next free number or a letter suffix (M6c, M8d), in this format:
+
+```
+## M<n> ☐ <Title> — `feature/<m>-<slug>`
+Plan: "<section in upgrade-plan.md>" or "Asked by ירין <date>: '<their words>'". Spec: `docs/specs/<slug>.md`.
+- Data: …
+- UI: …
+- Done when: …
+```
 
 ---
 
@@ -99,8 +109,8 @@ Plan: "קבלת החלטות: "להחליט"". Built for Maya: the problem is th
 Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון עם היומן".
 - Request the extra `calendar.events` scope at Google sign-in (incremental consent). Create/update/delete an event when a task with a time is saved/moved/done/cancelled; store the event id on the task; mark events with a private extended property `{ gymi: true, taskId }`.
 - Only touch events linked to a task. Works while the app is open; failures queue and retry on next open.
-
 - Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
+
 ## M8 ☐ Settings — "התכנית שלי" — `feature/m8-my-plan`
 Plan: "מסך ההגדרות: "התכנית שלי"".
 - Sections: goals, sleep, habits, training, nutrition, body, routine, rewards, notifications, assistant. Change history (`users/{uid}/planHistory`). Assistant suggestion cards (approve/decline).
@@ -125,15 +135,15 @@ Asked by ירין 2026-11-10 ("ממשק המעקב לא נוח").
 ## M9 ☐ Push notifications — `feature/m9-push`
 Plan: "שלב 3: התראות פוש", "שרת קטן" in "מענה טכני".
 - Web Push (VAPID) subscription stored per device; Vercel serverless function to send; scheduled check every 15 min from GitHub Actions. Rules: only when something is missing, max 4/day, quiet hours, quiet Saturday, merge multiple reminders.
-
 - Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
+
 ## M10 ☐ Signup and profile — `feature/m10-onboarding`
 Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). Includes "במה תרצה להשתמש?" (the M8 feature switches). Questionnaire on first login (level 1 only is required; ends with "set goals now / later / never" → `lifePlan.planDepth`); personal BMR (Mifflin-St Jeor) replaces the hard-coded 1950; targets from the goal; remove `weddingDate`.
 
-## M11 ☐ Claude connector (MCP) — `feature/m11-mcp`
-Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "what changed since last check".
-
+## M11 ◐ Claude connector (MCP) — `feature/m11-mcp`
+Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "what changed since last check". PR #22 open; needs `firebase deploy --only firestore:rules` before merge.
 - Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
+
 ## M12 ☐ "קלוד" instructions page — `feature/m12-claude-page`
 Plan: "שלב 6", and the "ליזום, לא לחייב" rules in "שאלון חיים ותכנית אב": Claude reads `planDepth` and never assumes more; offers to go deeper at natural moments, max once a month; stops after two declines until asked; full-plan users get full initiative.
 
