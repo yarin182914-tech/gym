@@ -643,6 +643,16 @@ export function deleteApiKey(hash) {
   return deleteDoc(doc(db, 'users', uidOrThrow(), 'apiKeys', hash));
 }
 
+// ---------- app usage ----------
+// users/{uid}/appUsage/{yyyy-mm-dd} — written only by api/usage.js (the
+// iPhone "app opened / closed" shortcuts); the app only reads it.
+
+export async function getAppUsage(dateKey) {
+  if (!useCloud) return null;
+  const snap = await getDoc(doc(db, 'users', uidOrThrow(), 'appUsage', dateKey));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
 // ---------- planned workouts ----------
 // The coach's proposed workout for a day, written from outside the app (see
 // docs/DATA.md) — one document per local day, keyed yyyy-mm-dd. The app

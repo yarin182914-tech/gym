@@ -10,8 +10,8 @@ export const IOS_LANGS = ['he', 'en'];
 // The words to type in the actions search box. A short stem finds the
 // action even when its full name differs between iOS versions.
 export const IOS_SEARCH = {
-  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'מלל', openUrls: 'כתובות', getContents: 'תוכן של כתובת' },
-  en: { findHealth: 'Health', getDetails: 'Details', roundNumber: 'Round', formatDate: 'Format Date', text: 'Text', openUrls: 'Open URL', getContents: 'Get Contents' },
+  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'מלל', openUrls: 'כתובות', getContents: 'תוכן של כתובת', url: 'כתובת אינטרנט', runShortcut: 'קיצור' },
+  en: { findHealth: 'Health', getDetails: 'Details', roundNumber: 'Round', formatDate: 'Format Date', text: 'Text', openUrls: 'Open URL', getContents: 'Get Contents', url: 'URL', runShortcut: 'Run Shortcut' },
 };
 
 export const IOS_LABELS = {
@@ -62,7 +62,17 @@ export const IOS_LABELS = {
     number: 'מספר',
     textField: 'טקסט',
     showResult: 'הצגת תוצאה',
-    contentsVar: 'תוכן של URL',
+    contentsVar: 'תוכן של כתובת אינטרנט',
+    // App automations (Instagram time).
+    appTrigger: 'אפליקציה',
+    choose: 'בחירה',
+    isOpened: 'נפתחת',
+    isClosed: 'נסגרת',
+    // The shared app-time shortcut and its automations.
+    url: 'כתובת אינטרנט',
+    shortcutInput: 'קלט קיצור',
+    blankAutomation: 'אוטומציה ריקה חדשה',
+    runShortcut: 'הפעלת קיצור',
   },
   en: {
     shortcutsApp: 'Shortcuts',
@@ -108,5 +118,13 @@ export const IOS_LABELS = {
     textField: 'Text',
     showResult: 'Show Result',
     contentsVar: 'Contents of URL',
+    appTrigger: 'App',
+    choose: 'Choose',
+    isOpened: 'Is Opened',
+    isClosed: 'Is Closed',
+    url: 'URL',
+    shortcutInput: 'Shortcut Input',
+    blankAutomation: 'New Blank Automation',
+    runShortcut: 'Run Shortcut',
   },
 };
