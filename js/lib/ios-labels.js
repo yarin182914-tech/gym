@@ -10,8 +10,8 @@ export const IOS_LANGS = ['he', 'en'];
 // The words to type in the actions search box. A short stem finds the
 // action even when its full name differs between iOS versions.
 export const IOS_SEARCH = {
-  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'טקסט', openUrls: 'כתובות', getContents: 'תוכן' },
-  en: { findHealth: 'Health', getDetails: 'Details', roundNumber: 'Round', formatDate: 'Format Date', text: 'Text', openUrls: 'Open URL', getContents: 'Get Contents' },
+  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'טקסט', openUrls: 'כתובות' },
+  en: { findHealth: 'Health', getDetails: 'Details', roundNumber: 'Round', formatDate: 'Format Date', text: 'Text', openUrls: 'Open URL' },
 };
 
 export const IOS_LABELS = {
@@ -37,8 +37,7 @@ export const IOS_LABELS = {
     value: 'ערך',
     getWord: 'קבלת',
     roundedVar: 'מספר מעוגל',
-    // As ירין's Hebrew iPhone names it (seen in the shared shortcut, 11.11).
-    formattedVar: 'מבנה התאריך שהומר',
+    formattedVar: 'מבנה תאריך שהומר',
     selectVar: 'בחירת משתנה',
     roundNumber: 'עיגול מספר',
     formatDate: 'המרת מבנה תאריך',
@@ -46,8 +45,6 @@ export const IOS_LABELS = {
     custom: 'מותאם אישית',
     text: 'טקסט',
     openUrls: 'פתיחת כתובות אינטרנט',
-    // The silent version (M11): sends the steps to the server instead.
-    getContents: 'קבלת תוכן של כתובת URL',
     allow: 'אפשר',
   },
   en: {
@@ -79,7 +76,6 @@ export const IOS_LABELS = {
     custom: 'Custom',
     text: 'Text',
     openUrls: 'Open URLs',
-    getContents: 'Get Contents of URL',
     allow: 'Allow',
   },
 };

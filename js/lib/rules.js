@@ -70,14 +70,9 @@ export const STEPS_IMPORT = {
   // How many days of dailyActivity the "חיבורים" page reads for the
   // last import.
   statusDays: 30,
-  // The ready-made shortcut, shared from iCloud. Since M11 it's the silent
-  // one: it sends the steps to /api/steps with a personal key, which it
-  // asks for once, on install (an import question with this text). ירין
-  // publishes it; while it's empty the install button stays off and the
-  // build-it-yourself steps open instead. The older Safari version
-  // (#/import) keeps working for anyone who has it.
-  shortcutUrl: '',
-  keyQuestion: 'הדבק את המפתח מג׳ימי',
+  // The ready-made shortcut, shared from iCloud. ירין publishes it once;
+  // while it's empty the "הוספת הקיצור" button stays off.
+  shortcutUrl: 'https://www.icloud.com/shortcuts/18d3b3748dc544c2b28928cb007d90d9',
   shortcutName: 'ג׳ימי צעדים',
   // Suggested time for the daily automation (shown in the how-to).
   automationTime: '21:00',
