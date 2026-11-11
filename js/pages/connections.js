@@ -19,6 +19,7 @@ import { formatDayMonthHe, formatTimeHe, toDate } from '../lib/format.js';
 import { beginMount, isStale } from '../core/page.js';
 import { esc } from '../core/dom.js';
 import { icon } from '../ui/icon.js';
+import { mountUsageCard } from '../ui/usage-card.js';
 import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 
 const LANG_KEY = 'gymi.iosLang';
@@ -39,6 +40,7 @@ let loaded = false;
 let stepsKey = null; // the user's steps key doc ({ id: hash, createdAt, lastUsedAt }), or null
 let newKey = ''; // the key just made — shown once, until the page is left
 let installing = false; // the key was made by "התקנת הקיצור" (one-tap path)
+let usageCard = null; // "אינסטגרם מהאייפון" (js/ui/usage-card.js)
 
 function savedLang() {
   try {
@@ -79,12 +81,14 @@ export function unmountConnections() {
   stepsKey = null;
   newKey = '';
   installing = false;
+  usageCard = null;
 }
 
 function render() {
   container.innerHTML = `
     <p class="text-muted connections-intro">מקורות שמעדכנים את ג׳ימי לבד, בלי רישום ידני.</p>
     ${stepsCard()}
+    <div data-usage></div>
     <h2 class="connections-soon-title">בקרוב</h2>
     <div class="connections-soon">
       ${SOON.map((s) => `
@@ -109,7 +113,9 @@ function render() {
     container.querySelector('[data-howto]').innerHTML = howTo();
     container.querySelector('[data-build]').innerHTML = buildSteps();
     renderSilent();
+    usageCard?.render();
   });
+  usageCard = mountUsageCard(container.querySelector('[data-usage]'), () => lang);
   container.addEventListener('click', onCopy);
   container.addEventListener('click', onKeyAction);
   renderStatus();

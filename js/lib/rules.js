@@ -82,6 +82,28 @@ export const STEPS_IMPORT = {
   automationTime: '21:00',
 };
 
+// App time from the iPhone (M3e): two shortcuts, run by "app opened" /
+// "app closed" automations, post to /api/usage; the minutes between them
+// fill the app's part of a limit habit (e.g. אינסטגרם in "אינסטגרם +
+// פייסבוק"). See docs/DATA.md "App usage".
+export const USAGE = {
+  apps: {
+    // `part`: the habit part (or habit name) the minutes go into.
+    instagram: { name: 'אינסטגרם', part: 'אינסטגרם' },
+  },
+  // A session longer than this is a missed "closed" — not counted.
+  maxSessionMin: 120,
+  // The shared shortcuts (iCloud links, with an import question for the
+  // key). ירין publishes them once; while empty, חיבורים shows how to
+  // build them by hand.
+  shortcuts: {
+    instagram: { open: '', close: '' },
+  },
+  shortcutNames: {
+    instagram: { open: 'ג׳ימי אינסטגרם נפתח', close: 'ג׳ימי אינסטגרם נסגר' },
+  },
+};
+
 // Workout burn (M3b) — kcal = MET × body kg × hours, summed per day into
 // dailyActivity.workoutKcal by the app (see docs/DATA.md). METs are the
 // usual Compendium-of-Physical-Activities values.

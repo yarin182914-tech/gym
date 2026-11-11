@@ -26,6 +26,8 @@ public repo.
 | `users/{uid}/habitLogs` | `yyyy-mm-dd` | Which habits were done that day |
 | `users/{uid}/tasks` | auto | Tasks: one-off, daily and repeating ("משימות") |
 | `users/{uid}/apiKeys` | sha-256 of the key's secret | Personal keys for sending data from outside (the steps shortcut) — app only |
+| `users/{uid}/appUsage` | `yyyy-mm-dd` | Minutes in an app (Instagram), from the iPhone shortcuts — server only |
+| `users/{uid}/appSessions` | the app (`instagram`) | The app's open session, if any — server only |
 | `users/{uid}/pointsLedger` | `{date}_{rule}[_{ref}]` | Points, one entry per award — app only, never written from outside |
 | `siteFeedback` (top level) | auto | App feedback board — don't write here |
 
@@ -649,7 +651,7 @@ A mark:
 | `level` | string | `full` · `short` · `none` (logged, but below the short level — shown grey, never red) |
 | `value` | number \| null | The number, when one was given (`7` minutes read); `null` after a plain מלא / מקוצר tap. On a habit with `parts`, the sum of the parts. |
 | `parts` | map | Only on a habit with `parts`: part name → number (`{ "אינסטגרם": 10, "פייסבוק": 4 }`). A part left empty is left out. |
-| `source` | string | `manual` (marked in the app) · `coach` (written from outside) |
+| `source` | string | `manual` (marked in the app) · `coach` (written from outside) · `shortcut` (app minutes from `/api/usage`, see App usage) |
 
 Streaks are computed from these docs, never stored: daily habits in days,
 fixed-weekday habits over their own days (other days are skipped), and
@@ -1055,7 +1057,7 @@ SHA-256 hex of `<secret>` is stored, as the doc id. Created and revoked
 | Field | Type | Notes |
 |---|---|---|
 | `label` | string | What it's for, e.g. `"קיצור הצעדים"` |
-| `scopes` | string[] | What it may do: `["steps"]` |
+| `scopes` | string[] | What it may do: `["steps"]` (the steps shortcut) or `["usage"]` (the Instagram shortcuts) |
 | `createdAt` | Timestamp | Made |
 | `lastUsedAt` | Timestamp \| null | Last accepted request (written by the server) |
 
@@ -1067,6 +1069,47 @@ below: steps only ever go up, and `stepsKcal` / `totalOutKcal` are
 recomputed; it writes `dailyActivity/{date}` with `source: "shortcut"`.
 Answers `{ ok, saved, steps, date, message }`, the message in Hebrew. Needs
 the `FIREBASE_SA_JSON` environment variable on Vercel.
+
+---
+
+## App usage — `users/{uid}/appUsage/{yyyy-mm-dd}`
+
+iOS lets no app read Screen Time, so two iPhone shortcuts, run by the
+"Instagram opened" and "Instagram closed" automations, tell the server the
+moments; the time in between is the app's time ("אינסטגרם מהאייפון" on
+חיבורים). **Written only by the server** — never from outside or the app.
+
+| Field | Type | Notes |
+|---|---|---|
+| `date` | string | Same as the doc id — the day a session **started** (Israel time) |
+| `apps` | map | app → `{ seconds, opens, minutes }`: the day's total seconds, how many opens, and `minutes` = seconds ÷ 60 rounded |
+| `updatedAt` | Timestamp | Last event |
+
+`users/{uid}/appSessions/{app}` holds the open session:
+`{ openSince: Timestamp | null, openDay: "yyyy-mm-dd" | null, updatedAt }`.
+A "closed" with no open session, or more than `USAGE.maxSessionMin`
+(js/lib/rules.js) after it, is a missed event and isn't counted.
+
+**Into the habit.** On every close the day's minutes are written into the
+habit's mark in `habitLogs/{date}` (`source: "shortcut"`, the whole bad-habit
+mark: `clean`, `slips`, `value`, `parts`, `level`). The habit is the first
+active `limit` habit that has `usageApp: "instagram"`, else whose `parts`
+include `"אינסטגרם"` (only that part is set; the others, typed by hand, are
+kept and summed), else one named with "אינסטגרם" and no parts. None → the
+minutes are only kept here. Optional habit field: `usageApp` (string) to
+pick the habit explicitly.
+
+**`POST /api/usage`** (`api/usage.js`) — a key with scope `usage`, JSON body
+`{ "app": "instagram", "event": "open" | "close" }`. Answers
+`{ ok, app, event, minutes, opens, habit, message }`, the message in Hebrew
+(`"אינסטגרם היום: 22 דק׳"`).
+
+```json
+// users/{uid}/appUsage/2026-11-11 — two sessions, 12 and 10 minutes
+{ "date": "2026-11-11",
+  "apps": { "instagram": { "seconds": 1320, "opens": 2, "minutes": 22 } },
+  "updatedAt": "serverTimestamp()" }
+```
 
 ---
 

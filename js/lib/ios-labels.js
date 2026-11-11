@@ -61,6 +61,11 @@ export const IOS_LABELS = {
     textField: 'טקסט',
     showResult: 'הצגת תוצאה',
     contentsVar: 'תוכן של URL',
+    // App automations (Instagram time).
+    appTrigger: 'אפליקציה',
+    choose: 'בחירה',
+    isOpened: 'נפתחת',
+    isClosed: 'נסגרת',
   },
   en: {
     shortcutsApp: 'Shortcuts',
@@ -106,5 +111,9 @@ export const IOS_LABELS = {
     textField: 'Text',
     showResult: 'Show Result',
     contentsVar: 'Contents of URL',
+    appTrigger: 'App',
+    choose: 'Choose',
+    isOpened: 'Is Opened',
+    isClosed: 'Is Closed',
   },
 };

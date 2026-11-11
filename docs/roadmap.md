@@ -45,6 +45,8 @@ No plan chapter; asked by ירין 2026-11-09. A web app can't read Apple Health
 
 ## M3e ◐ Silent steps from the iPhone — `feature/m3e-silent-steps`
 Asked by ירין 2026-11-11 ("שהקיצור של הצעדים ייעשה אוטומטית"). The shortcut posts the steps to `POST /api/steps` (Vercel function) with a personal key made on "חיבורים" — no Safari, runs with the phone locked. Keys: `users/{uid}/apiKeys/{sha256}`, the first piece of M11's per-user keys. The Safari way stays as a fallback.
+- One-tap install (2026-11-11): "התקנת הקיצור" makes a key, copies it and opens the shared iCloud shortcut, which asks for the key on import (`STEPS_IMPORT.silentShortcutUrl`).
+- Instagram time (2026-11-11, ירין: "משהו דומה לשימוש באינסטגרם"): Screen Time can't be read, so "opened"/"closed" automations post to `POST /api/usage`; the minutes fill the Instagram part of the limit habit. `appUsage`, `appSessions` in DATA.md.
 
 ## M3b ☑ Workout types (functional, CrossFit, Pilates…) — `feature/m3b-workout-types`
 Plan: "סוגי אימון: פונקציונלי, קרוספיט, פילאטיס ועוד". Independent of M1–M3; can be pulled earlier.
