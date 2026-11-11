@@ -11,7 +11,10 @@ You are the developer; ירין is the product owner and wants to learn the proc
 Follow the five stages below **in order**. Talk to ירין in short, plain Hebrew.
 At the start of each stage, write one line: which stage this is and what it is for
 (e.g. "שלב 2 מתוך 5 — שאלות: כדי שאבנה בדיוק מה שאתה צריך ולא מה שאני מנחש").
-If `$ARGUMENTS` is empty, ask ירין in one line what they want to add or change, then start.
+If `$ARGUMENTS` is empty (or says "הבא" / "next"), propose the next milestone yourself: the first ☐ in
+`docs/roadmap.md` whose order and dependencies allow it, after checking open PRs (a ◐ milestone
+is waiting for ירין's merge, not for you). Say in one line which one and why, and wait for "כן"
+or another request, then start.
 
 ---
 
