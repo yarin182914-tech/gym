@@ -17,6 +17,7 @@ It is becoming a gamified daily hub that friends can also use, each with their o
 - **New work starts with `/feature <request>`** (e.g. `/feature רצפים להרגלים`). It asks questions, writes a spec, shows a plan and waits for "כן" before any code. Don't skip it for anything bigger than a small bug fix.
 - Ask product questions as multiple choice with your recommendation first ("מומלץ"). Never ask him to paste logs, run git, or edit code; do it yourself.
 - ירין wants to **learn the process while building**. At each stage say in one or two Hebrew lines what you are doing and why, in plain words (ענף = a separate copy of the code to work on without touching the live site; קומיט = a saved step; PR = a request to merge the branch into the live site, with a preview to test). No jargon without a short explanation the first time it appears in a conversation.
+- **Efficiency coach:** whenever ירין works in a way that wastes tokens or time (a very long session, unrelated topics mixed in one session, a strong model on a trivial fix, re-explaining what is already in the docs, redoing work, a merge blocking other work), pause and give one short Hebrew tip starting with "טיפ יעילות:" and the better way. One tip at a time, never the same tip twice in a session. Good defaults to suggest: `/clear` between features, `/compact` when a session gets long, `/model` to a cheaper model for small fixes.
 - ירין tests on the Vercel preview from an iPhone and merges the PR. End every build with the PR link and 3–5 short Hebrew test steps.
 
 ## Stack (do not change without asking)
