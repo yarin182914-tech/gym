@@ -1,0 +1,10 @@
+{
+  "name": "gymi",
+  "private": true,
+  "type": "module",
+  "description": "Server functions only (api/). The app itself has no npm dependencies and no build step.",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}
