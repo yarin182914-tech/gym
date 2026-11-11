@@ -1,7 +1,8 @@
 // "חיבורים" — one card per outside source feeding the app: its status, a
 // one-tap action and short steps. Opened from the profile sheet. M3c
 // builds the page and its first card (steps from the iPhone); later
-// milestones replace their grey "בקרוב" card with a real one.
+// milestones replace their grey "בקרוב" card with a real one. M11 adds the
+// Claude connector card (personal keys, js/lib/mcp-keys.js).
 //
 // How-tos name the iPhone's own buttons, so each has a switch for the
 // phone's language (labels in js/lib/ios-labels.js); the rest stays Hebrew.
@@ -11,7 +12,9 @@ import { makeSecret, formatKey, hashSecret } from '../lib/api-key.js';
 import { currentUid } from '../auth.js';
 import { useCloud } from '../firebase-config.js';
 import { confirmDialog } from '../ui/confirm-dialog.js';
-import { STEPS_IMPORT } from '../lib/rules.js';
+import { STEPS_IMPORT, MCP } from '../lib/rules.js';
+import { listMcpKeys, createMcpKey, deleteMcpKey } from '../lib/firestore.js';
+import { generateKey, hashKey, keyPreview, connectorUrl } from '../lib/mcp-keys.js';
 import { israelDateKey } from '../lib/steps-import.js';
 import { IOS_LABELS, IOS_LANGS, IOS_SEARCH } from '../lib/ios-labels.js';
 import { showToast } from '../ui/toast.js';
@@ -28,7 +31,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const SOON = [
   { icon: 'calendar-days', title: 'יומן גוגל', text: 'משימות עם שעה נכנסות ליומן' },
   { icon: 'bell', title: 'התראות', text: 'תזכורת רק כשמשהו חסר' },
-  { icon: 'sparkles', title: 'קלוד', text: 'המאמן האישי קורא ורושם בשבילך' },
   { icon: 'cloud', title: 'אחסון בענן', text: 'גיבוי התכנית לדרייב, דרך קלוד' },
   { icon: 'watch', title: 'Garmin', text: 'אימונים, שינה ודופק מהשעון' },
 ];
@@ -40,6 +42,9 @@ let loaded = false;
 let stepsKey = null; // the user's steps key doc ({ id: hash, createdAt, lastUsedAt }), or null
 let newKey = ''; // the key just made — shown once, until the page is left
 let installing = false; // the key was made by "התקנת הקיצור" (one-tap path)
+let mcpKeys = null; // the user's Claude keys, or null while loading
+let newUrl = null; // the connector address of a key made just now — shown once
+let mcpBusy = false;
 let usageCard = null; // "אינסטגרם מהאייפון" (js/ui/usage-card.js)
 
 function savedLang() {
@@ -55,7 +60,17 @@ export async function mountConnections(rootEl) {
   container = rootEl;
   lang = savedLang();
   loaded = false;
+  mcpKeys = null;
+  newUrl = null;
   render();
+  listMcpKeys().catch((err) => {
+    console.error('[connections] keys load failed', err);
+    return [];
+  }).then((list) => {
+    if (isStale(token)) return;
+    mcpKeys = list;
+    renderClaude();
+  });
   const [acts, keys] = await Promise.all([
     listDailyActivity(STEPS_IMPORT.statusDays).catch((err) => {
       console.error('[connections] activity load failed', err);
@@ -78,6 +93,8 @@ export async function mountConnections(rootEl) {
 export function unmountConnections() {
   container = null;
   lastImport = null;
+  mcpKeys = null;
+  newUrl = null;
   stepsKey = null;
   newKey = '';
   installing = false;
@@ -88,6 +105,7 @@ function render() {
   container.innerHTML = `
     <p class="text-muted connections-intro">מקורות שמעדכנים את ג׳ימי לבד, בלי רישום ידני.</p>
     ${stepsCard()}
+    <section class="card connection-main" aria-labelledby="conn-claude-title" data-claude></section>
     <div data-usage></div>
     <h2 class="connections-soon-title">בקרוב</h2>
     <div class="connections-soon">
@@ -118,8 +136,10 @@ function render() {
   usageCard = mountUsageCard(container.querySelector('[data-usage]'), () => lang);
   container.addEventListener('click', onCopy);
   container.addEventListener('click', onKeyAction);
+  container.addEventListener('click', onClaudeClick);
   renderStatus();
   renderSilent();
+  renderClaude();
 }
 
 function stepsCard() {
@@ -406,4 +426,143 @@ async function createKey({ replace = false, quiet = false } = {}) {
   newKey = formatKey(uid, secret);
   if (!quiet) renderSilent();
   return newKey;
+}
+
+// ---------- Claude (M11) ----------
+// A personal key per Claude account: made here, shown once inside the
+// connector address, stored only as its SHA-256 (mcpKeys/{hash}).
+
+function whenHe(value) {
+  if (!value) return null;
+  const d = toDate(value);
+  const day = israelDateKey(d);
+  const label = day === israelDateKey() ? 'היום'
+    : day === israelDateKey(new Date(Date.now() - DAY_MS)) ? 'אתמול'
+      : formatDayMonthHe(d);
+  return `${label} ב-${formatTimeHe(d)}`;
+}
+
+function claudeStatus() {
+  if (mcpKeys === null) return '<span class="text-muted">בודק…</span>';
+  if (!mcpKeys.length) return '<span class="status-dot"></span>לא מחובר';
+  const used = mcpKeys.filter((k) => k.lastUsedAt).map((k) => toDate(k.lastUsedAt).getTime());
+  return used.length
+    ? `<span class="status-dot status-dot--on"></span>מחובר · קלוד ניגש ${whenHe(new Date(Math.max(...used)))}`
+    : '<span class="status-dot status-dot--on"></span>יש מפתח · קלוד עוד לא התחבר';
+}
+
+function claudeSteps() {
+  const steps = [
+    ['sparkles', `ב-Claude: ${chip('Settings')} ← ${chip('Connectors')} ← ${chip('Add custom connector')}.`],
+    ['copy', `שם: ${chip('ג׳ימי')}. בשדה הכתובת מדביקים את מה שהעתקת ולוחצים ${chip('Add')}.`],
+    ['check', `בשיחה חדשה מפעילים את ג׳ימי (${chip('+')} ← ${chip('Connectors')}) ושואלים "מה מצבי היום?"`],
+  ];
+  return `
+    <ol class="connection-steps connection-steps--build">
+      ${steps.map(([name, text], i) => `<li><span class="connection-step-num">${i + 1}</span>${icon(name, { className: 'icon--sm' })}<span>${text}</span></li>`).join('')}
+    </ol>`;
+}
+
+function keyRow(k) {
+  const used = whenHe(k.lastUsedAt);
+  return `
+    <li class="mcp-key">
+      <span class="mcp-key-text">
+        <span class="connection-code" dir="ltr">${esc(k.preview || '')}…</span>
+        <span class="text-muted">נוצר ${whenHe(k.createdAt) || 'עכשיו'} · ${used ? `בשימוש ${used}` : 'עוד לא בשימוש'}</span>
+      </span>
+      <button type="button" class="btn btn-secondary connection-copy" data-revoke="${esc(k.id)}" aria-label="ביטול המפתח ${esc(k.preview || '')}">${icon('x', { className: 'icon--sm' })} ביטול</button>
+    </li>`;
+}
+
+function renderClaude() {
+  const el = container?.querySelector('[data-claude]');
+  if (!el) return;
+  const canAdd = mcpKeys !== null && mcpKeys.length < MCP.maxKeysPerUser && !mcpBusy;
+  const first = !mcpKeys?.length;
+  const createBtn = `
+    <button type="button" class="btn ${first ? 'btn-primary' : 'btn-secondary'} btn-block" data-mcp-create${canAdd ? '' : ' disabled'}>
+      ${icon('plus', { className: 'icon--sm' })} ${mcpBusy ? 'יוצר…' : first ? 'צור מפתח' : 'מפתח נוסף'}
+    </button>`;
+  const fresh = newUrl ? `
+    <div class="connection-hint mcp-new-key">
+      <b>כתובת החיבור שלך.</b> היא מוצגת עכשיו בלבד. מי שמחזיק בה יכול לקרוא ולרשום בג׳ימי שלך, אז לא משתפים אותה.
+      <span class="connection-code connection-code--wrap mcp-url" dir="ltr">${esc(newUrl)}</span>
+    </div>
+    <button type="button" class="btn btn-primary btn-block" data-mcp-copy>${icon('copy', { className: 'icon--sm' })} העתקת הכתובת</button>
+    ${claudeSteps()}
+    <button type="button" class="btn btn-secondary btn-block" data-mcp-done>${icon('check', { className: 'icon--sm' })} הדבקתי, אפשר להסתיר</button>` : '';
+  el.innerHTML = `
+    <div class="connection-head">
+      <span class="connection-icon">${icon('sparkles')}</span>
+      <span class="connection-text">
+        <b id="conn-claude-title">קלוד</b>
+        <span class="connection-status">${claudeStatus()}</span>
+      </span>
+    </div>
+    <p class="text-muted connection-desc">הקלוד שלך קורא את הנתונים שלך בג׳ימי, ורושם בשבילך ארוחות, שקילה, שינה, צעדים וסימון הרגלים. הוא רואה רק את החשבון שלך ולא מוחק כלום.</p>
+    ${fresh}
+    ${mcpKeys?.length ? `<ul class="mcp-keys">${mcpKeys.map(keyRow).join('')}</ul>` : ''}
+    ${newUrl ? '' : createBtn}
+    ${mcpKeys !== null && first && !newUrl ? '<p class="text-muted connection-note">לוחצים, מעתיקים את הכתובת ומדביקים אותה ב-Claude. דקה אחת.</p>' : ''}`;
+}
+
+async function onClaudeClick(e) {
+  if (e.target.closest('[data-mcp-create]')) {
+    createClaudeKey();
+  } else if (e.target.closest('[data-mcp-copy]')) {
+    try {
+      await navigator.clipboard.writeText(newUrl);
+      showToast(`${icon('check', { className: 'icon--sm' })} הכתובת הועתקה`);
+    } catch {
+      showToast('לא הצלחתי להעתיק, אפשר לסמן ולהעתיק ידנית');
+    }
+  } else if (e.target.closest('[data-mcp-done]')) {
+    newUrl = null;
+    renderClaude();
+  } else if (e.target.closest('[data-revoke]')) {
+    revokeClaudeKey(e.target.closest('[data-revoke]').dataset.revoke);
+  }
+}
+
+async function createClaudeKey() {
+  if (mcpBusy) return;
+  mcpBusy = true;
+  renderClaude();
+  try {
+    const key = generateKey();
+    const hash = await hashKey(key);
+    await createMcpKey(hash, keyPreview(key));
+    mcpKeys = [...(mcpKeys || []), { id: hash, preview: keyPreview(key), createdAt: new Date(), lastUsedAt: null }];
+    newUrl = connectorUrl(location.origin, key);
+  } catch (err) {
+    console.error('[connections] key create failed', err);
+    showToast(err.message === 'offline' ? 'צריך חיבור לאינטרנט כדי ליצור מפתח' : 'לא הצלחתי ליצור מפתח, אפשר לנסות שוב');
+  } finally {
+    mcpBusy = false;
+    renderClaude();
+  }
+}
+
+async function revokeClaudeKey(hash) {
+  const k = mcpKeys?.find((x) => x.id === hash);
+  if (!k) return;
+  const yes = await confirmDialog({
+    title: 'לבטל את המפתח?',
+    message: `קלוד שמחובר עם <span dir="ltr">${esc(k.preview)}…</span> יפסיק לגשת לג׳ימי תוך דקה. הנתונים שלך נשארים כמו שהם.`,
+    confirmLabel: 'ביטול המפתח',
+    cancelLabel: 'השארה',
+    danger: true,
+  });
+  if (!yes) return;
+  try {
+    await deleteMcpKey(hash);
+    mcpKeys = mcpKeys.filter((x) => x.id !== hash);
+    newUrl = null;
+    showToast('המפתח בוטל');
+  } catch (err) {
+    console.error('[connections] key revoke failed', err);
+    showToast('לא הצלחתי לבטל, אפשר לנסות שוב');
+  }
+  renderClaude();
 }

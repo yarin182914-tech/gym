@@ -323,6 +323,43 @@ export const LIBRARY_RULES = {
   defaultOrder: ['sleep', 'training', 'nutrition', 'habits', 'mind', 'longevity'],
 };
 
+// The Claude connector (M11): a remote MCP server at /api/mcp that reads
+// and writes the user's own data with a personal key (see docs/DATA.md,
+// "Claude connector keys"). Read by the "חיבורים" card and by the server.
+export const MCP = {
+  // A key is this prefix + keyBytes random bytes, base64url. Only its
+  // SHA-256 is stored.
+  keyPrefix: 'gymi_',
+  keyBytes: 32,
+  // Characters of the key kept in the clear, so a key can be recognised
+  // on the card ("gymi_AbCd…").
+  previewChars: 9,
+  // Active keys per user — one per Claude account is the usual case.
+  maxKeysPerUser: 3,
+  // The server remembers a key → user lookup this long, so a revoked key
+  // stops working within this time.
+  keyCacheMs: 60 * 1000,
+  // lastUsedAt on the key is refreshed at most this often.
+  touchEveryMs: 10 * 60 * 1000,
+  // Read tools: days looked back when not asked, and the most allowed.
+  defaultDays: 7,
+  maxDays: 60,
+  // Workouts listed at most per call (they're big).
+  maxWorkouts: 30,
+  // "What changed": with no earlier check and no `since`, this far back.
+  changesDefaultHours: 24,
+  // Writes are accepted for dates up to this many days back, never ahead.
+  writeDaysBack: 14,
+  // Sanity limits on written numbers.
+  limits: {
+    calories: [0, 5000],
+    macroG: [0, 500],
+    kg: [25, 300],
+    steps: [0, 100000],
+    habitValue: [0, 100000],
+  },
+};
+
 // Tasks (M6) — the plan's "דף המשימות" and "מניעת דחיינות".
 export const TASKS = {
   // Points by size; an important task is worth `importantFactor` times as

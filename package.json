@@ -1,10 +1,12 @@
 {
   "name": "gymi",
   "private": true,
+  "description": "Dependencies of the server functions in api/ only — the app itself has no build step and no npm runtime deps.",
   "type": "module",
-  "description": "Server functions only (api/). The app itself has no npm dependencies and no build step.",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
-    "firebase-admin": "^12.7.0"
+    "firebase-admin": "^13.10.0"
   }
 }
