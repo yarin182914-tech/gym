@@ -48,7 +48,7 @@ export const IOS_LABELS = {
     openUrls: 'פתיחת כתובות אינטרנט',
     allow: 'אפשר',
     // The silent version: send the steps to the server.
-    getContents: 'קבלת תוכן של URL',
+    getContents: 'קבלת תוכן של כתובת אינטרנט',
     method: 'שיטה',
     post: 'POST',
     headers: 'כותרות',
@@ -60,7 +60,7 @@ export const IOS_LABELS = {
     number: 'מספר',
     textField: 'טקסט',
     showResult: 'הצגת תוצאה',
-    contentsVar: 'תוכן של URL',
+    contentsVar: 'תוכן של כתובת אינטרנט',
     // App automations (Instagram time).
     appTrigger: 'אפליקציה',
     choose: 'בחירה',
