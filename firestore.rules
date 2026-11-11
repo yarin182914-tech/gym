@@ -20,7 +20,8 @@ service cloud.firestore {
       allow create: if request.auth != null
         && hash.matches('^[0-9a-f]{64}$')
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.keys().hasOnly(['uid', 'preview', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['uid', 'preview', 'createdAt', 'scope'])
+        && (!('scope' in request.resource.data) || request.resource.data.scope == 'steps')
         && request.resource.data.preview is string
         && request.resource.data.preview.size() <= 16
         && request.resource.data.createdAt == request.time;

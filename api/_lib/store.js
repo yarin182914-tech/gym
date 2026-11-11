@@ -62,7 +62,8 @@ export const store = {
 
 const keyCache = new Map(); // hash → { key, at }
 
-// The key's doc ({ hash, uid, lastCheckAt, lastUsedAt }), or null when
+// The key's doc ({ hash, uid, scope: 'full' | 'steps', lastCheckAt,
+// lastUsedAt }), or null when
 // it's unknown or revoked. Cached for MCP.keyCacheMs.
 export async function lookupKey(hash) {
   const hit = keyCache.get(hash);
@@ -70,7 +71,7 @@ export async function lookupKey(hash) {
   const snap = await firestore().collection('mcpKeys').doc(hash).get();
   const data = snap.exists ? snap.data() : null;
   const key = data && typeof data.uid === 'string' && data.uid
-    ? { hash, uid: data.uid, lastCheckAt: data.lastCheckAt?.toDate() ?? null, lastUsedAt: data.lastUsedAt?.toDate() ?? null }
+    ? { hash, uid: data.uid, scope: data.scope === 'steps' ? 'steps' : 'full', lastCheckAt: data.lastCheckAt?.toDate() ?? null, lastUsedAt: data.lastUsedAt?.toDate() ?? null }
     : null;
   keyCache.set(hash, { key, at: Date.now() });
   return key;
