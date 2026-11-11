@@ -10,7 +10,7 @@ export const IOS_LANGS = ['he', 'en'];
 // The words to type in the actions search box. A short stem finds the
 // action even when its full name differs between iOS versions.
 export const IOS_SEARCH = {
-  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'מלל', openUrls: 'כתובות', getContents: 'URL' },
+  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'מלל', openUrls: 'כתובות', getContents: 'תוכן של כתובת' },
   en: { findHealth: 'Health', getDetails: 'Details', roundNumber: 'Round', formatDate: 'Format Date', text: 'Text', openUrls: 'Open URL', getContents: 'Get Contents' },
 };
 
@@ -49,7 +49,8 @@ export const IOS_LABELS = {
     openUrls: 'פתיחת כתובות אינטרנט',
     allow: 'אפשר',
     // The silent version: send the steps to the server.
-    getContents: 'קבלת תוכן של URL',
+    // As ירין's Hebrew iPhone names it (11.11); "…עמוד אינטרנט" is a different action.
+    getContents: 'קבלת תוכן של כתובת אינטרנט',
     method: 'שיטה',
     post: 'POST',
     headers: 'כותרות',
