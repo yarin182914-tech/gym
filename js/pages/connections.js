@@ -6,7 +6,11 @@
 // How-tos name the iPhone's own buttons, so each has a switch for the
 // phone's language (labels in js/lib/ios-labels.js); the rest stays Hebrew.
 
-import { listDailyActivity } from '../lib/firestore.js';
+import { listDailyActivity, listApiKeys, addApiKey, deleteApiKey } from '../lib/firestore.js';
+import { makeSecret, formatKey, hashSecret } from '../lib/api-key.js';
+import { currentUid } from '../auth.js';
+import { useCloud } from '../firebase-config.js';
+import { confirmDialog } from '../ui/confirm-dialog.js';
 import { STEPS_IMPORT } from '../lib/rules.js';
 import { israelDateKey } from '../lib/steps-import.js';
 import { IOS_LABELS, IOS_LANGS, IOS_SEARCH } from '../lib/ios-labels.js';
@@ -32,6 +36,8 @@ let container = null;
 let lang = 'he';
 let lastImport = null; // Date of the newest shortcut import, or null
 let loaded = false;
+let stepsKey = null; // the user's steps key doc ({ id: hash, createdAt, lastUsedAt }), or null
+let newKey = ''; // the key just made — shown once, until the page is left
 
 function savedLang() {
   try {
@@ -47,20 +53,30 @@ export async function mountConnections(rootEl) {
   lang = savedLang();
   loaded = false;
   render();
-  const acts = await listDailyActivity(STEPS_IMPORT.statusDays).catch((err) => {
-    console.error('[connections] activity load failed', err);
-    return [];
-  });
+  const [acts, keys] = await Promise.all([
+    listDailyActivity(STEPS_IMPORT.statusDays).catch((err) => {
+      console.error('[connections] activity load failed', err);
+      return [];
+    }),
+    listApiKeys().catch((err) => {
+      console.error('[connections] keys load failed', err);
+      return [];
+    }),
+  ]);
   if (isStale(token)) return;
+  stepsKey = keys.find((k) => (k.scopes || []).includes('steps')) || null;
   const times = acts.filter((a) => a.source === 'shortcut' && a.loggedAt).map((a) => toDate(a.loggedAt).getTime());
   lastImport = times.length ? new Date(Math.max(...times)) : null;
   loaded = true;
   renderStatus();
+  renderSilent();
 }
 
 export function unmountConnections() {
   container = null;
   lastImport = null;
+  stepsKey = null;
+  newKey = '';
 }
 
 function render() {
@@ -90,9 +106,12 @@ function render() {
     patchToggleGroup(group, lang);
     container.querySelector('[data-howto]').innerHTML = howTo();
     container.querySelector('[data-build]').innerHTML = buildSteps();
+    renderSilent();
   });
   container.addEventListener('click', onCopy);
+  container.addEventListener('click', onKeyAction);
   renderStatus();
+  renderSilent();
 }
 
 function stepsCard() {
@@ -122,6 +141,8 @@ function stepsCard() {
           { value: 'en', label: '<span dir="ltr">My iPhone is in English</span>' },
         ],
       })}
+      <div class="connection-silent" data-silent></div>
+      <p class="text-muted connection-note connection-or">או בדרך הפשוטה, שפותחת את Safari לרגע:</p>
       ${action}
       <details class="connection-build"${STEPS_IMPORT.shortcutUrl ? '' : ' open'}>
         <summary>${icon('pencil', { className: 'icon--sm' })} בניית הקיצור, צעד אחר צעד</summary>
@@ -137,10 +158,17 @@ const chip = (text) => `<b class="ios-label" dir="auto">${esc(text)}</b>`;
 // The address the shortcut opens, up to where the steps number goes.
 const importBase = () => `${location.origin}/#/import?steps=`;
 
+const COPY = {
+  base: () => importBase(),
+  date: () => '&date=',
+  api: () => `${location.origin}/api/steps`,
+  bearer: () => `Bearer ${newKey}`,
+};
+
 async function onCopy(e) {
   const btn = e.target.closest('[data-copy]');
   if (!btn) return;
-  const text = btn.dataset.copy === 'base' ? importBase() : '&date=';
+  const text = (COPY[btn.dataset.copy] || COPY.date)();
   try {
     await navigator.clipboard.writeText(text);
     showToast(`${icon('check', { className: 'icon--sm' })} הועתק`);
@@ -226,4 +254,87 @@ function renderStatus() {
   const n = STEPS_IMPORT.staleAfterDays;
   staleEl.hidden = Date.now() - lastImport.getTime() < n * DAY_MS;
   staleEl.textContent = `לא הגיעו צעדים כבר ${n === 2 ? 'יומיים' : `${n} ימים`}. כדאי לבדוק שהאוטומציה פעילה, או להריץ את הקיצור ידנית.`;
+}
+
+// ---------- the silent way: the shortcut posts to /api/steps ----------
+// A personal key (js/lib/api-key.js) lets the shortcut send the steps in
+// the background — no Safari, and it runs with the phone locked.
+
+function renderSilent() {
+  const host = container?.querySelector('[data-silent]');
+  if (!host) return;
+  const L = IOS_LABELS[lang];
+  const S = IOS_SEARCH[lang];
+  const copyBtn = (what, label) => `<button type="button" class="btn btn-secondary connection-copy" data-copy="${what}">${icon('copy', { className: 'icon--sm' })} ${label}</button>`;
+  const head = `<b class="connection-silent-title">${icon('sparkles', { className: 'icon--sm' })} שליחה שקטה — מומלץ</b>
+    <p class="text-muted connection-note">הקיצור שולח את הצעדים ישירות לג׳ימי: שום דבר לא נפתח, וזה עובד גם כשהטלפון נעול.</p>`;
+  if (!loaded) {
+    host.innerHTML = head;
+    return;
+  }
+  if (!stepsKey && !newKey) {
+    host.innerHTML = `${head}
+      <button type="button" class="btn btn-primary btn-block" data-key-create>${icon('plug', { className: 'icon--sm' })} יצירת מפתח אישי</button>`;
+    return;
+  }
+  if (!newKey) {
+    const used = stepsKey.lastUsedAt ? `נשלח לאחרונה ${formatDayMonthHe(toDate(stepsKey.lastUsedAt))} ב-${formatTimeHe(toDate(stepsKey.lastUsedAt))}` : 'עוד לא נשלח בו כלום';
+    host.innerHTML = `${head}
+      <p class="connection-key-status"><span class="status-dot status-dot--on"></span>יש מפתח אישי · ${used}</p>
+      <p class="text-muted connection-note">המפתח מוצג רק פעם אחת, כשיוצרים אותו. החלפת טלפון או מפתח שאבד: מבטלים ויוצרים חדש.</p>
+      <button type="button" class="btn btn-outline btn-block" data-key-revoke>ביטול המפתח ויצירת חדש</button>`;
+    return;
+  }
+  const find = (key) => `בשורת החיפוש מקלידים ${chip(S[key])} ומוסיפים את ${chip(L[key])}`;
+  const steps = [
+    `פותחים את הקיצור ${chip(STEPS_IMPORT.shortcutName)} ב${chip(L.shortcutsApp)} (לוחצים על שלוש הנקודות שלו). מוחקים את שתי הפעולות האחרונות, ${chip(L.text)} ו${chip(L.openUrls)} (מחליקים שמאלה או ✕).`,
+    `${find('getContents')}. בשדה הכתובת מדביקים: ${copyBtn('api', 'העתקת הכתובת')}`,
+    `פותחים את הפעולה בחץ הקטן. ${chip(L.method)}: בוחרים ${chip(L.post)}.`,
+    `${chip(L.headers)} ← ${chip(L.addHeader)}. ב${chip(L.key)} כותבים <span class="connection-code" dir="ltr">Authorization</span>, וב${chip(L.value)} מדביקים: ${copyBtn('bearer', 'העתקת המפתח')}`,
+    `${chip(L.requestBody)}: בוחרים ${chip(L.json)}. ${chip(L.addField)} ← ${chip(L.number)}: מפתח <span class="connection-code" dir="ltr">steps</span>, ובערך לוחצים על המשתנה ${chip(L.roundedVar)}. שוב ${chip(L.addField)} ← ${chip(L.textField)}: מפתח <span class="connection-code" dir="ltr">date</span>, ובערך המשתנה ${chip(L.formattedVar)}.`,
+    `לוחצים ▶ להרצה. אם רוצים לראות את התשובה ("נשמרו … צעדים"), מוסיפים בסוף ${chip(L.showResult)}. אחר כך האוטומציה היומית (למטה) עושה את זה לבד.`,
+  ];
+  host.innerHTML = `${head}
+    <div class="connection-key-box">
+      <p class="connection-key-warn">${icon('triangle-alert', { className: 'icon--sm' })} המפתח מוצג רק עכשיו. מעתיקים אותו לקיצור לפי השלבים, ולא משתפים אותו עם אף אחד.</p>
+      <span class="connection-code connection-code--wrap" dir="ltr">${esc(newKey)}</span>
+    </div>
+    <p class="text-muted connection-note">אין עדיין קיצור? קודם בונים את שלבים 1–5 במדריך "בניית הקיצור" למטה, ואז ממשיכים כאן.</p>
+    <ol class="connection-steps connection-steps--build">
+      ${steps.map((text, i) => `<li><span class="connection-step-num">${i + 1}</span><span>${text}</span></li>`).join('')}
+    </ol>`;
+}
+
+async function onKeyAction(e) {
+  if (e.target.closest('[data-key-create]')) return createKey();
+  if (e.target.closest('[data-key-revoke]')) {
+    const ok = await confirmDialog({
+      title: 'לבטל את המפתח?',
+      message: 'הקיצור הנוכחי יפסיק לשלוח צעדים עד שתדביק בו את המפתח החדש.',
+      confirmLabel: 'ביטול ויצירת חדש',
+    });
+    if (!ok || !stepsKey) return;
+    const old = stepsKey.id;
+    stepsKey = null;
+    await deleteApiKey(old).catch((err) => console.error('[connections] revoke failed', err));
+    createKey();
+  }
+}
+
+async function createKey() {
+  // The local sandbox has no signed-in user; its key is only for show.
+  const uid = currentUid() || (useCloud ? null : 'devSandboxUser');
+  if (!uid) return;
+  const secret = makeSecret();
+  const hash = await hashSecret(secret);
+  try {
+    await addApiKey(hash, { label: 'קיצור הצעדים', scopes: ['steps'] });
+  } catch (err) {
+    console.error('[connections] key save failed', err);
+    showToast('לא הצלחתי לשמור את המפתח, נסה שוב');
+    return;
+  }
+  stepsKey = { id: hash, scopes: ['steps'], lastUsedAt: null };
+  newKey = formatKey(uid, secret);
+  renderSilent();
 }

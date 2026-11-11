@@ -10,8 +10,8 @@ export const IOS_LANGS = ['he', 'en'];
 // The words to type in the actions search box. A short stem finds the
 // action even when its full name differs between iOS versions.
 export const IOS_SEARCH = {
-  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'טקסט', openUrls: 'כתובות' },
-  en: { findHealth: 'Health', getDetails: 'Details', roundNumber: 'Round', formatDate: 'Format Date', text: 'Text', openUrls: 'Open URL' },
+  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'טקסט', openUrls: 'כתובות', getContents: 'תוכן' },
+  en: { findHealth: 'Health', getDetails: 'Details', roundNumber: 'Round', formatDate: 'Format Date', text: 'Text', openUrls: 'Open URL', getContents: 'Get Contents' },
 };
 
 export const IOS_LABELS = {
@@ -46,6 +46,20 @@ export const IOS_LABELS = {
     text: 'טקסט',
     openUrls: 'פתיחת כתובות אינטרנט',
     allow: 'אפשר',
+    // The silent version: send the steps to the server.
+    getContents: 'קבלת תוכן של URL',
+    method: 'שיטה',
+    post: 'POST',
+    headers: 'כותרות',
+    addHeader: 'הוספת כותרת חדשה',
+    key: 'מפתח',
+    requestBody: 'גוף הבקשה',
+    json: 'JSON',
+    addField: 'הוספת שדה חדש',
+    number: 'מספר',
+    textField: 'טקסט',
+    showResult: 'הצגת תוצאה',
+    contentsVar: 'תוכן של URL',
   },
   en: {
     shortcutsApp: 'Shortcuts',
@@ -77,5 +91,18 @@ export const IOS_LABELS = {
     text: 'Text',
     openUrls: 'Open URLs',
     allow: 'Allow',
+    getContents: 'Get Contents of URL',
+    method: 'Method',
+    post: 'POST',
+    headers: 'Headers',
+    addHeader: 'Add new header',
+    key: 'Key',
+    requestBody: 'Request Body',
+    json: 'JSON',
+    addField: 'Add new field',
+    number: 'Number',
+    textField: 'Text',
+    showResult: 'Show Result',
+    contentsVar: 'Contents of URL',
   },
 };
