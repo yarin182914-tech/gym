@@ -38,6 +38,7 @@ let lastImport = null; // Date of the newest shortcut import, or null
 let loaded = false;
 let stepsKey = null; // the user's steps key doc ({ id: hash, createdAt, lastUsedAt }), or null
 let newKey = ''; // the key just made — shown once, until the page is left
+let installing = false; // the key was made by "התקנת הקיצור" (one-tap path)
 
 function savedLang() {
   try {
@@ -77,6 +78,7 @@ export function unmountConnections() {
   lastImport = null;
   stepsKey = null;
   newKey = '';
+  installing = false;
 }
 
 function render() {
@@ -142,12 +144,13 @@ function stepsCard() {
         ],
       })}
       <div class="connection-silent" data-silent></div>
+      ${STEPS_IMPORT.silentShortcutUrl ? '<div data-build hidden></div>' : `
       <p class="text-muted connection-note connection-or">או בדרך הפשוטה, שפותחת את Safari לרגע:</p>
       ${action}
       <details class="connection-build"${STEPS_IMPORT.shortcutUrl ? '' : ' open'}>
         <summary>${icon('pencil', { className: 'icon--sm' })} בניית הקיצור, צעד אחר צעד</summary>
         <div data-build>${buildSteps()}</div>
-      </details>
+      </details>`}
       <div data-howto>${howTo()}</div>
     </section>`;
 }
@@ -163,6 +166,7 @@ const COPY = {
   date: () => '&date=',
   api: () => `${location.origin}/api/steps`,
   bearer: () => `Bearer ${newKey}`,
+  key: () => newKey,
 };
 
 async function onCopy(e) {
@@ -223,12 +227,12 @@ function howTo() {
     ['check', `בוחרים את הקיצור ${chip(STEPS_IMPORT.shortcutName)} ולוחצים ${chip(L.done)}.`],
   ];
   return `
-    <p class="connection-note">${STEPS_IMPORT.shortcutUrl ? `אחרי הלחיצה, באייפון לוחצים ${chip(L.addShortcut)}. ואז` : 'כשהקיצור מוכן,'} אוטומציה יומית:</p>
+    <p class="connection-note">${STEPS_IMPORT.silentShortcutUrl ? 'אחרי שהקיצור נוסף,' : STEPS_IMPORT.shortcutUrl ? `אחרי הלחיצה, באייפון לוחצים ${chip(L.addShortcut)}. ואז` : 'כשהקיצור מוכן,'} אוטומציה יומית:</p>
     <ol class="connection-steps">
       ${steps.map(([name, text], i) => `<li><span class="connection-step-num">${i + 1}</span>${icon(name, { className: 'icon--sm' })}<span>${text}</span></li>`).join('')}
     </ol>
     <ul class="connection-notes text-muted">
-      <li>האוטומציה פותחת את Safari לרגע ושומרת. בפעם הראשונה צריך להתחבר עם גוגל גם ב-Safari.</li>
+      ${STEPS_IMPORT.silentShortcutUrl ? '' : '<li>האוטומציה פותחת את Safari לרגע ושומרת. בפעם הראשונה צריך להתחבר עם גוגל גם ב-Safari.</li>'}
       <li>אם הטלפון נעול בשעה הזאת, האוטומציה עלולה לא לרוץ. אפשר תמיד להריץ את הקיצור ידנית: לחיצה עליו ב${chip(L.shortcutsApp)}, או מהווידג׳ט במסך הבית.</li>
     </ul>`;
 }
@@ -272,6 +276,10 @@ function renderSilent() {
     host.innerHTML = head;
     return;
   }
+  if (STEPS_IMPORT.silentShortcutUrl) {
+    host.innerHTML = `${head}${oneTap(L)}`;
+    return;
+  }
   if (!stepsKey && !newKey) {
     host.innerHTML = `${head}
       <button type="button" class="btn btn-primary btn-block" data-key-create>${icon('plug', { className: 'icon--sm' })} יצירת מפתח אישי</button>`;
@@ -305,7 +313,57 @@ function renderSilent() {
     </ol>`;
 }
 
+// One tap: make a key, copy it, then open the shared shortcut. When it's
+// added, the iPhone asks for the key — it's already on the clipboard.
+function oneTap(L) {
+  const install = (label, cls) => `<button type="button" class="btn ${cls} btn-block" data-key-install>${icon('download', { className: 'icon--sm' })} ${label}</button>`;
+  if (newKey && installing) {
+    return `
+      <p class="connection-key-status"><span class="status-dot status-dot--on"></span>המפתח האישי הועתק</p>
+      <a class="btn btn-primary btn-block" href="${esc(STEPS_IMPORT.silentShortcutUrl)}" target="_blank" rel="noopener">${icon('download', { className: 'icon--sm' })} הוספת הקיצור לאייפון</a>
+      <p class="text-muted connection-note">לוחצים ${chip(L.addShortcut)}. כשהאייפון שואל על המפתח, לוחצים בשדה ← ${chip(L.paste)}. אחר כך האוטומציה היומית (למטה), וזהו.</p>
+      <details class="connection-build">
+        <summary>${icon('copy', { className: 'icon--sm' })} ההדבקה לא עבדה?</summary>
+        <div class="connection-key-box">
+          <p class="connection-key-warn">${icon('triangle-alert', { className: 'icon--sm' })} המפתח מוצג רק עכשיו. לא משתפים אותו עם אף אחד.</p>
+          <span class="connection-code connection-code--wrap" dir="ltr">${esc(newKey)}</span>
+          <button type="button" class="btn btn-secondary connection-copy" data-copy="key">${icon('copy', { className: 'icon--sm' })} העתקה שוב</button>
+        </div>
+      </details>`;
+  }
+  if (!stepsKey) {
+    return `${install('התקנת הקיצור', 'btn-primary')}
+      <p class="text-muted connection-note">לוחצים, ומפתח אישי מועתק לבד. בשלב הבא מוסיפים את הקיצור ומדביקים.</p>`;
+  }
+  const used = stepsKey.lastUsedAt ? `נשלח לאחרונה ${formatDayMonthHe(toDate(stepsKey.lastUsedAt))} ב-${formatTimeHe(toDate(stepsKey.lastUsedAt))}` : 'עוד לא נשלח בו כלום';
+  return `
+    <p class="connection-key-status"><span class="status-dot status-dot--on"></span>הקיצור מחובר · ${used}</p>
+    ${install('התקנה מחדש (טלפון חדש)', 'btn-outline')}
+    <p class="text-muted connection-note">התקנה מחדש יוצרת מפתח חדש, והקיצור הישן מפסיק לשלוח.</p>`;
+}
+
+// Must start in the tap itself: Safari only lets the page write the
+// clipboard during a user gesture, so the copy is handed a promise of the
+// key before any await.
+function installShortcut() {
+  const made = createKey({ replace: true, quiet: true });
+  const asBlob = made.then((key) => new Blob([key || ''], { type: 'text/plain' }));
+  let copied;
+  if (window.ClipboardItem && navigator.clipboard?.write) {
+    copied = navigator.clipboard.write([new ClipboardItem({ 'text/plain': asBlob })]);
+  } else {
+    copied = made.then((key) => key && navigator.clipboard.writeText(key));
+  }
+  made.then((key) => {
+    if (!key) return;
+    installing = true;
+    renderSilent();
+    copied.catch(() => showToast('לא הצלחתי להעתיק. אפשר להעתיק ידנית מ"ההדבקה לא עבדה?"'));
+  });
+}
+
 async function onKeyAction(e) {
+  if (e.target.closest('[data-key-install]')) return installShortcut();
   if (e.target.closest('[data-key-create]')) return createKey();
   if (e.target.closest('[data-key-revoke]')) {
     const ok = await confirmDialog({
@@ -321,10 +379,13 @@ async function onKeyAction(e) {
   }
 }
 
-async function createKey() {
+// Makes and saves a new steps key; returns it ('' on failure). `replace`
+// drops the previous key once the new one is saved.
+async function createKey({ replace = false, quiet = false } = {}) {
   // The local sandbox has no signed-in user; its key is only for show.
   const uid = currentUid() || (useCloud ? null : 'devSandboxUser');
-  if (!uid) return;
+  if (!uid) return '';
+  const old = replace ? stepsKey?.id : null;
   const secret = makeSecret();
   const hash = await hashSecret(secret);
   try {
@@ -332,9 +393,11 @@ async function createKey() {
   } catch (err) {
     console.error('[connections] key save failed', err);
     showToast('לא הצלחתי לשמור את המפתח, נסה שוב');
-    return;
+    return '';
   }
+  if (old) deleteApiKey(old).catch((err) => console.error('[connections] revoke failed', err));
   stepsKey = { id: hash, scopes: ['steps'], lastUsedAt: null };
   newKey = formatKey(uid, secret);
-  renderSilent();
+  if (!quiet) renderSilent();
+  return newKey;
 }

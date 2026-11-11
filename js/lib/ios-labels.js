@@ -25,6 +25,7 @@ export const IOS_LABELS = {
     next: 'הבא',
     done: 'סיום',
     addShortcut: 'הוספת קיצור',
+    paste: 'הדבק',
     // Building the shortcut by hand (until the iCloud link exists).
     rename: 'שינוי שם',
     findHealth: 'חיפוש דגימות בריאות',
@@ -71,6 +72,7 @@ export const IOS_LABELS = {
     next: 'Next',
     done: 'Done',
     addShortcut: 'Add Shortcut',
+    paste: 'Paste',
     rename: 'Rename',
     findHealth: 'Find Health Samples',
     steps: 'Steps',

@@ -5187,3 +5187,7 @@ body.keyboard-open .fab,
 .connection-or {
   margin: var(--space-2) 0;
 }
+
+.connection-silent a.btn {
+  text-decoration: none;
+}
