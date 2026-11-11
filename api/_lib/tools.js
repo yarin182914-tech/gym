@@ -288,6 +288,7 @@ const CHANGE_FIELDS = [
   ['libraryPicks', 'createdAt'],
   ['nutritionEntries', 'date'],
   ['workouts', 'startTime'],
+  ['tasks', 'updatedAt'],
 ];
 
 async function getChanges({ since, peek }, ctx) {
