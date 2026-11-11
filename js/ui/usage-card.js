@@ -1,4 +1,4 @@
-// "אינסטגרם מהאייפון" on חיבורים (M3e): two shortcuts, run by the "app
+// "רשתות מהאייפון" on חיבורים (M3e): two shortcuts, run by the "app
 // opened" / "app closed" automations, post to /api/usage, and the minutes
 // in between fill the Instagram part of the limit habit. Loads and saves
 // on its own; js/pages/connections.js only gives it a place and the
@@ -41,7 +41,7 @@ export function mountUsageCard(host, getLang) {
   function statusLine() {
     if (!loaded) return '<span class="text-muted">בודק…</span>';
     if (today && (today.opens || today.minutes)) {
-      return `<span class="status-dot status-dot--on"></span>היום: ${today.minutes} דק׳ · ${today.opens} פתיחות`;
+      return `<span class="status-dot status-dot--on"></span>היום: ${today.text}`;
     }
     if (key?.lastUsedAt) {
       const at = toDate(key.lastUsedAt);
@@ -66,6 +66,7 @@ export function mountUsageCard(host, getLang) {
       `משאירים מסומן רק את ${chip(L.isOpened)}, בוחרים ${chip(L.runImmediately)} ולוחצים ${chip(L.next)}.`,
       `בוחרים את הקיצור ${chip(names.open)}.`,
       `עוד אוטומציה, בדיוק אותו דבר, אבל עם ${chip(L.isClosed)} ועם הקיצור ${chip(names.close)}.`,
+      `גם פייסבוק? משכפלים את שני הקיצורים, ובעותקים משנים ${code('instagram')} ל־${code('facebook')}. ואז שתי אוטומציות כאלה עם Facebook. הדקות נכנסות לשדה "פייסבוק" בהרגל.`,
     ];
     return `<p class="connection-note">ואז שתי אוטומציות, פעם אחת:</p>${list(steps)}`;
   }
@@ -121,11 +122,11 @@ export function mountUsageCard(host, getLang) {
         <div class="connection-head">
           <span class="connection-icon">${icon('smartphone')}</span>
           <span class="connection-text">
-            <b id="conn-usage-title">אינסטגרם מהאייפון</b>
+            <b id="conn-usage-title">רשתות מהאייפון</b>
             <span class="connection-status">${statusLine()}</span>
           </span>
         </div>
-        <p class="text-muted connection-desc">האייפון לא נותן לאף אפליקציה לקרוא את זמן המסך. במקום זה, האייפון מודיע לג׳ימי כשאינסטגרם נפתח וכשהוא נסגר, וג׳ימי סופר את הדקות.</p>
+        <p class="text-muted connection-desc">האייפון לא נותן לאף אפליקציה לקרוא את זמן המסך. במקום זה, האייפון מודיע לג׳ימי כשאינסטגרם (או פייסבוק) נפתח וכשהוא נסגר, וג׳ימי סופר את הדקות.</p>
         ${habitLine()}
         <div class="connection-silent">${body()}</div>
       </section>`;
@@ -153,7 +154,7 @@ export function mountUsageCard(host, getLang) {
     const secret = makeSecret();
     const hash = await hashSecret(secret);
     try {
-      await addApiKey(hash, { label: 'קיצורי אינסטגרם', scopes: [SCOPE] });
+      await addApiKey(hash, { label: 'קיצורי רשתות', scopes: [SCOPE] });
     } catch (err) {
       console.error('[usage-card] key save failed', err);
       showToast('לא הצלחתי לשמור את המפתח, נסה שוב');
@@ -186,8 +187,12 @@ export function mountUsageCard(host, getLang) {
   ]).then(([keys, habits, usage]) => {
     key = keys.find((k) => (k.scopes || []).includes(SCOPE)) || null;
     target = findUsageHabit(habits, APP);
-    const day = usage?.apps?.[APP];
-    today = day ? { minutes: Number(day.minutes) || 0, opens: Number(day.opens) || 0 } : null;
+    const apps = Object.entries(usage?.apps || {}).filter(([app]) => USAGE.apps[app]);
+    today = apps.length ? {
+      minutes: apps.reduce((n, [, d]) => n + (Number(d.minutes) || 0), 0),
+      opens: apps.reduce((n, [, d]) => n + (Number(d.opens) || 0), 0),
+      text: apps.map(([app, d]) => `${USAGE.apps[app].name} ${Number(d.minutes) || 0} דק׳`).join(' · '),
+    } : null;
     loaded = true;
     if (host.isConnected) render();
   });

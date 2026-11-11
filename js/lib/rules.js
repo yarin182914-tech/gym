@@ -90,6 +90,7 @@ export const USAGE = {
   apps: {
     // `part`: the habit part (or habit name) the minutes go into.
     instagram: { name: 'אינסטגרם', part: 'אינסטגרם' },
+    facebook: { name: 'פייסבוק', part: 'פייסבוק' },
   },
   // A session longer than this is a missed "closed" — not counted.
   maxSessionMin: 120,

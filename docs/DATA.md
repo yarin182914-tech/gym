@@ -1094,13 +1094,13 @@ A "closed" with no open session, or more than `USAGE.maxSessionMin`
 habit's mark in `habitLogs/{date}` (`source: "shortcut"`, the whole bad-habit
 mark: `clean`, `slips`, `value`, `parts`, `level`). The habit is the first
 active `limit` habit that has `usageApp: "instagram"`, else whose `parts`
-include `"אינסטגרם"` (only that part is set; the others, typed by hand, are
+include the app's part — `"אינסטגרם"` / `"פייסבוק"` (only that part is set; the others, typed by hand, are
 kept and summed), else one named with "אינסטגרם" and no parts. None → the
 minutes are only kept here. Optional habit field: `usageApp` (string) to
 pick the habit explicitly.
 
 **`POST /api/usage`** (`api/usage.js`) — a key with scope `usage`, JSON body
-`{ "app": "instagram", "event": "open" | "close" }`. Answers
+`{ "app": "instagram" | "facebook", "event": "open" | "close" }`. Answers
 `{ ok, app, event, minutes, opens, habit, message }`, the message in Hebrew
 (`"אינסטגרם היום: 22 דק׳"`).
 

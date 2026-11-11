@@ -44,6 +44,7 @@ check('usageApp wins', U.findUsageHabit([ig, { ...ig, id: 'y', name: 'מסכים
 const habit = U.findUsageHabit([ig], 'instagram').habit;
 const typed = { level: 'full', value: 5, parts: { 'פייסבוק': 5 }, clean: true, slips: [], source: 'manual' };
 check('keeps the part typed by hand, sums', U.usageMark(habit, 'אינסטגרם', typed, 12), { clean: false, slips: [], value: 17, parts: { 'פייסבוק': 5, 'אינסטגרם': 12 }, level: 'short', source: 'shortcut' });
+check('facebook fills its own part', U.findUsageHabit([ig], 'facebook').part, 'פייסבוק');
 check('no mark yet', U.usageMark(habit, 'אינסטגרם', null, 9).level, 'full');
 check('over the short limit: none', U.usageMark(habit, 'אינסטגרם', null, 40).level, 'none');
 
