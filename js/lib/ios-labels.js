@@ -10,7 +10,7 @@ export const IOS_LANGS = ['he', 'en'];
 // The words to type in the actions search box. A short stem finds the
 // action even when its full name differs between iOS versions.
 export const IOS_SEARCH = {
-  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'מלל', openUrls: 'כתובות', getContents: 'תוכן של כתובת', url: 'כתובת אינטרנט', runShortcut: 'קיצור' },
+  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'מלל', openUrls: 'כתובות', getContents: 'תוכן של כתובת', url: 'כתובת אינטרנט', runShortcut: 'הפעלת קיצור' },
   en: { findHealth: 'Health', getDetails: 'Details', roundNumber: 'Round', formatDate: 'Format Date', text: 'Text', openUrls: 'Open URL', getContents: 'Get Contents', url: 'URL', runShortcut: 'Run Shortcut' },
 };
 
@@ -64,15 +64,19 @@ export const IOS_LABELS = {
     showResult: 'הצגת תוצאה',
     contentsVar: 'תוכן של כתובת אינטרנט',
     // App automations (Instagram time).
-    appTrigger: 'אפליקציה',
+    // Automation screens as ירין's Hebrew iPhone shows them (screenshots 11.11).
+    appTrigger: 'יישום',
     choose: 'בחירה',
-    isOpened: 'נפתחת',
-    isClosed: 'נסגרת',
+    isOpened: 'נפתח',
+    isClosed: 'נסגר',
     // The shared app-time shortcut and its automations.
     url: 'כתובת אינטרנט',
     shortcutInput: 'קלט קיצור',
-    blankAutomation: 'אוטומציה ריקה חדשה',
+    blankAutomation: 'פעולה אוטומטית ריקה חדשה',
     runShortcut: 'הפעלת קיצור',
+    // The blue placeholder inside Run Shortcut until one is picked.
+    shortcutWord: 'קיצור',
+    input: 'קלט',
   },
   en: {
     shortcutsApp: 'Shortcuts',
@@ -126,5 +130,7 @@ export const IOS_LABELS = {
     shortcutInput: 'Shortcut Input',
     blankAutomation: 'New Blank Automation',
     runShortcut: 'Run Shortcut',
+    shortcutWord: 'Shortcut',
+    input: 'Input',
   },
 };

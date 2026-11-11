@@ -29,7 +29,7 @@ It is becoming a gamified daily hub that friends can also use, each with their o
 - **Styles:** `css/01-tokens.css` (design tokens, light/dark themes), `02-base`, `03-components`, `04-utilities`. Use the tokens, never hard-coded colours.
 - **Icons:** Lucide path data via `js/ui/icon.js` (the static nav in `index.html` duplicates them by hand; `tools/check.sh` checks they match).
 - **Tunable numbers:** `js/lib/rules.js` (points, levels, streaks, limits, shortcut links).
-- **iPhone how-tos:** button names as the phone shows them live in `js/lib/ios-labels.js` (Hebrew + English). Hebrew iOS names verified on ירין's phone: Text = "מלל", Get Contents of URL = "קבלת תוכן של כתובת אינטרנט" (its URL must come from a separate "כתובת אינטרנט" action), app trigger = "אפליקציה" / "נפתחת" / "נסגרת". Anything not verified gets a note in the PR.
+- **iPhone how-tos:** button names as the phone shows them live in `js/lib/ios-labels.js` (Hebrew + English). Hebrew iOS names verified on ירין's phone: Text = "מלל", Get Contents of URL = "קבלת תוכן של כתובת אינטרנט" (its URL must come from a separate "כתובת אינטרנט" action), app automation: trigger "יישום", ticks "נפתח" / "נסגר", then the grey tile "פעולה אוטומטית ריקה חדשה"; Run Shortcut = "הפעלת קיצור" (tap its blue word "קיצור" to pick one). Anything not verified gets a note in the PR.
 
 ## Hard rules
 1. **Never push to `main` and never merge.** `main` deploys straight to the live site. Work on a branch named `feature/<milestone>-<short-name>`, push it, and open a PR. ירין merges.

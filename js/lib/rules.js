@@ -115,7 +115,7 @@ export const USAGE = {
   // The shared shortcut: an iCloud link with an import question for the
   // key. ירין publishes it once; while empty, חיבורים shows how to build
   // it by hand.
-  shortcut: { url: '', name: 'ג׳ימי זמן באפליקציה' },
+  shortcut: { url: 'https://www.icloud.com/shortcuts/76affd04dd904b5787f46b69de045895', name: 'ג׳ימי זמן באפליקציה' },
 };
 
 // Workout burn (M3b) — kcal = MET × body kg × hours, summed per day into
