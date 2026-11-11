@@ -3802,6 +3802,10 @@ body.keyboard-open .fab,
   user-select: all;
 }
 
+.mcp-url[hidden] {
+  display: none;
+}
+
 .mcp-keys {
   list-style: none;
   margin: 0;

@@ -118,9 +118,10 @@ function render() {
 function stepsCard() {
   const url = STEPS_IMPORT.shortcutUrl;
   const action = url
-    ? `<a class="btn btn-primary btn-block" href="${esc(url)}" target="_blank" rel="noopener">${icon('download', { className: 'icon--sm' })} הוספת הקיצור</a>`
-    : `<button type="button" class="btn btn-primary btn-block" disabled>${icon('download', { className: 'icon--sm' })} הוספת הקיצור</button>
-       <p class="text-muted connection-note">הקישור לקיצור יתווסף בקרוב.</p>`;
+    ? `<button type="button" class="btn btn-primary btn-block" data-install>${icon('download', { className: 'icon--sm' })} התקנת הקיצור</button>
+       <p class="text-muted connection-note">הכפתור מעתיק מפתח אישי ופותח את הקיצור. כשהאייפון שואל "${esc(STEPS_IMPORT.keyQuestion)}", מדביקים ולוחצים ${chip(IOS_LABELS[lang].addShortcut)}.</p>`
+    : `<button type="button" class="btn btn-primary btn-block" disabled>${icon('download', { className: 'icon--sm' })} התקנת הקיצור</button>
+       <p class="text-muted connection-note">הקישור לקיצור יתווסף בקרוב. בינתיים אפשר לבנות אותו לבד (למטה).</p>`;
   return `
     <section class="card connection-main" aria-labelledby="conn-steps-title">
       <div class="connection-head">
@@ -154,18 +155,78 @@ function stepsCard() {
 // The iPhone's own label, shown as it appears on the phone.
 const chip = (text) => `<b class="ios-label" dir="auto">${esc(text)}</b>`;
 
-// The address the shortcut opens, up to where the steps number goes.
-const importBase = () => `${location.origin}/#/import?steps=`;
+// The pieces of the address the shortcut sends the steps to (M11, silent):
+//   <origin>/api/steps?key=<key>&steps=<n>&date=<yyyy-mm-dd>
+const COPY_TEXT = {
+  base: () => `${location.origin}/api/steps?key=`,
+  steps: () => '&steps=',
+  date: () => '&date=',
+};
 
 async function onCopy(e) {
+  if (e.target.closest('[data-install]')) return installShortcut();
   const btn = e.target.closest('[data-copy]');
-  if (!btn) return;
-  const text = btn.dataset.copy === 'base' ? importBase() : '&date=';
+  if (!btn) return undefined;
+  if (btn.dataset.copy === 'key') return copyStepsKey();
   try {
-    await navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(COPY_TEXT[btn.dataset.copy]());
     showToast(`${icon('check', { className: 'icon--sm' })} הועתק`);
   } catch {
     showToast('לא הצלחתי להעתיק, אפשר לסמן ולהעתיק ידנית');
+  }
+  return undefined;
+}
+
+// A new steps-only key (mcpKeys, scope 'steps'), copied to the clipboard.
+// The copy starts inside the tap — iOS refuses it after an await — and the
+// key is saved right after; older steps keys are revoked, so the newest
+// install is the one that works. → true when the key is live.
+async function newStepsKey() {
+  const key = generateKey();
+  const copied = navigator.clipboard?.writeText(key).then(() => true, () => false) ?? Promise.resolve(false);
+  try {
+    const hash = await hashKey(key);
+    await createMcpKey(hash, keyPreview(key), 'steps');
+    const old = (keys || []).filter((k) => k.scope === 'steps');
+    await Promise.all(old.map((k) => deleteMcpKey(k.id).catch(() => {})));
+    keys = [...(keys || []).filter((k) => k.scope !== 'steps'), { id: hash, preview: keyPreview(key), scope: 'steps', createdAt: new Date() }];
+  } catch (err) {
+    console.error('[connections] steps key failed', err);
+    showToast(err.message === 'offline' ? 'צריך חיבור לאינטרנט כדי ליצור מפתח' : 'לא הצלחתי ליצור מפתח, אפשר לנסות שוב');
+    return false;
+  }
+  if (!(await copied)) {
+    // The key is live but not on the clipboard: show it, to copy by hand.
+    container?.querySelectorAll('[data-steps-key]').forEach((el) => {
+      el.hidden = false;
+      el.textContent = key;
+    });
+    showToast('לא הצלחתי להעתיק. המפתח מופיע בשלב 6, אפשר לסמן ולהעתיק');
+    container?.querySelector('[data-steps-key]')?.scrollIntoView({ block: 'center' });
+    return false;
+  }
+  return true;
+}
+
+async function installShortcut() {
+  if (busy) return;
+  busy = true;
+  try {
+    if (!(await newStepsKey())) return;
+    showToast(`${icon('check', { className: 'icon--sm' })} המפתח הועתק. פותח את הקיצור…`);
+    location.href = STEPS_IMPORT.shortcutUrl;
+  } finally {
+    busy = false;
+  }
+}
+
+async function copyStepsKey() {
+  if (busy) return;
+  busy = true;
+  try {
+    if (await newStepsKey()) showToast(`${icon('check', { className: 'icon--sm' })} המפתח הועתק. מדביקים בתיבת הטקסט`);
+  } finally {
+    busy = false;
   }
 }
 
@@ -188,19 +249,22 @@ function buildSteps() {
         <li>פותחים את הפעולה בחץ הקטן שבצד, ובשורת הפורמט בוחרים ${chip(L.custom)}.</li>
         <li>בשדה הפורמט כותבים בדיוק <span class="connection-code" dir="ltr">yyyy-MM-dd</span>. בדוגמה למטה אמור להופיע התאריך של היום, למשל <span class="connection-code" dir="ltr">2026-11-10</span>.</li>
       </ol>`,
-    `${find('text')} בתוך תיבת הטקסט, לפי הסדר:
+    `${find('text')} זו תיבה למפתח האישי. לוחצים על הכפתור, ומדביקים בתיבה את מה שהועתק: ${copyBtn('key', 'יצירת מפתח והעתקה')}
+      <br>המפתח מתחיל ב-<span class="connection-code" dir="ltr">${esc(MCP.keyPrefix)}</span>. מותר לו רק לשלוח צעדים.
+      <span class="connection-code connection-code--wrap mcp-url" dir="ltr" data-steps-key hidden></span>`,
+    `שוב ${chip(S.text)}, ומוסיפים עוד ${chip(L.text)} מתחת לראשונה. בתוכה, לפי הסדר:
       <ol class="connection-substeps">
-        <li>מדביקים את הכתובת: ${copyBtn('base', 'העתקת הכתובת')}</li>
-        <li>לא מקלידים את המשתנה. בשורה שמעל המקלדת לוחצים על ${chip(L.roundedVar)}, והוא נכנס כבועה כחולה. אם הוא לא שם: ${chip(L.selectVar)}, ואז הפעולה ${chip(L.roundNumber)}.</li>
-        <li>מיד אחרי הבועה, בלי רווח, מדביקים <span class="connection-code" dir="ltr">&amp;date=</span> ${copyBtn('date', 'העתקה')}</li>
-        <li>שוב בשורה שמעל המקלדת לוחצים על ${chip(L.formattedVar)}.</li>
+        <li>מדביקים: ${copyBtn('base', 'העתקת הכתובת')}</li>
+        <li>בשורה שמעל המקלדת לוחצים על ${chip(L.text)} (התיבה עם המפתח משלב 6). הוא נכנס כבועה כחולה. לא מקלידים אותו.</li>
+        <li>מיד אחרי הבועה, בלי רווח, מדביקים <span class="connection-code" dir="ltr">&amp;steps=</span> ${copyBtn('steps', 'העתקה')} ולוחצים על ${chip(L.roundedVar)}. אם הוא לא שם: ${chip(L.selectVar)}, ואז הפעולה ${chip(L.roundNumber)}.</li>
+        <li>מיד אחרי, מדביקים <span class="connection-code" dir="ltr">&amp;date=</span> ${copyBtn('date', 'העתקה')} ולוחצים על ${chip(L.formattedVar)}.</li>
       </ol>
-      בסוף זה נראה כך, עם שני משתנים כחולים במקום המספרים: <span class="connection-code connection-code--wrap" dir="ltr">…/#/import?steps=12450&amp;date=2026-11-09</span>`,
-    `${find('openUrls')} היא לוקחת לבד את הטקסט מהשלב הקודם.`,
-    `לוחצים ▶ למטה כדי להריץ פעם אחת. מאשרים גישה לבריאות (${chip(L.allow)}). Safari ייפתח: מתחברים עם גוגל, ומופיעה הודעה עם מספר הצעדים.`,
+      בסוף זה נראה כך, עם שלוש בועות כחולות: <span class="connection-code connection-code--wrap" dir="ltr">…/api/steps?key=[טקסט]&amp;steps=[מספר]&amp;date=[תאריך]</span>`,
+    `${find('getContents')} היא לוקחת לבד את הטקסט מהשלב הקודם ושולחת אותו לג׳ימי, בלי לפתוח שום דבר.`,
+    `לוחצים ▶ למטה כדי להריץ פעם אחת, ומאשרים גישה לבריאות (${chip(L.allow)}). אם הכול נכון, מופיע למטה "נשמרו … צעדים להיום".`,
   ];
   return `
-    <p class="text-muted connection-note">בונים פעם אחת, בערך 5 דקות. אחר כך מגדירים לו אוטומציה יומית (למטה).</p>
+    <p class="text-muted connection-note">בונים פעם אחת, בערך 5 דקות. אחר כך מגדירים לו אוטומציה יומית (למטה). יש לך כבר את הקיצור הישן? מספיק לשנות בו את שלבים 6–8.</p>
     <ol class="connection-steps connection-steps--build">
       ${steps.map((text, i) => `<li><span class="connection-step-num">${i + 1}</span><span>${text}</span></li>`).join('')}
     </ol>`;
@@ -220,7 +284,7 @@ function howTo() {
       ${steps.map(([name, text], i) => `<li><span class="connection-step-num">${i + 1}</span>${icon(name, { className: 'icon--sm' })}<span>${text}</span></li>`).join('')}
     </ol>
     <ul class="connection-notes text-muted">
-      <li>האוטומציה פותחת את Safari לרגע ושומרת. בפעם הראשונה צריך להתחבר עם גוגל גם ב-Safari.</li>
+      <li>הקיצור שולח את הצעדים ישר לג׳ימי, ברקע. לא נפתח Safari ולא צריך להתחבר.</li>
       <li>אם הטלפון נעול בשעה הזאת, האוטומציה עלולה לא לרוץ. אפשר תמיד להריץ את הקיצור ידנית: לחיצה עליו ב${chip(L.shortcutsApp)}, או מהווידג׳ט במסך הבית.</li>
     </ul>`;
 }
@@ -262,10 +326,13 @@ function whenHe(value) {
   return `${label} ב-${formatTimeHe(d)}`;
 }
 
+// The Claude keys — not the iPhone shortcut's steps-only one.
+const claudeKeys = () => (keys || []).filter((k) => k.scope !== 'steps');
+
 function claudeStatus() {
   if (keys === null) return '<span class="text-muted">בודק…</span>';
-  if (!keys.length) return '<span class="status-dot"></span>לא מחובר';
-  const used = keys.filter((k) => k.lastUsedAt).map((k) => toDate(k.lastUsedAt).getTime());
+  if (!claudeKeys().length) return '<span class="status-dot"></span>לא מחובר';
+  const used = claudeKeys().filter((k) => k.lastUsedAt).map((k) => toDate(k.lastUsedAt).getTime());
   return used.length
     ? `<span class="status-dot status-dot--on"></span>מחובר · קלוד ניגש ${whenHe(new Date(Math.max(...used)))}`
     : '<span class="status-dot status-dot--on"></span>יש מפתח · קלוד עוד לא התחבר';
@@ -273,9 +340,9 @@ function claudeStatus() {
 
 function claudeSteps() {
   const steps = [
-    ['sparkles', `ב-Claude: ${chip('Settings')} ← ${chip('Connectors')} ← ${chip('Add custom connector')}.`],
+    ['sparkles', `ב-Claude פותחים את ${chip('Settings')}, אחר כך ${chip('Connectors')}, ולוחצים ${chip('Add custom connector')}.`],
     ['copy', `שם: ${chip('ג׳ימי')}. בשדה הכתובת מדביקים את מה שהעתקת ולוחצים ${chip('Add')}.`],
-    ['check', `בשיחה חדשה מפעילים את ג׳ימי (${chip('+')} ← ${chip('Connectors')}) ושואלים "מה מצבי היום?"`],
+    ['check', `בשיחה חדשה לוחצים ${chip('+')}, נכנסים ל-${chip('Connectors')} ומדליקים את ג׳ימי. ואז שואלים: "מה מצבי היום?"`],
   ];
   return `
     <ol class="connection-steps connection-steps--build">
@@ -298,8 +365,9 @@ function keyRow(k) {
 function renderClaude() {
   const el = container?.querySelector('[data-claude]');
   if (!el) return;
-  const canAdd = keys !== null && keys.length < MCP.maxKeysPerUser && !busy;
-  const first = !keys?.length;
+  const mine = claudeKeys();
+  const canAdd = keys !== null && mine.length < MCP.maxKeysPerUser && !busy;
+  const first = !mine.length;
   const createBtn = `
     <button type="button" class="btn ${first ? 'btn-primary' : 'btn-secondary'} btn-block" data-mcp-create${canAdd ? '' : ' disabled'}>
       ${icon('plus', { className: 'icon--sm' })} ${busy ? 'יוצר…' : first ? 'צור מפתח' : 'מפתח נוסף'}
@@ -322,7 +390,7 @@ function renderClaude() {
     </div>
     <p class="text-muted connection-desc">הקלוד שלך קורא את הנתונים שלך בג׳ימי, ורושם בשבילך ארוחות, שקילה, שינה, צעדים וסימון הרגלים. הוא רואה רק את החשבון שלך ולא מוחק כלום.</p>
     ${fresh}
-    ${keys?.length ? `<ul class="mcp-keys">${keys.map(keyRow).join('')}</ul>` : ''}
+    ${mine.length ? `<ul class="mcp-keys">${mine.map(keyRow).join('')}</ul>` : ''}
     ${newUrl ? '' : createBtn}
     ${keys !== null && first && !newUrl ? '<p class="text-muted connection-note">לוחצים, מעתיקים את הכתובת ומדביקים אותה ב-Claude. דקה אחת.</p>' : ''}`;
 }
