@@ -133,8 +133,6 @@ Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). Includes "�
 Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "what changed since last check".
 
 - Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
-- Steps without Safari (asked by ירין 2026-11-11): the steps shortcut sends to `/api/steps` with a steps-only key. "התקנת הקיצור" copies the key and opens the iCloud shortcut, which asks for it once on install (an import question), so only the daily automation is left to set up.
-
 ## M12 ☐ "קלוד" instructions page — `feature/m12-claude-page`
 Plan: "שלב 6", and the "ליזום, לא לחייב" rules in "שאלון חיים ותכנית אב": Claude reads `planDepth` and never assumes more; offers to go deeper at natural moments, max once a month; stops after two declines until asked; full-plan users get full initiative.
 
