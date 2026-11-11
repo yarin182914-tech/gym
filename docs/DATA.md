@@ -999,6 +999,22 @@ only ever touches `users/{thatUid}/…`.
 | `createdAt` | Timestamp | Server timestamp, when it was made |
 | `lastUsedAt` | Timestamp | Set by the server, at most every 10 minutes. Missing = never used. |
 | `lastCheckAt` | Timestamp | Set by the server's `get_changes` tool: where "what changed since the last check" starts next time |
+| `scope` | string | `steps` = the iPhone shortcut's key: it can only send steps (`/api/steps`, below), not open the connector. Missing = a Claude key. |
+
+**Steps without Safari (`/api/steps`).** The steps shortcut can send the
+day's steps straight to the server instead of opening `#/import`:
+
+```
+GET or POST https://gym-yarin9.vercel.app/api/steps?key=gymi_…&steps=12450&date=2026-11-09
+```
+
+Same rules and the same write as `#/import` (Daily activity above):
+`steps` 0–100000, `date` up to 7 days back, steps never go down, merged
+into `dailyActivity/{date}` with `source: "shortcut"` and a fresh
+`loggedAt`. The reply is one Hebrew line ("נשמרו 12,450 צעדים להיום").
+"התקנת הקיצור" on "חיבורים" makes a `scope: 'steps'` key, copies it and
+opens the iCloud shortcut, which asks for the key once on install (an
+import question); a new install revokes the previous steps key.
 
 - **The app** creates a key doc (only `uid` = the signed-in user, `preview`,
   `createdAt` — `firestore.rules` enforces it), lists its own keys and

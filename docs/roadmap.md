@@ -98,6 +98,8 @@ Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון ע�
 - Only touch events linked to a task. Works while the app is open; failures queue and retry on next open.
 
 - Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
+- Steps without Safari (asked by ירין 2026-11-11): the steps shortcut sends to `/api/steps` with a steps-only key; "התקנת הקיצור" copies the key and opens the iCloud shortcut, which asks for it once on install (an import question), so only the daily automation is left to set up.
+
 ## M8 ☐ Settings — "התכנית שלי" — `feature/m8-my-plan`
 Plan: "מסך ההגדרות: "התכנית שלי"".
 - Sections: goals, sleep, habits, training, nutrition, body, routine, rewards, notifications, assistant. Change history (`users/{uid}/planHistory`). Assistant suggestion cards (approve/decline).
@@ -127,7 +129,7 @@ Plan: "שלב 3: התראות פוש", "שרת קטן" in "מענה טכני".
 ## M10 ☐ Signup and profile — `feature/m10-onboarding`
 Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). Includes "במה תרצה להשתמש?" (the M8 feature switches). Questionnaire on first login (level 1 only is required; ends with "set goals now / later / never" → `lifePlan.planDepth`); personal BMR (Mifflin-St Jeor) replaces the hard-coded 1950; targets from the goal; remove `weddingDate`.
 
-## M11 ☐ Claude connector (MCP) — `feature/m11-mcp`
+## M11 ◐ Claude connector (MCP) — `feature/m11-mcp`
 Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "what changed since last check".
 
 - Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
