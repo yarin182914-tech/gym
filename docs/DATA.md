@@ -25,6 +25,7 @@ public repo.
 | `users/{uid}/habits` | auto | The user's habits (definitions) |
 | `users/{uid}/habitLogs` | `yyyy-mm-dd` | Which habits were done that day |
 | `users/{uid}/pointsLedger` | `{date}_{rule}[_{ref}]` | Points, one entry per award — app only, never written from outside |
+| `mcpKeys` (top level) | SHA-256 of the key | Claude connector keys → their user — app and server only, never written from outside |
 | `siteFeedback` (top level) | auto | App feedback board — don't write here |
 
 ---
@@ -971,6 +972,52 @@ list. Added by the user ("+ הוספת המלצה") or by the coach.
   "reason": "מתאים לבנייה של שגרת הבוקר", "source": "coach",
   "createdAt": "serverTimestamp()" }
 ```
+
+---
+
+## Claude connector keys — `mcpKeys/{hash}` (top level)
+
+Each user's Claude reads and writes their own data through the MCP server
+at `/api/mcp` (M11, `api/mcp.js`). The user makes a key on the "חיבורים"
+page and pastes the connector address into Claude (Settings → Connectors
+→ Add custom connector):
+
+```
+https://gym-yarin9.vercel.app/api/mcp?key=gymi_<43 characters>
+```
+
+The key is shown once and **never stored**. Its SHA-256 (lowercase hex) is
+the doc id, so the server finds the user from the key alone — that's why
+this collection is top level, not under `users/{uid}/`. The server then
+only ever touches `users/{thatUid}/…`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `uid` | string | The key's owner |
+| `preview` | string | The key's first 9 characters (`gymi_AbCd`), to tell keys apart on the card |
+| `createdAt` | Timestamp | Server timestamp, when it was made |
+| `lastUsedAt` | Timestamp | Set by the server, at most every 10 minutes. Missing = never used. |
+| `lastCheckAt` | Timestamp | Set by the server's `get_changes` tool: where "what changed since the last check" starts next time |
+
+- **The app** creates a key doc (only `uid` = the signed-in user, `preview`,
+  `createdAt` — `firestore.rules` enforces it), lists its own keys and
+  deletes one to revoke it. It never updates a key.
+- **The server** (firebase-admin, `FIREBASE_SA_JSON` in Vercel's
+  environment) reads the doc, and writes only `lastUsedAt` / `lastCheckAt`.
+  It remembers a key for a minute, so a revoked key stops working within
+  a minute.
+- At most 3 keys per user. Numbers: `MCP` in `js/lib/rules.js`.
+
+**What the connector can do** (`api/_lib/tools.js`) — read: `get_today`,
+`get_habits`, `get_sleep`, `get_meals`, `get_workouts`, `get_weights`,
+`get_points`, `get_profile`, `get_changes`; write: `log_meal`,
+`log_weight`, `log_sleep`, `mark_habit`, `log_daily_activity`. The writes
+produce exactly the documents described in this file, with
+`source: 'coach'`, for a date at most 14 days back and never in the future.
+A weigh-in or a night that's already logged, or steps lower than what's
+stored, are refused unless the call says `replace: true`. There are no
+delete tools, and nothing writes `pointsLedger`, `workoutKcal` or the
+user doc.
 
 ---
 
