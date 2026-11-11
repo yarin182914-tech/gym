@@ -14,6 +14,7 @@ import {
   devGetPlannedWorkout, devUpdatePlannedWorkout,
   devSetSleep, devListSleep, devDeleteSleep,
   devNewHabitId, devSetHabit, devDeleteHabit, devListHabits, devSetHabitMark, devListHabitLogs,
+  devSetTask, devDeleteTask, devListTasks,
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
   devListWorkoutTypes, devAddWorkoutType, devUpdateWorkoutType, devDeleteWorkoutType,
   devListPlannedWorkouts, devListLedger, devWriteLedger,
@@ -586,6 +587,39 @@ export async function listHabitLogs(max = 120) {
   if (!useCloud) return devListHabitLogs(max);
   const ref = collection(db, 'users', uidOrThrow(), 'habitLogs');
   const snap = await getDocs(query(ref, orderBy('date', 'desc'), limit(max)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------- tasks (M6) ----------
+// users/{uid}/tasks/{auto} — see docs/DATA.md "Tasks". Like habits, a
+// write shows on screen at once and settles in the background.
+
+export function newTaskId() {
+  if (!useCloud) return devNewHabitId();
+  return doc(collection(db, 'users', uidOrThrow(), 'tasks')).id;
+}
+
+// isNew: stamp createdAt (kept as it was on later edits).
+export function setTask(taskId, data, { isNew = false } = {}) {
+  dataChanged();
+  if (!useCloud) return devSetTask(taskId, data, { isNew });
+  return setDoc(doc(db, 'users', uidOrThrow(), 'tasks', taskId), {
+    ...data,
+    updatedAt: serverTimestamp(),
+    ...(isNew ? { createdAt: serverTimestamp() } : {}),
+  }, { merge: true });
+}
+
+// Deleting is the user's own act on the task's sheet (its points stay).
+export function deleteTask(taskId) {
+  dataChanged();
+  if (!useCloud) return devDeleteTask(taskId);
+  return deleteDoc(doc(db, 'users', uidOrThrow(), 'tasks', taskId));
+}
+
+export async function listTasks() {
+  if (!useCloud) return devListTasks();
+  const snap = await getDocs(collection(db, 'users', uidOrThrow(), 'tasks'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 

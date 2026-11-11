@@ -70,13 +70,13 @@ Plan: "שלב 2: תכנית התגמול" (all subsections except "לאורך ז
 - Progress screen: 7-day grid per area, streaks, badge shelf, level road with the real reward at the end.
 - Progress screen covers **everything tracked**, not just workouts (asked by ירין 2026-11-09): one row per area (sleep, each habit, bad habits once M5 exists, meals: count vs 2 and on-target days, protein, calorie deficit, workouts vs weekly goal, weigh-ins / 7-day average) with a week view (7 dots) and a month view (calendar heat-grid), tap a row for its detail chart. The user picks which rows show and their order ("מה אני עוקב אחריו", saved on the user doc); missed = grey, never red. Workout history stays as its own list inside אימון.
 
-## M5 ◐ Habit wizard + bad habits — `feature/m5-wizard`
+## M5 ☑ Habit wizard + bad habits — `feature/m5-wizard`
 Plan: "הגדרת הרגל: אשף של 6 שאלות", "הרגלים רעים: אשף גמילה".
 - 6-step wizard, one question per screen, templates (reading, morning routine, English, screen time, water, meditation).
 - Bad-habit mode: trigger, replacement, friction, measure (clean day | limit | slip counter). "מעדתי" one-tap button logging the time. Separate "להיגמל" section on Today with a clean-days chain.
 - Scoring per the plan (clean day 10, honest slip log 2, weekly bonus 20).
 
-## M6 ☐ Tasks page — `feature/m6-tasks`
+## M6 ◐ Tasks page — `feature/m6-tasks`
 Plan: "דף המשימות", "מניעת דחיינות".
 - Data: `users/{uid}/tasks/{auto}`: title, type (daily | recurring | one-off), recurrence, area, owner (me | assistant | shared), complexity (S/M/L), important (bool), dueDate, timing (exact | day | this week | let Claude decide), scheduledAt, status, postponeCount, firstStep, createdAt, `calendarEventId` (null until M7), `source`.
 - Views: today, Eisenhower matrix, week/all with filters. Quick capture via + (free text → inbox).
@@ -104,7 +104,7 @@ Plan: "מסך ההגדרות: "התכנית שלי"".
 - **Feature switches** (asked by ירין 2026-11-10): one on/off per area — sleep, habits, workouts, nutrition, tasks — on the user doc (`features: { sleep: true, … }`, missing = on). Off: its screen/tab and Today card are hidden, and it is left out of points, the perfect day and the progress rows, so nobody loses points for something they didn't choose. Turning one on opens a short setup for it (e.g. bedtime and hours for sleep). The same question appears in signup (M10).
 - Life plan (plan: "שאלון חיים ותכנית אב"): `users/{uid}/lifePlan` (planDepth basic|goals|full, areas, goals with horizon 3m|1y|3-5y and A/B/C, reviewRhythm, lastOfferedAt, declinedCount). Level 2 (goals) and level 3 (full plan) forms, every question skippable, "later" keeps partial answers, deepen one area at a time. Per-area recommendation templates in code (`js/lib/plan-templates.js`) that create a habit/task in one tap — work offline, no Claude needed.
 
-## M8b ◐ "ללמוד" — recommended content for a healthy life — `feature/m8b-library`
+## M8b ☑ "ללמוד" — recommended content for a healthy life — `feature/m8b-library`
 Asked by ירין 2026-11-10. A page of hand-picked books, podcasts, videos and articles on sleep, nutrition, training, habits, longevity and mind, each with a cover image, a short Hebrew summary and a link.
 - Content lives in the repo as data (`data/library.json`), no CMS: `{ id, type: book|podcast|episode|video|article, area: sleep|nutrition|training|habits|longevity|mind, title, author, lang, minutes|pages, image, link, summary (2–3 Hebrew lines), takeaways: [3 short Hebrew bullets], habitIdea? }`. Cover images are small local files in `images/library/` (works offline, no hot-linking). Claude curates and writes the summaries; ירין approves the first batch (~20 items) before merge.
 - Page: opened from the profile menu and from "התכנית שלי". Filter chips by area and type; the order puts first the areas where the user's own data is weakest (e.g. sleep under target → sleep first). Card: image, title, author, length, summary; tap → takeaways + "פתיחה" (link) + "שמירה" + "סיימתי".
@@ -113,7 +113,7 @@ Asked by ירין 2026-11-10. A page of hand-picked books, podcasts, videos and 
 - Rewards (if M4 is in): points for finishing a book/episode, a "קורא" badge. No reading streaks, no punishment.
 - "+ הוספת המלצה" (asked by ירין 2026-11-10): a user adds their own book/podcast/link with a line on why, saved in `users/{uid}/libraryPicks` (`source: 'user'`). Sharing picks between users needs a shared board and moderation — after the pilot.
 
-## M8c ◐ Tracking where it's logged + quick log — `feature/m8c-tracking-plus`
+## M8c ☑ Tracking where it's logged + quick log — `feature/m8c-tracking-plus`
 Asked by ירין 2026-11-10 ("ממשק המעקב לא נוח").
 - Each chart sits on the screen where the data is logged: body weight trend on תזונה; the workout charts (cardio, workout types, strength, PRs) as a third part of אימון ("התקדמות", `#/workout-progress`); new sleep charts on שינה (hours vs the minimum, bedtime vs the target, 14 / 30 nights).
 - The level screen ("התקדמות") keeps only the game: summary and tracking rows.

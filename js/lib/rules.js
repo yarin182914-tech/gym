@@ -319,3 +319,32 @@ export const MCP = {
     habitValue: [0, 100000],
   },
 };
+
+// Tasks (M6) — the plan's "דף המשימות" and "מניעת דחיינות".
+export const TASKS = {
+  // Points by size; an important task is worth `importantFactor` times as
+  // much; done on or before its due date adds `onTimeBonus`. A late task
+  // still earns its points — never a penalty.
+  points: { S: 5, M: 15, L: 30 },
+  importantFactor: 2,
+  onTimeBonus: 5,
+  // A daily task is "do and mark" — worth a small one, so the points don't
+  // inflate (the plan: "כמו הרגל מקוצר").
+  dailyPoints: 5,
+  // "התחלתי 10 דקות" on a stuck task, once per task.
+  startBonus: 5,
+  // Due within this many days (today included) counts as urgent.
+  urgentDays: 2,
+  // At most this many important tasks a day; more is itself a reason to put off.
+  maxImportantPerDay: 3,
+  // On the home screen ("היום").
+  homeCount: 3,
+  // The procrastination ladder for a task with no time (days since it was added).
+  ladder: { waiting: 7, stuck: 14, decide: 21 },
+  // Moved this many times → the "why stuck?" question too.
+  stuckAfterPostpones: 3,
+  // Days of a repeating task's done marks kept on its doc.
+  keepDoneDays: 120,
+  // A monthly task's day is picked from 1 to this (every month has it).
+  maxMonthDay: 28,
+};

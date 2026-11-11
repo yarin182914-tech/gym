@@ -71,5 +71,26 @@ export async function seedDevStoreIfEmpty() {
       date: w.date, startTime: w.date, endTime: w.end, notes: '', exercises: w.exercises,
     });
   }
+  // A few tasks (M6), some old enough to show the procrastination ladder.
+  const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
+  const noon = (n) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    d.setHours(12, 0, 0, 0);
+    return d.toISOString();
+  };
+  const base = { type: 'once', recurrence: null, owner: 'me', complexity: 'S', important: false, urgent: false, timing: null, scheduledAt: null, dueDate: null, status: 'open', firstStep: '', postponeCount: 0, doneAt: null, doneDates: [], stuckReason: null, startedAt: null, calendarEventId: null, source: 'manual' };
+  const TASKS = [
+    { title: 'לקבוע תור לספר', area: 'personal', timing: 'day', scheduledAt: noon(0), createdAt: daysAgo(1) },
+    { title: 'להגיש דו"ח הוצאות', area: 'career', complexity: 'M', important: true, timing: 'day', scheduledAt: noon(0), dueDate: noon(1), firstStep: 'לאסוף את הקבלות', createdAt: daysAgo(3) },
+    { title: 'לסדר את המטבח', type: 'daily', recurrence: { days: [0, 1, 2, 3, 4, 5, 6] }, area: 'personal', createdAt: daysAgo(10) },
+    { title: 'לתקן את הקרש', complexity: 'M', area: 'personal', timing: 'claude', createdAt: daysAgo(9) },
+    { title: 'לבדוק מסלול בקרן ההשתלמות', important: true, complexity: 'L', area: 'career', owner: 'shared', timing: null, createdAt: daysAgo(16) },
+    { title: 'לסדר את המחסן', complexity: 'L', area: 'personal', timing: null, createdAt: daysAgo(23) },
+    { title: 'להזמין מתנה לאמא', status: 'inbox', source: 'quick', createdAt: daysAgo(0) },
+  ];
+  const state = JSON.parse(localStorage.getItem('gym-dev-store') || '{}');
+  state.tasks = TASKS.map((t, i) => ({ ...base, ...t, id: `task${i + 1}`, updatedAt: t.createdAt }));
+  localStorage.setItem('gym-dev-store', JSON.stringify(state));
   console.info('[dev] seeded sandbox with', WORKOUTS.length, 'workouts');
 }

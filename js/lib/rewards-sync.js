@@ -10,7 +10,7 @@
 
 import {
   getUserSettings, updateUserSettings, listSleep, listHabits, listHabitLogs, listDailyActivity,
-  listNutritionEntries, listBodyWeights, listWorkouts, listPlannedWorkouts, listLedger, writeLedger,
+  listNutritionEntries, listBodyWeights, listWorkouts, listPlannedWorkouts, listLedger, writeLedger, listTasks,
 } from './firestore.js';
 import { REWARDS } from './rules.js';
 import { normalizeHabit } from './habits.js';
@@ -94,7 +94,7 @@ async function reconcile() {
     return fallback;
   });
   const span = REWARDS.catchUpMaxDays + 14;
-  const [nights, habits, logs, activities, meals, weights, workouts, plans, loadedLedger] = await Promise.all([
+  const [nights, habits, logs, activities, meals, weights, workouts, plans, tasks, loadedLedger] = await Promise.all([
     soft(listSleep(span), []),
     soft(listHabits(), []),
     // A bad habit's clean streak can run for months (milestones up to 100
@@ -105,6 +105,7 @@ async function reconcile() {
     soft(listBodyWeights(span), []),
     soft(listWorkouts(500), []),
     soft(listPlannedWorkouts(span), []),
+    soft(listTasks(), []),
     ledger ? Promise.resolve(ledger) : listLedger(),
   ]);
   ledger = loadedLedger;
@@ -113,7 +114,7 @@ async function reconcile() {
   // reaching back to the first one read has an unknown start.
   const logsFrom = logs.length >= REWARDS.habitLogsToLoad ? logs.reduce((m, l) => (l.date < m ? l.date : m), today) : null;
   const ctx = buildContext({
-    userDoc, nights, habits: habits.map(normalizeHabit), logs, activities, meals, weights, workouts, plans, today, logsFrom,
+    userDoc, nights, habits: habits.map(normalizeHabit), logs, activities, meals, weights, workouts, plans, tasks, today, logsFrom,
   });
   lastCtx = ctx;
   const awards = days.flatMap((key) => scoreDay(key, ctx, { closed: key < today }));
