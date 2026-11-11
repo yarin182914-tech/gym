@@ -12,7 +12,11 @@
       "_archive/**",
       "tools/**",
       "js/dev/**",
-      "README.md"
+      "README.md",
+      "api/**",
+      "package.json",
+      "package-lock.json",
+      "vercel.json"
     ]
   },
   "firestore": {

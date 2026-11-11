@@ -10,6 +10,23 @@ service cloud.firestore {
       }
     }
 
+    // Claude connector keys (M11): the doc id is the key's SHA-256, so the
+    // server can find the user from the key alone. A user may create a key
+    // doc for themselves only, read and revoke (delete) only their own, and
+    // never change one — lastUsedAt / lastCheckAt are the server's
+    // (firebase-admin, which these rules don't apply to).
+    match /mcpKeys/{hash} {
+      allow read, delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null
+        && hash.matches('^[0-9a-f]{64}$')
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'preview', 'createdAt'])
+        && request.resource.data.preview is string
+        && request.resource.data.preview.size() <= 16
+        && request.resource.data.createdAt == request.time;
+      allow update: if false;
+    }
+
     // Site feedback is a shared board, not per-user data — any signed-in
     // user of the app may read every entry and add their own; editing an
     // existing entry (status/text) is also open to any signed-in user for

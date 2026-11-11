@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Parse every app module as an ES module. There is no build step, so this is
-# the closest thing to a compile check — run it before every commit.
+# Parse every app module, and the server functions in api/, as an ES
+# module. There is no build step, so this is the closest thing to a compile
+# check — run it before every commit.
 #
 # Files are copied to .mjs first because `node --check` on a bare .js can
 # silently pass on ESM-only syntax errors.
@@ -12,7 +13,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 fail=0
 count=0
-for f in $(find js -name '*.js' | sort); do
+for f in $(find js api -name '*.js' -not -path '*/node_modules/*' | sort); do
   count=$((count + 1))
   out="$TMP/$(echo "$f" | tr '/' '_').mjs"
   cp "$f" "$out"
