@@ -43,6 +43,9 @@ No plan chapter; asked by ירין 2026-11-09. A web app can't read Apple Health
   - Placeholders (grey, "בקרוב") for: Google Calendar (M7), push notifications (M9), Claude connector (M11), cloud storage / Drive via the Claude connector (M12), Garmin (later).
 - Done when: opening the URL on the preview sets today's steps, the steps habit and the burn update, repeating it changes nothing, a lower number doesn't overwrite a higher one, and the חיבורים page shows the shortcut card with its last-sync time. Later (M11): the shortcut posts to the server instead, silently.
 
+## M3e ◐ Silent steps from the iPhone — `feature/m3e-silent-steps`
+Asked by ירין 2026-11-11 ("שהקיצור של הצעדים ייעשה אוטומטית"). The shortcut posts the steps to `POST /api/steps` (Vercel function) with a personal key made on "חיבורים" — no Safari, runs with the phone locked. Keys: `users/{uid}/apiKeys/{sha256}`, the first piece of M11's per-user keys. The Safari way stays as a fallback.
+
 ## M3b ☑ Workout types (functional, CrossFit, Pilates…) — `feature/m3b-workout-types`
 Plan: "סוגי אימון: פונקציונלי, קרוספיט, פילאטיס ועוד". Independent of M1–M3; can be pulled earlier.
 - New exercise kind `session` next to `strength` and `cardio` inside the existing `workouts` doc (old workouts untouched): `{ kind: 'session', typeId, name, durationSec, rpe (1–10), avgHr?, place?, fields: {…type-specific}, notes }`. A workout can mix kinds (e.g. CrossFit with a strength part).
@@ -76,7 +79,7 @@ Plan: "הגדרת הרגל: אשף של 6 שאלות", "הרגלים רעים: �
 - Bad-habit mode: trigger, replacement, friction, measure (clean day | limit | slip counter). "מעדתי" one-tap button logging the time. Separate "להיגמל" section on Today with a clean-days chain.
 - Scoring per the plan (clean day 10, honest slip log 2, weekly bonus 20).
 
-## M6 ◐ Tasks page — `feature/m6-tasks`
+## M6 ☑ Tasks page — `feature/m6-tasks`
 Plan: "דף המשימות", "מניעת דחיינות".
 - Data: `users/{uid}/tasks/{auto}`: title, type (daily | recurring | one-off), recurrence, area, owner (me | assistant | shared), complexity (S/M/L), important (bool), dueDate, timing (exact | day | this week | let Claude decide), scheduledAt, status, postponeCount, firstStep, createdAt, `calendarEventId` (null until M7), `source`.
 - Views: today, Eisenhower matrix, week/all with filters. Quick capture via + (free text → inbox).
