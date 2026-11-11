@@ -18,6 +18,7 @@ import {
   devListWorkoutTypes, devAddWorkoutType, devUpdateWorkoutType, devDeleteWorkoutType,
   devListPlannedWorkouts, devListLedger, devWriteLedger,
   devListLibraryMarks, devSetLibraryMark, devListLibraryPicks, devAddLibraryPick, devDeleteLibraryPick,
+  devListMcpKeys, devCreateMcpKey, devDeleteMcpKey,
 } from './dev-store.js';
 import { lastPerformanceIn, exerciseHistoryIn, workoutDayKey } from './workout-types.js';
 import { bodyKgOn as bodyKgFrom, dayWorkoutKcal, workoutKcalPatch } from './workout-kcal.js';
@@ -713,6 +714,32 @@ export async function listLibraryPicks() {
   if (!useCloud) return devListLibraryPicks();
   const snap = await getDocs(collection(db, 'users', uidOrThrow(), 'libraryPicks'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------- Claude connector keys (M11) ----------
+// mcpKeys/{sha256 of the key} → { uid, preview, createdAt } — top level,
+// so the server (api/mcp.js) finds the user from the key alone; the rules
+// let a user create, read and delete only their own. The key itself is
+// never stored (js/lib/mcp-keys.js).
+
+export async function listMcpKeys() {
+  if (!useCloud) return devListMcpKeys();
+  const snap = await getDocs(query(collection(db, 'mcpKeys'), where('uid', '==', uidOrThrow())));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// Waits for the server, unlike the other writes: the key must really
+// exist before it's handed to Claude. Offline → rejects after a while.
+export async function createMcpKey(hash, preview) {
+  if (!useCloud) return devCreateMcpKey(hash, preview);
+  const write = rawSetDoc(doc(db, 'mcpKeys', hash), { uid: uidOrThrow(), preview, createdAt: serverTimestamp() });
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('offline')), 12000));
+  await Promise.race([write, timeout]);
+}
+
+export async function deleteMcpKey(hash) {
+  if (!useCloud) return devDeleteMcpKey(hash);
+  await deleteDoc(doc(db, 'mcpKeys', hash));
 }
 
 // ---------- site feedback ----------

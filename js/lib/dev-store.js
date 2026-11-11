@@ -443,3 +443,20 @@ export async function devDeleteLibraryPick(pickId) {
   state.libraryPicks = (state.libraryPicks || []).filter((p) => p.id !== pickId);
   save(state);
 }
+
+// Claude connector keys (M11) — stored by hash, as in Firestore.
+export async function devListMcpKeys() {
+  return load().mcpKeys || [];
+}
+
+export async function devCreateMcpKey(hash, preview) {
+  const state = load();
+  state.mcpKeys = [...(state.mcpKeys || []), { id: hash, uid: 'dev', preview, createdAt: new Date().toISOString() }];
+  save(state);
+}
+
+export async function devDeleteMcpKey(hash) {
+  const state = load();
+  state.mcpKeys = (state.mcpKeys || []).filter((k) => k.id !== hash);
+  save(state);
+}
