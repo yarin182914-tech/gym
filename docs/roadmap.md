@@ -150,6 +150,8 @@ Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "w
 
 ## M12 ☐ "קלוד" instructions page — `feature/m12-claude-page`
 Plan: "שלב 6", and the "ליזום, לא לחייב" rules in "שאלון חיים ותכנית אב": Claude reads `planDepth` and never assumes more; offers to go deeper at natural moments, max once a month; stops after two declines until asked; full-plan users get full initiative.
+- Personal coach onboarding (ירין 2026-11-12, plan: "קלוד כעוזר אישי"): the page walks a new user through creating a Claude project "ניהול חיים" with ready project instructions (one-tap copy, template in `js/lib/coach-templates.js`), connecting ג׳ימי + Google Calendar + Drive, then an intake interview in chat → approved summary in `lifePlan.interview`, vision per goal in `lifePlan.goals[].vision`. Daily: meals from photos (log after "yes"), habits/tasks, calendar, master plan, morning/evening/weekly routine.
+- Check first: what friends' Claude plans allow (projects, custom connectors, scheduled check-ins).
 
 ## M13 ☐ Share achievements — `feature/m13-share`
 Asked by ירין 2026-11-10, for after the app is ready for other users (after the pilot). Share a level-up, badge, PR, streak or weekly summary as an image card (canvas → PNG) through the phone's share sheet (`navigator.share` with files), no raw data. Opt-in per share, nothing posted automatically.
