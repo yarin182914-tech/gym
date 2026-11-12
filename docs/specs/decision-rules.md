@@ -1,5 +1,5 @@
 # להחליט — כללים אישיים
-Milestone: M6d · Branch: feature/m6d-decision-rules · Status: draft
+Milestone: M6d · Branch: feature/m6d-decision-rules · Status: dropped (ירין 2026-11-12, not useful for him)
 Requested by ירין on 2026-11-12 (split out of M6c). Needs M6c merged. A first build waits on the local branch `wip/m6c-all`.
 
 ## למה (הבעיה)

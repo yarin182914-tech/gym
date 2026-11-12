@@ -27,7 +27,8 @@ export function openReviewSheet({ decision: d, onSave }) {
           </div>
           <div class="sheet-field-label">ובדיעבד?</div>
           <div class="pill-row">${Object.entries(OUTCOMES).map(([k, l]) => `<button type="button" class="pill${outcome === k ? ' active' : ''}" data-rv-outcome="${k}" aria-pressed="${outcome === k}">${l}</button>`).join('')}</div>
-          <input type="text" class="search-bar" data-rv-note maxlength="200" placeholder="מה למדתי? (רשות)" value="${esc(note)}" style="margin-top:8px;">
+          <label class="decision-field-label" for="rv-note">מה למדתי? (רשות)</label>
+          <input type="text" id="rv-note" class="search-bar decision-input" data-rv-note maxlength="200" value="${esc(note)}">
           <p class="decision-hint">אין תשובה נכונה. כל תשובה שווה ${DECISIONS.review} נקודות.</p>
           <div class="sheet-actions">
             <button type="button" class="btn btn-secondary" data-rv-later>לא עכשיו</button>
