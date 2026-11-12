@@ -53,3 +53,7 @@ No `firestore.rules` change: `users/{uid}/{document=**}` covers `decisionRules`.
 
 ## שאלות פתוחות
 - אין.
+
+## הערה לבנייה
+- `confirmDialog` (מחיקת כלל) נפתח מתוך חלון תחתון, ושכבת ה-modal שלו (z-index 100) נמצאת מתחת לחלון (200).
+  להשתמש ב-`modal-overlay--top` (נוסף ב-M6c) או לפתוח אותו אחרי סגירת החלון.
