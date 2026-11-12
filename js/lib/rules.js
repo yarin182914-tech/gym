@@ -399,17 +399,22 @@ export const TASKS = {
 export const DECISIONS = {
   // Time budgets from startedAt. Medium: 10 minutes, or until the end of
   // the next day (Israel time), whichever is later.
-  budgetSec: { small: 120, medium: 600 },
+  // Large (M6c): no minutes — a decide-by date, a week from the start by
+  // default, on time until that day ends.
+  budgetSec: { small: 120, medium: 600, large: 7 * 86400 },
   mediumDaysToDecide: 1,
+  decideByDays: 7,
   points: {
     small: { onTime: 5, late: 2 },
     medium: { onTime: 15, late: 5 },
+    large: { onTime: 40, late: 10 },
   },
   // Decided without reopening it (a second draw, a changed choice).
   firstChoiceBonus: 5,
   // An open decision with no decide-by date: days since it was added.
   ladder: { setDate: 7, missing: 14 },
   minOptions: 2,
+  minOptionsLarge: 3,
   maxOptions: 4,
   maxCriteria: 3,
   weights: [1, 2, 3],
@@ -421,4 +426,18 @@ export const DECISIONS = {
   // The feet game (js/ui/choosers/feet.js): the drum roll's length, the
   // beat it starts and ends on, the hush before the toe, and the toe.
   game: { drumMs: 2400, firstBeatMs: 260, lastBeatMs: 70, hushMs: 500, toeMs: 600 },
+  // Personal rules (M6c): a rule closes a matching decision in one tap
+  // (decided on time as a small one, plus ruleUse). A new rule is paid at
+  // most ruleNewPerDay times a day, so deleting and rewriting it earns
+  // nothing more.
+  ruleUse: 3,
+  ruleNew: 10,
+  ruleNewPerDay: 1,
+  maxKeywords: 6,
+  suggestKeywords: 3,
+  // "איך זה יצא?": days after deciding, per track (small: never). The
+  // answer is worth the same whatever it says.
+  reviewDays: { medium: 30, large: 90 },
+  review: 3,
+  homeReviewCount: 1,
 };

@@ -5500,6 +5500,121 @@ body.keyboard-open .fab,
   gap: var(--space-3);
 }
 
+/* M6c: "הכללים שלי" above the lists. */
+.decision-tools {
+  display: flex;
+  justify-content: flex-start;
+  margin: var(--space-2) 0;
+}
+
+/* The large track: its decide-by date, then the step strip. */
+.decision-by {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.decision-by-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.decision-by-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.decision-steps {
+  display: flex;
+  gap: 6px;
+  margin: var(--space-3) calc(-1 * var(--space-1)) 0;
+  padding: 2px var(--space-1) var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.decision-steps::-webkit-scrollbar {
+  display: none;
+}
+
+.decision-step {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--chip-h);
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.decision-step .num {
+  opacity: 0.7;
+}
+
+.decision-step.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--gold);
+}
+
+.decision-large-body {
+  margin-top: var(--space-3);
+}
+
+.decision-large-body > .decision-hint:first-child {
+  margin: 0 0 var(--space-2);
+}
+
+/* Personal rules: the match card, the form and the list. */
+.decision-rule-match .decision-result-choice {
+  margin-top: var(--space-2);
+}
+
+.decision-rule-head {
+  margin-top: var(--space-4);
+}
+
+.decision-rule-form .search-bar {
+  width: 100%;
+}
+
+.decision-rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.decision-rule {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-3);
+  text-align: start;
+  color: var(--text);
+}
+
+.decision-rule-name {
+  font-weight: var(--weight-semibold);
+}
+
+.decision-rule-text {
+  font-size: var(--text-sm);
+  color: var(--gold);
+}
+
 /* The feet game (js/ui/choosers/feet.js, art in feet-art.js). */
 .decision-game {
   margin: var(--space-3) 0 0;

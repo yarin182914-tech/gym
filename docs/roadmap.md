@@ -110,13 +110,23 @@ Plan: "קבלת החלטות: "להחליט"". Built for Maya: the problem is th
 - Open decisions list with the procrastination ladder from M6 (1 week no date → orange "תקבעי תאריך החלטה"; 2 weeks → "what's missing?"). Nearest decision on Today. Review reminder after 1 month (medium) / 3 months (large).
 - Done when: a small decision can be made start-to-finish in airplane mode within 2 minutes, a medium one is scored on/late correctly at the boundary (unit test), and DATA.md documents both collections.
 
-## M6c ☐ Decisions, part 2 — large track, personal rules, review — `feature/m6c-decisions-large`
-Plan: "קבלת החלטות: "להחליט"" (the parts M6b left out). Spec: `docs/specs/decisions.md` ("לא בגרסה הזאת").
-- Large track: full WRAP (at least 3 options, "what would you tell a friend", premortem, a small experiment), `decideBy` default 1 week, and a "החלטתי" button on every step. 40 points on time / 10 late.
-- Personal rules `users/{uid}/decisionRules/{auto}`: offered on a matching new decision, which then ends at once. Using a rule +3, a new rule +10.
-- Decision journal review: "איך זה יצא?" after 1 month (medium) or 3 months (large), worth 3 points.
+## M6c ◐ Decisions — the large track — `feature/m6c-decisions-large`
+Plan: "קבלת החלטות: "להחליט"" (the parts M6b left out). Spec: `docs/specs/decisions-large.md`.
+- **Split (ירין 2026-11-12):** the rest of the decisions plan is three PRs, in order: M6c the large track, M6d personal rules, M6e the review.
+- Large track: full WRAP (at least 3 options, "what would you tell a friend", the score check, 10-10-10, premortem, a small experiment), `decideBy` default 1 week, every step optional with "החלטתי" on each. 40 points on time / 10 late (until the end of the decide-by day).
 - Once M7 exists: the decide-by date goes into the calendar.
-- Done when: a large decision runs through WRAP offline, a rule closes a matching decision in one tap, and the review shows up on its day.
+- Done when: a large decision runs through every step offline, is scored on/late at the end of its decide-by day (unit test), and DATA.md documents the new fields.
+
+## M6d ☐ Decisions — personal rules — `feature/m6d-decision-rules`
+Spec: `docs/specs/decision-rules.md`. Needs M6c merged.
+- `users/{uid}/decisionRules/{auto}` with keywords; a new question with one of them offers the rule, which decides it in one tap. "להפוך לכלל?" after a decision, and "הכללים שלי" on להחליט.
+- Points: using a rule +3, a new rule +10, with daily caps (`ruleUsePerDay`, `ruleNewPerDay` in rules.js).
+- Done when: a rule closes a matching decision in one tap (match unit test incl. Hebrew prefix letters), the daily caps hold (unit test), and DATA.md documents `decisionRules`.
+
+## M6e ☐ Decisions — "איך זה יצא?" — `feature/m6e-decision-review`
+Spec: `docs/specs/decision-review.md`. Needs M6c merged.
+- A month after a medium decision, three after a large one: one line on Today and a section on להחליט. Three answers (טוב / בסדר / פחות) and a note; 3 points whatever the answer.
+- Done when: the review shows on its day (unit test), pays 3 once, and DATA.md documents the review fields.
 
 ## M7 ☐ Google Calendar sync from the app — `feature/m7-calendar`
 Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון עם היומן".

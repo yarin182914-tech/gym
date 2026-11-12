@@ -49,7 +49,7 @@ check('undoable + nothing in a year → small', D.triage({ reversible: true, imp
 check('unanswered → small', D.triage({}), { track: 'small', large: false });
 check('undoable + some → medium', D.triage({ reversible: true, impact: 'some' }), { track: 'medium', large: false });
 check('can\'t undo + small → medium', D.triage({ reversible: false, impact: 'low' }), { track: 'medium', large: false });
-check('can\'t undo + big → large (runs as medium)', D.triage({ reversible: false, impact: 'high' }), { track: 'medium', large: true });
+check('can\'t undo + big → large', D.triage({ reversible: false, impact: 'high' }), { track: 'large', large: true });
 
 console.log('on time');
 const small = (decidedAt) => dec({ track: 'small', startedAt: at('2026-11-12T10:00:00'), decidedAt, status: 'decided' });
@@ -84,12 +84,12 @@ check('nothing scored → null', D.suggestion(dec({ options: [{ id: 'a', text: '
 check('only scored criteria count', D.optionScore({ scores: { p: 4 } }, scored.criteria), 4);
 
 console.log('points');
-check('small on time + first', D.decisionPoints(small(at('2026-11-12T10:01:00'))), { raw: 5, onTime: true, first: 5 });
+check('small on time + first', D.decisionPoints(small(at('2026-11-12T10:01:00'))), { raw: 5, onTime: true, first: 5, rule: 0 });
 check('small late', D.decisionPoints(small(at('2026-11-12T10:30:00'))).raw, 2);
 check('medium on time', D.decisionPoints(medium('2026-11-12T10:00:00', '2026-11-13T09:00:00')).raw, 15);
 check('medium late', D.decisionPoints(medium('2026-11-12T10:00:00', '2026-11-15T09:00:00')).raw, 5);
 check('reopened → no first bonus', D.decisionPoints({ ...small(at('2026-11-12T10:01:00')), reopened: true }).first, 0);
-check('open → nothing', D.decisionPoints(dec({})), { raw: 0, onTime: false, first: 0 });
+check('open → nothing', D.decisionPoints(dec({})), { raw: 0, onTime: false, first: 0, rule: 0 });
 
 console.log('ladder');
 const old = (days, extra = {}) => dec({ createdAt: new Date(at('2026-11-12T10:00:00') - days * 86400000), ...extra });
@@ -162,6 +162,76 @@ const badge = (ledger, id) => R.badgesFrom(ledger).find((b) => b.id === id).earn
 check('5 in a row → on the fifth', badge(five, 'decide-5'), '2026-11-05');
 check('a late one starts it over', badge([...five.slice(0, 4), entry('2026-11-05', 9, 'late'), entry('2026-11-06', 6, 'on-time')], 'decide-5'), null);
 check('same day counts each', badge([1, 2, 3, 4, 5].map((i) => entry('2026-11-03', i, 'on-time')), 'decide-5'), '2026-11-03');
+
+// ---------- M6c: large ----------
+console.log('large track');
+const large = (decideBy, decidedAt, extra = {}) => dec({
+  track: 'large', startedAt: at('2026-11-12T10:00:00'), decideBy: decideBy && at(decideBy), decidedAt: at(decidedAt), status: 'decided', ...extra,
+});
+check('large: 23:59 of the decide-by day → on time', D.isOnTime(large('2026-11-19T12:00:00', '2026-11-19T23:59:00')), true);
+check('large: the midnight after it → late', D.isOnTime(large('2026-11-19T12:00:00', '2026-11-20T00:00:00')), false);
+check('large: no decide-by → a week from the start', D.deadline(large(null, '2026-11-13T09:00:00')).getTime(), at('2026-11-20T00:00:00').getTime());
+check('large on time → 40 + 5', (({ raw, first }) => [raw, first])(D.decisionPoints(large('2026-11-19T12:00:00', '2026-11-15T09:00:00'))), [40, 5]);
+check('large late → 10', D.decisionPoints(large('2026-11-19T12:00:00', '2026-11-21T09:00:00')).raw, 10);
+check('large keeps its budget', dec({ track: 'large' }).budgetSec, DECISIONS.budgetSec.large);
+check('days left: 2', D.daysLeft(dec({ decideBy: at('2026-11-14T12:00:00') }), at('2026-11-12T23:00:00')), 2);
+check('days left: the day itself → 0', D.daysLeft(dec({ decideBy: at('2026-11-14T12:00:00') }), at('2026-11-14T08:00:00')), 0);
+check('large fields default', (({ friendAdvice, premortem, experiment, outcome }) => ({ friendAdvice, premortem, experiment, outcome }))(dec({})),
+  { friendAdvice: '', premortem: '', experiment: null, outcome: null });
+check('experiment pending', D.experimentPending(dec({ status: 'open', experiment: { text: 'לשאול את דנה' } })), true);
+check('experiment learned → not pending', D.experimentPending(dec({ status: 'open', experiment: { text: 'לשאול', learned: 'זה עובד' } })), false);
+
+// ---------- M6c: rules ----------
+console.log('personal rules');
+const rule = (keywords, extra = {}) => D.normalizeRule({ id: 'r1', name: 'מסעדה', rule: 'הראשונה שנראית טובה', keywords, ...extra });
+check('keyword as a word', D.ruleMatches('איזו מסעדה הערב?', rule(['מסעדה'])), true);
+check('after a prefix letter', D.ruleMatches('איפה לאכול הערב?', rule(['אכול'])), true);
+check('after two prefix letters', D.ruleMatches('ובמסעדה של אמא?', rule(['מסעדה'])), true);
+check('the keyword itself with ל', D.ruleMatches('איפה לאכול הערב?', rule(['לאכול'])), true);
+check('not inside another word', D.ruleMatches('מה לגבי הסרט?', rule(['סר'])), false);
+check('a non-prefix letter before it → no', D.ruleMatches('תמסעדה', rule(['מסעדה'])), false);
+check('no keyword → no', D.ruleMatches('איזה סרט?', rule(['מסעדה'])), false);
+check('niqqud and case ignored', D.ruleMatches('Pizza אוֹ סושי?', rule(['pizza'])), true);
+check('a phrase keyword', D.ruleMatches('לקנות נעליים חדשות?', rule(['נעליים חדשות'])), true);
+check('keywords cleaned and capped', rule(['  מסעדה! ', 'מסעדה', '', 'a', 'b', 'c', 'd', 'e', 'f']).keywords, ['מסעדה', 'a', 'b', 'c', 'd', 'e']);
+check('match: the oldest rule wins', D.matchRule('מסעדה?', [
+  rule(['מסעדה'], { id: 'new', createdAt: at('2026-11-10T10:00:00') }),
+  rule(['מסעדה'], { id: 'old', createdAt: at('2026-11-01T10:00:00') }),
+])?.id, 'old');
+check('match: none → null', D.matchRule('סרט?', [rule(['מסעדה'])]), null);
+check('suggested keywords skip question words', D.suggestKeywords('איזו מסעדה הערב, לאכול?'), ['מסעדה', 'לאכול']);
+const byRule = dec({ track: 'small', startedAt: at('2026-11-12T10:00:00'), decidedAt: at('2026-11-12T10:00:00'), status: 'decided', method: 'rule', ruleId: 'r1' });
+check('closed by a rule → 5 + 3, no first bonus', (({ raw, first, rule: r }) => [raw, first, r])(D.decisionPoints(byRule)), [5, 0, 3]);
+check('rule uses counted', [...D.ruleUses([byRule, { ...byRule, id: 'd9' }, dec({ status: 'decided', method: 'feet' })])], [['r1', 2]]);
+
+// ---------- M6c: review ----------
+console.log('review');
+const decidedMedium = (extra = {}) => dec({ track: 'medium', startedAt: at('2026-10-01T10:00:00'), decidedAt: at('2026-10-01T11:00:00'), status: 'decided', ...extra });
+check('medium review 30 days on', D.reviewKey(decidedMedium()), '2026-10-31');
+check('large review 90 days on', D.reviewKey(dec({ track: 'large', decidedAt: at('2026-10-01T11:00:00'), status: 'decided' })), '2026-12-30');
+check('small: no review', D.reviewKey(dec({ track: 'small', decidedAt: at('2026-10-01T11:00:00'), status: 'decided' })), null);
+check('due on its day', D.reviewDue(decidedMedium(), '2026-10-31'), true);
+check('not the day before', D.reviewDue(decidedMedium(), '2026-10-30'), false);
+check('answered → not due', D.reviewDue(decidedMedium({ reviewedAt: at('2026-11-01T10:00:00') }), '2026-11-02'), false);
+
+console.log('M6c ledger');
+const ctx6c = R.buildContext({
+  decisions: [
+    { ...byRule, id: 'dr' },
+    { ...decidedMedium({ reviewedAt: at('2026-11-12T09:00:00'), outcome: 'meh' }), id: 'drev' },
+  ],
+  decisionRules: [
+    { id: 'r1', name: 'מסעדה', keywords: ['מסעדה'], createdAt: at('2026-11-12T08:00:00') },
+    { id: 'r2', name: 'קניות', keywords: ['קנייה'], createdAt: at('2026-11-12T09:00:00') },
+  ],
+  today: '2026-11-12',
+});
+const day6c = R.scoreDay('2026-11-12', ctx6c, { closed: false }).filter((a) => a.source === 'decision');
+const pick = (rule, ref) => day6c.find((a) => a.rule === rule && a.ref === ref)?.raw ?? null;
+check('rule used → 3', pick('decision-rule', 'dr'), 3);
+check('review → 3 whatever the answer', pick('decision-review', 'drev'), 3);
+check('first new rule of the day → 10', pick('decision-rule-new', 'r1'), 10);
+check('second new rule that day → nothing', pick('decision-rule-new', 'r2'), null);
 
 if (failed) {
   console.log(`\n${failed} failed`);
