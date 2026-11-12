@@ -5257,3 +5257,368 @@ body.keyboard-open .fab,
   flex: 1;
   min-width: 0;
 }
+
+/* ===== להחליט (M6b): the decision sheet and the feet game ===== */
+.decision-title {
+  margin: 0 0 var(--space-2);
+  color: var(--text);
+  font-size: var(--text-lg);
+}
+
+.decision-hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.decision-center {
+  text-align: center;
+}
+
+.decision-track {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+}
+
+.decision-track-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text);
+}
+
+.decision-track .pill-row {
+  margin-top: var(--space-2);
+}
+
+/* The timer: a clock and a bar that empties. Over budget it turns muted,
+   never red — late still counts, just less. */
+.decision-timer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-2) 0;
+}
+
+.decision-timer-clock {
+  font-family: var(--font-numeric);
+  font-size: var(--text-xl);
+  color: var(--gold);
+  min-width: 3.2em;
+}
+
+.decision-timer-track {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.decision-timer-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: right center;
+  transition: transform 1s linear;
+}
+
+.decision-timer--over .decision-timer-clock {
+  color: var(--text-muted);
+}
+
+.decision-options,
+.decision-criteria {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.decision-option,
+.decision-criterion {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.decision-option .search-bar,
+.decision-criterion .search-bar {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.decision-remove {
+  flex: none;
+  width: var(--control-h);
+  height: var(--control-h);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.decision-weights {
+  flex: none;
+  flex-wrap: nowrap;
+}
+
+.decision-weights .pill {
+  padding: 0 8px;
+  font-size: var(--text-xs);
+}
+
+.decision-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.decision-grid-row {
+  padding: var(--space-3);
+}
+
+.decision-grid-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--text);
+  margin-bottom: var(--space-1);
+}
+
+.decision-grid-name .num {
+  color: var(--gold);
+  font-family: var(--font-numeric);
+}
+
+.decision-grid-crit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.decision-scores {
+  display: flex;
+  gap: 4px;
+}
+
+.decision-score {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-numeric);
+}
+
+.decision-score.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.decision-text {
+  width: 100%;
+  min-height: 60px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.decision-suggest {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.decision-suggest .num {
+  color: var(--gold);
+  font-family: var(--font-numeric);
+}
+
+.decision-draw {
+  width: 100%;
+  margin-top: var(--space-2);
+  gap: var(--space-2);
+}
+
+.decision-draw:disabled {
+  opacity: 0.5;
+}
+
+.decision-result {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  text-align: center;
+}
+
+.decision-result-label {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.decision-result-choice {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-display);
+  color: var(--gold);
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+.decision-result .pill-row {
+  justify-content: center;
+}
+
+.decision-row-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  background: var(--accent-dim);
+  color: var(--gold);
+}
+
+.decision-choice {
+  display: block;
+  color: var(--gold);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+}
+
+.decision-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* The feet game (js/ui/choosers/feet.js, art in feet-art.js). */
+.decision-game {
+  margin: var(--space-3) 0 0;
+}
+
+.feet-game {
+  position: relative;
+  padding: var(--space-4) var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+}
+
+.feet-sound {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  z-index: 1;
+}
+
+.feet-row {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+/* A pair stands close together; with 4, a small gap between the pairs. */
+.feet-game--n4 .feet-foot:nth-child(2) {
+  margin-left: var(--space-3);
+}
+
+.feet-foot {
+  flex: 0 1 112px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  transition: opacity 0.4s ease, filter 0.4s ease;
+}
+
+.foot-art {
+  width: 100%;
+  max-width: 112px;
+  height: auto;
+  overflow: visible;
+}
+
+.foot-art .foot-toes,
+.foot-art .foot-big {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.foot-skin {
+  fill: var(--foot-skin);
+  stroke: var(--foot-line);
+  stroke-width: 1.6;
+}
+
+.foot-shade {
+  fill: var(--foot-shade);
+  opacity: 0.6;
+}
+
+.foot-nail {
+  fill: var(--foot-nail);
+}
+
+.foot-blush {
+  fill: var(--foot-blush);
+  opacity: 0.45;
+}
+
+.foot-shadow {
+  fill: var(--text);
+  opacity: 0.08;
+}
+
+.feet-label {
+  max-width: 100%;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feet-foot--win .foot-art {
+  filter: drop-shadow(0 0 12px var(--gold));
+}
+
+.feet-foot--win .feet-label {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* Not chosen: grey and quiet, never red. */
+.feet-foot--out {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+/* The big toe's base blends into the sole (no outline across the joint). */
+.foot-stem {
+  stroke: none;
+}
