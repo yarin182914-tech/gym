@@ -80,7 +80,7 @@ async function enterApp() {
 }
 
 if (!useCloud) {
-  // Local sandbox (`?dev` on localhost) — see js/firebase-config.js.
+  // Local sandbox (`?dev` on localhost or a branch preview) — see js/firebase-config.js.
   const banner = document.createElement('div');
   banner.textContent = 'מצב בדיקה מקומי — הנתונים נשמרים רק בדפדפן הזה ואינם מסונכרנים';
   banner.style.cssText = 'background:var(--accent-dim);color:var(--text);text-align:center;font-size:0.8rem;padding:6px;';

@@ -1,4 +1,4 @@
-// Sample data for the local sandbox (`?dev` on localhost) so History,
+// Sample data for the local sandbox (`?dev` on localhost or a branch preview) so History,
 // Dashboard and the "previous performance" popup have something to render.
 // Loaded via dynamic import from app.js and therefore never fetched in
 // production. Writes only to the dev-store's localStorage key.
