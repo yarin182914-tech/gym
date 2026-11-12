@@ -174,7 +174,9 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
         if (step === 'small' || step === 'medium') startTimer();
         if (step === 'small') mountGame();
         if (step === 'large') mountDecideBy();
-        if (step === 'question') body.querySelector('[data-d-question]')?.focus();
+        // After the sheet has slid up, not during it: a keyboard opening
+        // mid-animation shoves the sheet. iOS only opens it on a tap anyway.
+        if (step === 'question') setTimeout(() => body.querySelector('[data-d-question]')?.focus({ preventScroll: true }), 350);
       }
 
       // ---------- steps ----------
@@ -182,8 +184,8 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
       function questionStep() {
         return `
           <h3 class="decision-title">החלטה חדשה</h3>
-          <p class="decision-hint">על מה צריך להחליט?</p>
-          <input type="text" class="search-bar" data-d-question maxlength="120" placeholder="למשל: איזו מסעדה הערב?" value="${esc(d.question)}">
+          <label class="decision-field-label" for="d-question">על מה צריך להחליט?</label>
+          <input type="text" id="d-question" class="search-bar decision-input" data-d-question maxlength="120" placeholder="למשל: איזו מסעדה הערב?" enterkeyhint="next" value="${esc(d.question)}">
           <div class="sheet-actions">
             <button type="button" class="btn btn-primary" data-d-next>המשך</button>
           </div>`;
