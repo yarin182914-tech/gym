@@ -127,17 +127,19 @@ Asked by ירין 2026-11-12 after testing on the iPhone (small fix, no spec fil
 ## M6d ✕ Decisions — personal rules — dropped
 Dropped by ירין 2026-11-12: "לא נראה לי שהוא יהיה שימושי עבורי". The spec stays in `docs/specs/decision-rules.md` and a first build on the local branch `wip/m6c-all`, in case it comes back.
 
-## M6e ◐ Decisions — "איך זה יצא?" — `feature/m6e-decision-review`
+## M6e ☑ Decisions — "איך זה יצא?" — `feature/m6e-decision-review`
 Spec: `docs/specs/decision-review.md`. Needs M6c merged.
 - A month after a medium decision, three after a large one: one line on Today and a section on להחליט. Three answers (טוב / בסדר / פחות) and a note; 3 points whatever the answer.
 - Also (ירין 2026-11-12, testing it): "החלטתי" opens as soon as there is a question ("מה החלטת?" in one line when no options were written), and `?dev` sample data runs on branch previews (never the live site) so the review can be tried on the iPhone.
 - Done when: the review shows on its day (unit test), pays 3 once, and DATA.md documents the review fields.
 
 ## M7 ☐ Google Calendar sync from the app — `feature/m7-calendar`
-Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון עם היומן".
-- Request the extra `calendar.events` scope at Google sign-in (incremental consent). Create/update/delete an event when a task with a time is saved/moved/done/cancelled; store the event id on the task; mark events with a private extended property `{ gymi: true, taskId }`.
-- Only touch events linked to a task. Works while the app is open; failures queue and retry on next open.
-- Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
+Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון עם היומן". Spec: `docs/specs/calendar-sync.md`.
+- Through the server (ירין 2026-11-12), not from the browser: a one-time Google consent (`calendar.events`), the refresh token kept server-only in `calendarTokens/{uid}`, and `api/calendar.js` creates / moves / marks ✓ / deletes the event of a one-off task with a time (timed event, length by size) or a day (all-day event). The event id stays on the task; events carry a private extended property `{ gymi: true, taskId }`.
+- Only touches events linked to a task, in the primary calendar. Offline saves queue on the device and retry on the next open. The sync is one server function, so the Claude connector can call it once it gets task tools.
+- Replaces the grey "יומן גוגל" card on the "חיבורים" page (status, one-tap connect, disconnect).
+- Needs from ירין: Calendar API + an OAuth client in Google Cloud, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in Vercel. No `firestore.rules` change.
+- Done when: a task with a time shows in Google Calendar within seconds, moving it moves the same event, done adds ✓, delete removes it, and the connection survives a day without asking again.
 
 ## M8 ☐ Settings — "התכנית שלי" — `feature/m8-my-plan`
 Plan: "מסך ההגדרות: "התכנית שלי"".
