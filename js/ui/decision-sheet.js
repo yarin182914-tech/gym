@@ -1,8 +1,5 @@
 // A decision ("להחליט", M6b/M6c) in a bottom sheet, from the question to the
-// choice: the question → (a matching personal rule?) → two triage
-// questions → its track → done.
-//   rule:   one of the user's rules carries a keyword of the question —
-//           "להשתמש בכלל" decides it at once;
+// choice: the question → two triage questions → its track → done.
 //   small:  a visible 2-minute timer, 2–4 options and the feet game
 //           (js/ui/choosers/), or a pick by hand;
 //   medium: options, up to 3 weighted criteria, scores, a good-enough bar,
@@ -11,23 +8,20 @@
 //           options (3+), a friend's advice, the score check, 10-10-10, a
 //           premortem and a small experiment. Every step is optional and
 //           "החלטתי" is on each.
-// Once decided, it offers to turn the decision into a rule.
 // The decision is saved when its track starts (startedAt starts the clock),
 // and again when the sheet closes, so closing half-way keeps it open in
 // the list. The sheet only builds the data; saving is the caller's
-// (onSave(id, patch, { isNew }), onSaveRule(data)) so the screen shows it
-// at once.
+// (onSave(id, patch, { isNew })) so the screen shows it at once.
 
 import { openBottomSheet } from './bottom-sheet.js';
 import { chooser, DEFAULT_CHOOSER } from './choosers/index.js';
 import { mountDateField, friendlyDate } from './date-time-picker.js';
-import { ruleFormHtml, readRuleForm } from './decision-rules.js';
 import { icon } from './icon.js';
 import { esc } from '../core/dom.js';
 import { DECISIONS } from '../lib/rules.js';
 import {
   TRACKS, IMPACTS, FEELINGS, normalizeDecision, triage, secondsLeft, optionScore, suggestion, pickRandom,
-  daysLeft, largeDecideByKey, matchRule, suggestKeywords,
+  daysLeft, largeDecideByKey,
 } from '../lib/decisions.js';
 import { noonOf } from '../lib/tasks.js';
 import { dateKey, shiftDays } from '../lib/sleep.js';
@@ -57,9 +51,8 @@ function pill(attr, value, label, active) {
 
 // decision: a stored one to go on with, or null for a new one (prefill:
 // { question, source }). newId() makes the id of a new one; onDecided(text)
-// runs once it's decided. rules: the user's personal rules (normalized);
-// onSaveRule(data) saves a new one ({ name, rule, keywords, fromDecisionId }).
-export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave, onDecided, rules = [], onSaveRule = null }) {
+// runs once it's decided.
+export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave, onDecided }) {
   const isNew = !decision;
   const id = decision?.id || newId();
   const d = normalizeDecision(decision || { id, question: prefill.question || '', source: prefill.source || 'manual' });
@@ -74,9 +67,6 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
   let playing = false;
   let timer = null;
   let game = null;
-  let matched = null; // the rule the question matched
-  let ruleOpen = false; // "להפוך לכלל?" form showing
-  let decidedText = '';
 
   // The fields that change while deciding.
   const patchOf = () => ({
@@ -103,11 +93,9 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
         clearInterval(timer);
         game = null;
         if (step === 'question') body.innerHTML = questionStep();
-        else if (step === 'rule') body.innerHTML = ruleStep();
         else if (step === 'triage') body.innerHTML = triageStep();
         else if (step === 'small') body.innerHTML = smallStep();
         else if (step === 'large') body.innerHTML = largeView();
-        else if (step === 'done') body.innerHTML = doneStep();
         else body.innerHTML = mediumStep();
         if (step === 'small' || step === 'medium') startTimer();
         if (step === 'small') mountGame();
@@ -124,21 +112,6 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
           <input type="text" class="search-bar" data-d-question maxlength="120" placeholder="למשל: איזו מסעדה הערב?" value="${esc(d.question)}">
           <div class="sheet-actions">
             <button type="button" class="btn btn-primary" data-d-next>המשך</button>
-          </div>`;
-      }
-
-      // A personal rule fits the question: decide by it in one tap.
-      function ruleStep() {
-        return `
-          <h3 class="decision-title">${esc(d.question)}</h3>
-          <div class="decision-track card decision-rule-match">
-            <div class="decision-track-head">${icon('bookmark', { className: 'icon--sm' })} יש לך כלל לזה</div>
-            <div class="decision-result-choice">${esc(matched.name)}: ${esc(matched.rule)}</div>
-            <p class="decision-hint">החלטת על זה כבר פעם. אין צורך להתלבט שוב.</p>
-          </div>
-          <div class="sheet-actions">
-            <button type="button" class="btn btn-secondary" data-d-skip-rule>לא הפעם</button>
-            <button type="button" class="btn btn-primary" data-d-use-rule>להשתמש בכלל</button>
           </div>`;
       }
 
@@ -397,32 +370,6 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
         });
       }
 
-      // ---------- done: offer a rule ----------
-
-      function doneStep() {
-        return `
-          <div class="decision-result card">
-            <div class="decision-result-label">${icon('check', { className: 'icon--sm' })} החלטת</div>
-            <div class="decision-result-choice">${esc(decidedText)}</div>
-          </div>
-          ${ruleOpen ? `
-            <h3 class="decision-title decision-rule-head">כלל חדש</h3>
-            ${ruleFormHtml({ name: suggestKeywords(d.question)[0] || '', rule: decidedText, keywords: suggestKeywords(d.question) })}
-            <div class="sheet-actions">
-              <button type="button" class="btn btn-secondary" data-d-done>בלי כלל</button>
-              <button type="button" class="btn btn-primary" data-d-rule-save>לשמור כלל</button>
-            </div>` : `
-            ${onSaveRule ? `
-              <div class="decision-track card">
-                <div class="decision-track-head">${icon('bookmark', { className: 'icon--sm' })} זה חוזר על עצמו?</div>
-                <p class="decision-hint">הפוך את זה לכלל, ובפעם הבאה זה ייסגר בלחיצה. +${DECISIONS.ruleNew} נקודות.</p>
-                <button type="button" class="btn-mini-dashed" data-d-rule-open>להפוך לכלל</button>
-              </div>` : ''}
-            <div class="sheet-actions">
-              <button type="button" class="btn btn-primary" data-d-done>סיום</button>
-            </div>`}`;
-      }
-
       // ---------- live parts ----------
 
       function startTimer() {
@@ -473,13 +420,6 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
         body.querySelector('.decision-result')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }
 
-      function finish(text) {
-        decidedText = text;
-        onDecided?.(text);
-        step = 'done';
-        render();
-      }
-
       function decide() {
         const scored = step === 'medium' || step === 'large';
         const pickId = scored ? pickIdOf() : chosen;
@@ -491,20 +431,9 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
           ...patchOf(), choiceId: pickId, method, status: 'decided', decidedAt: new Date(),
         }, { isNew: !saved });
         saved = true;
-        finish(d.options.find((o) => o.id === pickId)?.text || '');
-      }
-
-      // Decided by a personal rule: a small one, on time, closed at once.
-      function useRule() {
-        const now = new Date();
-        const option = newOption(matched.rule);
-        Object.assign(d, { track: 'small', options: [option], criteria: [], budgetSec: DECISIONS.budgetSec.small, startedAt: now, decideBy: null, status: 'decided' });
-        onSave(id, {
-          ...patchOf(), choiceId: option.id, method: 'rule', ruleId: matched.id, status: 'decided', decidedAt: now,
-        }, { isNew: !saved });
-        saved = true;
-        onDecided?.(matched.rule);
+        const text = d.options.find((o) => o.id === pickId)?.text || '';
         sheet.close();
+        onDecided?.(text);
       }
 
       // ---------- events ----------
@@ -549,12 +478,6 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
         const a = el.dataset;
         if (a.dNext !== undefined) {
           if (!d.question.trim()) return body.querySelector('[data-d-question]').focus();
-          matched = matchRule(d.question, rules);
-          step = matched ? 'rule' : 'triage';
-          return render();
-        }
-        if (a.dUseRule !== undefined) return useRule();
-        if (a.dSkipRule !== undefined) {
           step = 'triage';
           return render();
         }
@@ -654,19 +577,6 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
           return render();
         }
         if (a.dDecide !== undefined) return decide();
-        if (a.dRuleOpen !== undefined) {
-          ruleOpen = true;
-          render();
-          body.querySelector('[data-r-rule]')?.focus();
-          return;
-        }
-        if (a.dRuleSave !== undefined) {
-          const data = readRuleForm(body);
-          if (!data) return body.querySelector(body.querySelector('[data-r-rule]').value.trim() ? '[data-r-keywords]' : '[data-r-rule]').focus();
-          onSaveRule({ ...data, fromDecisionId: id });
-          return sheet.close();
-        }
-        if (a.dDone !== undefined) return sheet.close();
         if (a.dDrop !== undefined) {
           // Kept, not deleted: it just leaves the open list.
           d.status = 'dropped';

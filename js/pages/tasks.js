@@ -8,21 +8,17 @@
 // decision after three. Never red, never a penalty.
 //
 // A fourth view, להחליט (M6b), holds the decisions: the open ones (with
-// their own ladder), the reviews due ("איך זה יצא?", M6c) and the journal
-// of decided ones, plus "הכללים שלי" (personal rules, M6c). The flow itself
-// is js/ui/decision-sheet.js; logic js/lib/decisions.js.
+// their own ladder) and the journal of decided ones. The flow itself is
+// js/ui/decision-sheet.js; logic js/lib/decisions.js.
 
 import {
   listTasks, newTaskId, setTask, deleteTask, listDecisions, newDecisionId, setDecision,
-  listDecisionRules, newDecisionRuleId, setDecisionRule, deleteDecisionRule,
 } from '../lib/firestore.js';
 import {
   TRACKS, FEELINGS, MISSING, MISSING_TIPS, normalizeDecision, openDecisions, decidedDecisions, ladderStage as decisionLadder,
-  choiceText, isOnTime, OUTCOMES, normalizeRule, reviewDue, reviewsDue, ruleUses, daysLeft, experimentPending,
+  choiceText, isOnTime, daysLeft, experimentPending,
 } from '../lib/decisions.js';
 import { openDecisionSheet } from '../ui/decision-sheet.js';
-import { openRulesSheet } from '../ui/decision-rules.js';
-import { openReviewSheet } from '../ui/decision-review.js';
 import {
   AREAS, OWNERS, SIZES, STUCK_REASONS, STUCK_TIPS, normalizeTask, dayList, isRepeating, isOpen, isDoneOn,
   isUnscheduled, quadrant, sortTasks, ladderStage, whenText, toggleDoneDate, noonOf, weekOf, isUrgent, scheduledKey,
@@ -52,7 +48,6 @@ let view = 'today';
 let filter = { area: null, owner: null };
 let openLadder = null; // the task whose "why stuck?" answer is showing
 let decisions = []; // normalized
-let rules = []; // personal decision rules, normalized
 let stopQuickActions = null;
 
 const todayKey = () => dateKey(new Date());
@@ -70,13 +65,10 @@ export async function mountTasks(rootEl) {
     console.error(`[tasks] ${what} load failed`, err);
     return [];
   });
-  const [loaded, loadedDecisions, loadedRules] = await Promise.all([
-    soft(listTasks(), 'tasks'), soft(listDecisions(), 'decisions'), soft(listDecisionRules(), 'decision rules'),
-  ]);
+  const [loaded, loadedDecisions] = await Promise.all([soft(listTasks(), 'tasks'), soft(listDecisions(), 'decisions')]);
   if (isStale(token)) return;
   tasks = loaded.map(normalizeTask);
   decisions = loadedDecisions.map(normalizeDecision);
-  rules = loadedRules.map(normalizeRule);
   render();
   container.addEventListener('click', onClick);
   // The + button: "משימה" — one line into the inbox; "החלטה" — a new decision.
@@ -85,12 +77,9 @@ export async function mountTasks(rootEl) {
     view = 'decide';
     render();
     if (action === 'decision') return openDecision(null, { source: 'quick' });
-    // 'decision:<id>' — the home screen's nearest decision; 'review:<id>' —
-    // its "איך זה יצא?".
+    // 'decision:<id>' — from the home screen's nearest decision.
     const dec = decisions.find((x) => `decision:${x.id}` === action);
-    if (dec) return openDecision(dec);
-    const rev = decisions.find((x) => `review:${x.id}` === action);
-    if (rev) openReview(rev);
+    if (dec) openDecision(dec);
   });
 }
 
@@ -101,7 +90,6 @@ export function unmountTasks() {
   container = null;
   tasks = [];
   decisions = [];
-  rules = [];
   openLadder = null;
 }
 
@@ -123,41 +111,7 @@ function openDecision(decision, prefill = {}) {
     newId: newDecisionId,
     onSave: saveDecision,
     onDecided: (text) => showToast(`${icon('check', { className: 'icon--sm' })} החלטת: ${esc(text)}`),
-    rules,
-    onSaveRule: (data) => {
-      saveRule(null, data);
-      showToast(`${icon('bookmark', { className: 'icon--sm' })} נשמר כלל: ${esc(data.name)}`);
-    },
   });
-}
-
-function openReview(decision) {
-  openReviewSheet({
-    decision,
-    onSave: (id, patch) => {
-      saveDecision(id, patch);
-      showToast(`${icon('check', { className: 'icon--sm' })} נשמר ביומן`);
-    },
-  });
-}
-
-// id null: a new rule. Returns the new list (the rules sheet redraws from it).
-function saveRule(id, data) {
-  const isNew = !id;
-  const ruleId = id || newDecisionRuleId();
-  const existing = rules.find((r) => r.id === ruleId);
-  const merged = normalizeRule({ ...(existing || {}), ...data, id: ruleId, ...(isNew ? { createdAt: new Date() } : {}) });
-  rules = existing ? rules.map((r) => (r.id === ruleId ? merged : r)) : [...rules, merged];
-  setDecisionRule(ruleId, isNew ? { fromDecisionId: null, ...data } : data, { isNew }).catch(failed('rule'));
-  if (view === 'decide') render();
-  return rules;
-}
-
-function removeRule(id) {
-  rules = rules.filter((r) => r.id !== id);
-  deleteDecisionRule(id).catch(failed('rule delete'));
-  if (view === 'decide') render();
-  return rules;
 }
 
 // ---------- writes ----------
@@ -224,7 +178,7 @@ function postpone(task) {
 }
 
 function onClick(e) {
-  const el = e.target.closest('[data-view], [data-filter-area], [data-filter-owner], [data-check], [data-open], [data-add], [data-postpone], [data-why], [data-reason], [data-act], [data-dec-new], [data-dec-open], [data-dec-when], [data-dec-missing], [data-dec-why], [data-dec-rules], [data-dec-review]');
+  const el = e.target.closest('[data-view], [data-filter-area], [data-filter-owner], [data-check], [data-open], [data-add], [data-postpone], [data-why], [data-reason], [data-act], [data-dec-new], [data-dec-open], [data-dec-when], [data-dec-missing], [data-dec-why]');
   if (!el || !container?.contains(el)) return;
   const d = el.dataset;
   if (d.view) {
@@ -232,11 +186,9 @@ function onClick(e) {
     return render();
   }
   if (d.decNew !== undefined) return openDecision(null);
-  if (d.decRules !== undefined) return openRulesSheet({ rules, uses: ruleUses(decisions), onSave: saveRule, onDelete: removeRule });
-  const dec = decisions.find((x) => x.id === (d.decOpen || d.decWhy || d.decReview || (d.decWhen || d.decMissing || '').split('|')[0]));
+  const dec = decisions.find((x) => x.id === (d.decOpen || d.decWhy || (d.decWhen || d.decMissing || '').split('|')[0]));
   if (dec) {
     if (d.decOpen) return openDecision(dec);
-    if (d.decReview) return openReview(dec);
     if (d.decWhy) {
       openLadder = openLadder === dec.id ? null : dec.id;
       return render();
@@ -316,21 +268,14 @@ function render() {
 function decideView() {
   const open = openDecisions(decisions);
   const done = decidedDecisions(decisions);
-  const due = reviewsDue(decisions, todayKey());
-  const rulesBtn = `
-    <div class="decision-tools">
-      <button type="button" class="btn-mini-dashed" data-dec-rules>${icon('bookmark', { className: 'icon--sm' })} הכללים שלי${rules.length ? ` <span class="num">${rules.length}</span>` : ''}</button>
-    </div>`;
   if (!open.length && !done.length) {
     return `<div class="card decision-empty">
       ${emptyState('מתלבט? כתוב את השאלה, ותקבל לה זמן קצוב. קטנה: 2 דקות והגרלה. בינונית: עד מחר, עם ציון. גדולה: שבוע, בשלבים.', { centered: true })}
       <button type="button" class="btn btn-primary" data-dec-new>החלטה חדשה</button>
-    </div>${rulesBtn}`;
+    </div>`;
   }
-  return rulesBtn
-    + section('איך זה יצא?', due.map(journalRow), { note: 'מבט לאחור מוריד את החרדה בפעם הבאה. אין תשובה נכונה.' })
-    + section('פתוחות', open.map(decisionRow), { count: open.length || null })
-    + section('החלטתי', done.filter((x) => !reviewDue(x, todayKey())).slice(0, 30).map(journalRow), { note: 'בלי "צדקתי" או "טעיתי": הנקודות הן על הזמן.' });
+  return section('פתוחות', open.map(decisionRow), { count: open.length || null })
+    + section('החלטתי', done.slice(0, 30).map(journalRow), { note: 'בלי "צדקתי" או "טעיתי": הנקודות הן על הזמן.' });
 }
 
 // "להחליט עד …" with the days left, for a decision with a date.
@@ -392,7 +337,6 @@ function decisionRow(dec) {
 
 function journalRow(dec) {
   const onTime = isOnTime(dec);
-  const due = reviewDue(dec, todayKey());
   return `
     <div class="card task-row decision-journal">
       <div class="task-row-main">
@@ -404,16 +348,12 @@ function journalRow(dec) {
             <span class="task-tag task-tag--quiet">${shortDayOf(dec.decidedAt)}</span>
             ${onTime ? `<span class="task-tag task-tag--accent">${icon('clock', { className: 'icon--sm' })} בזמן</span>` : ''}
             ${dec.method === 'feet' ? '<span class="task-tag">הגרלה</span>' : dec.method === 'score' ? '<span class="task-tag">לפי ציון</span>' : ''}
-            ${dec.method === 'rule' ? '<span class="task-tag">לפי כלל</span>' : ''}
             ${dec.track === 'large' ? `<span class="task-tag task-tag--quiet">${TRACKS.large}</span>` : ''}
             ${dec.feeling ? `<span class="task-tag task-tag--quiet">${FEELINGS[dec.feeling]}</span>` : ''}
-            ${dec.outcome ? `<span class="task-tag">יצא: ${OUTCOMES[dec.outcome]}</span>` : ''}
           </span>
           ${dec.reason ? `<span class="task-step">${esc(dec.reason)}</span>` : ''}
-          ${dec.outcomeNote ? `<span class="task-step">${esc(dec.outcomeNote)}</span>` : ''}
         </div>
       </div>
-      ${due ? `<div class="task-ladder"><button type="button" class="pill active" data-dec-review="${esc(dec.id)}">${icon('sparkles', { className: 'icon--sm' })} איך זה יצא?</button></div>` : ''}
     </div>`;
 }
 
