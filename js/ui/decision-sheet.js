@@ -8,6 +8,9 @@
 //           options (3+), a friend's advice, the score check, 10-10-10, a
 //           premortem and a small experiment. Every step is optional and
 //           "החלטתי" is on each.
+// Medium and large: "החלטתי" is open as soon as there is a question. With
+// no options written, "מה החלטת?" takes the choice in one line; with
+// options but none picked, it asks for one.
 // The decision is saved when its track starts (startedAt starts the clock),
 // and again when the sheet closes, so closing half-way keeps it open in
 // the list. The sheet only builds the data; saving is the caller's
@@ -18,6 +21,7 @@ import { chooser, DEFAULT_CHOOSER } from './choosers/index.js';
 import { mountDateField, friendlyDate } from './date-time-picker.js';
 import { icon } from './icon.js';
 import { infoButton, infoDialog } from './info-dialog.js';
+import { showToast } from './toast.js';
 import { esc } from '../core/dom.js';
 import { DECISIONS } from '../lib/rules.js';
 import {
@@ -138,6 +142,7 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
   let manualTrack = null; // a track picked by hand on the triage step
   let drawn = null; // the option the game picked
   let chosen = d.choiceId;
+  let quickChoice = ''; // "מה החלטת?" when no options were written
   let playing = false;
   let timer = null;
   let game = null;
@@ -334,17 +339,18 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
         const list = named();
         const pickId = pickIdOf();
         return `
-          <div class="sheet-field-label">הבחירה שלי</div>
-          <div class="pill-row">${list.map((o) => pill('data-d-pick', o.id, esc(o.text), pickId === o.id)).join('') || '<span class="text-muted">כתוב קודם את האפשרויות.</span>'}</div>
+          ${list.length
+            ? `<div class="sheet-field-label">הבחירה שלי</div>
+               <div class="pill-row" data-d-picks>${list.map((o) => pill('data-d-pick', o.id, esc(o.text), pickId === o.id)).join('')}</div>`
+            : `<label class="decision-field-label" for="d-quick">מה החלטת?</label>
+               <input type="text" id="d-quick" class="search-bar decision-input" data-d-quick maxlength="120" placeholder="בלי אפשרויות? כתוב כאן מה בחרת" value="${esc(quickChoice)}">`}
           <input type="text" class="search-bar" data-d-reason maxlength="200" placeholder="למה? (משפט אחד)" value="${esc(d.reason)}" style="margin-top:8px;">
           <div class="sheet-field-label">איך זה מרגיש?</div>
           <div class="pill-row">${Object.entries(FEELINGS).map(([k, l]) => pill('data-d-feel', k, l, d.feeling === k)).join('')}</div>`;
       }
 
-      const canDecide = () => {
-        const pickId = pickIdOf();
-        return !!pickId && named().some((o) => o.id === pickId);
-      };
+      // Open with just a question; decide() asks for whatever is missing.
+      const canDecide = () => !!d.question.trim();
 
       function mediumStep() {
         return `
@@ -500,7 +506,28 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
 
       function decide() {
         const scored = step === 'medium' || step === 'large';
-        const pickId = scored ? pickIdOf() : chosen;
+        let pickId = scored ? pickIdOf() : chosen;
+        if (scored && !named().some((o) => o.id === pickId)) pickId = null;
+        if (scored && !pickId) {
+          if (step === 'large' && largeStep !== 'choose') {
+            largeStep = 'choose';
+            render();
+          }
+          if (named().length) {
+            showToast('בחר מה החלטת');
+            body.querySelector('[data-d-picks]')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            return;
+          }
+          if (!quickChoice.trim()) {
+            showToast('כתוב מה החלטת');
+            body.querySelector('[data-d-quick]')?.focus();
+            return;
+          }
+          // The one-line choice becomes its option (the first empty slot).
+          const slot = d.options.find((o) => !o.text.trim()) || d.options[d.options.push(newOption()) - 1];
+          slot.text = quickChoice.trim();
+          pickId = slot.id;
+        }
         if (!pickId) return;
         const method = scored ? (pickId === suggestion(d)?.id ? 'score' : 'manual') : (pickId === drawn ? 'feet' : 'manual');
         d.status = 'decided';
@@ -534,6 +561,7 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
         } else if (t.matches('[data-d-crit]')) d.criteria[Number(t.dataset.dCrit)].name = t.value;
         else if (t.matches('[data-d-ten]')) d.tenTenTen = t.value;
         else if (t.matches('[data-d-reason]')) d.reason = t.value;
+        else if (t.matches('[data-d-quick]')) quickChoice = t.value;
         else if (t.matches('[data-d-friend]')) d.friendAdvice = t.value;
         else if (t.matches('[data-d-premortem]')) d.premortem = t.value;
         else if (t.matches('[data-d-exp]')) experiment().text = t.value;
