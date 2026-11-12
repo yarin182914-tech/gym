@@ -181,6 +181,33 @@ check('large fields default', (({ friendAdvice, premortem, experiment }) => ({ f
 check('experiment pending', D.experimentPending(dec({ status: 'open', experiment: { text: 'לשאול את דנה' } })), true);
 check('experiment learned → not pending', D.experimentPending(dec({ status: 'open', experiment: { text: 'לשאול', learned: 'זה עובד' } })), false);
 
+// ---------- M6e: "איך זה יצא?" ----------
+console.log('review');
+const decidedMedium = (extra = {}) => dec({ track: 'medium', startedAt: at('2026-10-01T10:00:00'), decidedAt: at('2026-10-01T11:00:00'), status: 'decided', ...extra });
+check('medium review 30 days on', D.reviewKey(decidedMedium()), '2026-10-31');
+check('large review 90 days on', D.reviewKey(dec({ track: 'large', decidedAt: at('2026-10-01T11:00:00'), status: 'decided' })), '2026-12-30');
+check('small: no review', D.reviewKey(dec({ track: 'small', decidedAt: at('2026-10-01T11:00:00'), status: 'decided' })), null);
+check('open: no review', D.reviewKey(dec({ track: 'medium', status: 'open' })), null);
+check('decided 23:30 Israel time → that day counts', D.reviewKey(decidedMedium({ decidedAt: at('2026-10-01T23:30:00') })), '2026-10-31');
+check('due on its day', D.reviewDue(decidedMedium(), '2026-10-31'), true);
+check('not the day before', D.reviewDue(decidedMedium(), '2026-10-30'), false);
+check('still due later', D.reviewDue(decidedMedium(), '2026-12-01'), true);
+check('answered → not due', D.reviewDue(decidedMedium({ reviewedAt: at('2026-11-01T10:00:00') }), '2026-11-02'), false);
+check('oldest due first', D.reviewsDue([
+  { ...decidedMedium({ decidedAt: at('2026-10-05T10:00:00') }), id: 'b' },
+  { ...decidedMedium(), id: 'a' },
+  { ...dec({ track: 'small', decidedAt: at('2026-09-01T10:00:00'), status: 'decided' }), id: 's' },
+], '2026-11-12').map((d) => d.id), ['a', 'b']);
+check('outcome kept, junk dropped', [dec({ outcome: 'meh' }).outcome, dec({ outcome: 'great' }).outcome, dec({}).outcomeNote], ['meh', null, '']);
+
+console.log('review points');
+const reviewed = { ...decidedMedium({ reviewedAt: at('2026-11-12T09:00:00'), outcome: 'meh', outcomeNote: 'יקר מדי' }), id: 'drev' };
+const ctxRev = R.buildContext({ decisions: [reviewed], today: '2026-11-13' });
+const revOn = (key) => R.scoreDay(key, ctxRev, { closed: false }).filter((a) => a.rule === 'decision-review');
+check('answered → 3 whatever the answer', revOn('2026-11-12').map((a) => [a.ref, a.raw]), [['drev', 3]]);
+check('the next day → nothing more', revOn('2026-11-13').length, 0);
+check('counts as a decision', revOn('2026-11-12')[0].source, 'decision');
+
 if (failed) {
   console.log(`\n${failed} failed`);
   process.exit(1);

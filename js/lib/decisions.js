@@ -5,8 +5,8 @@
 //
 // A decision is triaged into a track (small / medium / large), gets a time
 // budget from startedAt (large: a decide-by date), and earns its points by
-// being decided inside it. Nothing here judges whether the choice was
-// right.
+// being decided inside it. Medium and large ones get "איך זה יצא?" later
+// (M6e). Nothing here judges whether the choice was right.
 
 import { DECISIONS } from './rules.js';
 import { dateKey, shiftDays, parseKey } from './sleep.js';
@@ -15,6 +15,8 @@ import { toDate } from './format.js';
 export const TRACKS = { small: 'קטנה', medium: 'בינונית', large: 'גדולה' };
 export const IMPACTS = { low: 'כמעט כלום', some: 'קצת', high: 'הרבה' };
 export const FEELINGS = { happy: 'שמחתי', unsure: 'לא בטוח', disappointed: 'התאכזבתי' };
+// "איך זה יצא?" — no wrong answer, the same points for each.
+export const OUTCOMES = { good: 'טוב', ok: 'בסדר', meh: 'פחות' };
 // "What's missing to decide?" — the ladder's question after two weeks.
 export const MISSING = { info: 'מידע', talk: 'שיחה עם מישהו', courage: 'אומץ' };
 export const MISSING_TIPS = {
@@ -82,6 +84,10 @@ export function normalizeDecision(raw = {}) {
     experiment: raw.experiment && typeof raw.experiment === 'object'
       ? { text: String(raw.experiment.text || ''), by: raw.experiment.by || null, learned: String(raw.experiment.learned || '') }
       : null,
+    // "איך זה יצא?" (M6e).
+    reviewedAt: raw.reviewedAt || null,
+    outcome: OUTCOMES[raw.outcome] ? raw.outcome : null,
+    outcomeNote: String(raw.outcomeNote || ''),
     status: STATUSES.includes(raw.status) ? raw.status : 'open',
     source: raw.source || 'manual',
     createdAt: raw.createdAt || null,
@@ -184,6 +190,27 @@ export function decisionPoints(d) {
 // A large decision waiting on its small experiment: one was written and
 // nothing learned from it yet.
 export const experimentPending = (d) => d.status === 'open' && !!d.experiment?.text.trim() && !d.experiment.learned.trim();
+
+// ---------- "איך זה יצא?" (M6e) ----------
+
+// The day key its review is due (decidedAt + reviewDays of its track), or
+// null for a small or undecided one. Derived, not stored.
+export function reviewKey(d) {
+  const days = DECISIONS.reviewDays[d.track];
+  if (!days || d.status !== 'decided' || !d.decidedAt) return null;
+  return shiftDays(dateKey(toDate(d.decidedAt)), days);
+}
+
+// Due on or before today and not answered yet.
+export function reviewDue(d, todayKey) {
+  const key = reviewKey(d);
+  return !!key && !d.reviewedAt && key <= todayKey;
+}
+
+// The decisions waiting for their review, the oldest due first.
+export function reviewsDue(list, todayKey) {
+  return list.filter((d) => reviewDue(d, todayKey)).sort((a, b) => (reviewKey(a) < reviewKey(b) ? -1 : 1));
+}
 
 // The procrastination ladder for an open decision with no decide-by date:
 // null, 'setDate' (a week: "לקבוע תאריך החלטה"), 'missing' (two weeks:

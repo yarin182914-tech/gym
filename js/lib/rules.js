@@ -426,4 +426,10 @@ export const DECISIONS = {
   // The feet game (js/ui/choosers/feet.js): the drum roll's length, the
   // beat it starts and ends on, the hush before the toe, and the toe.
   game: { drumMs: 2400, firstBeatMs: 260, lastBeatMs: 70, hushMs: 500, toeMs: 600 },
+  // "איך זה יצא?" (M6e): days after deciding, per track (small: never).
+  // The answer is worth the same whatever it says; homeReviewCount lines
+  // of it on "היום".
+  reviewDays: { medium: 30, large: 90 },
+  review: 3,
+  homeReviewCount: 1,
 };
