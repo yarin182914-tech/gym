@@ -8,6 +8,10 @@
 //   שינה   → שינה, last night's sheet
 //   הרגל   → היום, the habits (a new one when there are none)
 //   משימה  → משימות, one line into the inbox
+//   החלטה  → משימות, להחליט, a new decision
+//
+// Other screens can ask for a screen's action too (runQuickAction) — the
+// home screen's nearest decision opens it on להחליט this way.
 //
 // A screen takes its actions with handleQuickActions(route, fn) once it has
 // loaded. An action asked for while its screen is showing runs at once;
@@ -33,6 +37,7 @@ const ITEMS = [
   { route: 'sleep', action: 'sleep', icon: 'moon', label: 'שינה' },
   { route: 'today', action: 'habit', icon: 'check', label: 'הרגל' },
   { route: 'tasks', action: 'task', icon: 'list-checks', label: 'משימה' },
+  { route: 'tasks', action: 'decision', icon: 'split', label: 'החלטה' },
 ];
 
 const handlers = {}; // route -> fn(action), while that screen is mounted
@@ -50,6 +55,10 @@ export function handleQuickActions(route, fn) {
   return () => {
     if (handlers[route] === fn) delete handlers[route];
   };
+}
+
+export function runQuickAction(route, action) {
+  request(route, action);
 }
 
 function request(route, action) {
