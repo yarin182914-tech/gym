@@ -17,6 +17,7 @@ import { openBottomSheet } from './bottom-sheet.js';
 import { chooser, DEFAULT_CHOOSER } from './choosers/index.js';
 import { mountDateField, friendlyDate } from './date-time-picker.js';
 import { icon } from './icon.js';
+import { infoButton, infoDialog } from './info-dialog.js';
 import { esc } from '../core/dom.js';
 import { DECISIONS } from '../lib/rules.js';
 import {
@@ -44,6 +45,79 @@ const LARGE_STEPS = [
   ['choose', 'החלטה'],
 ];
 const EXPERIMENT_DAYS = [[1, 'מחר'], [3, '3 ימים'], [7, 'שבוע']];
+
+// What each step means and why it's there — behind its ⓘ button.
+const HELP = {
+  decideBy: {
+    title: 'למה תאריך?',
+    body: [
+      'בלי תאריך, התלבטות גדולה יכולה להימשך חודשים. התאריך שם גבול: עד אז חושבים, ואז מחליטים.',
+      `ברירת המחדל היא שבוע, ואפשר להזיז אותו בלי עונש. החלטה עד סוף היום הזה שווה ${DECISIONS.points.large.onTime} נקודות, ואחריו ${DECISIONS.points.large.late}.`,
+      'לא חייבים לעבור את כל השלבים. אפשר ללחוץ "החלטתי" בכל רגע.',
+    ],
+  },
+  options: {
+    title: `למה לפחות ${DECISIONS.minOptionsLarge} אפשרויות?`,
+    body: [
+      'כשיש רק שתיים ("לעבור או לא"), קל להיתקע ביניהן. מחקרים על החלטות מצאו שכשהוסיפו אפשרות שלישית, הרבה פחות החלטות נכשלו.',
+      'השלישית מכריחה לחשוב מחוץ לקופסה: אולי שילוב של השתיים, אולי לחכות חצי שנה, אולי משהו שלא חשבת עליו.',
+      'טריק: דמיין שאף אחת מהאפשרויות שכתבת לא קיימת. מה היית עושה?',
+    ],
+  },
+  friend: {
+    title: 'מה היית אומר לחבר?',
+    body: [
+      'על עצמנו אנחנו מתלבטים ומפחדים. לחבר אנחנו נותנים עצה ברורה תוך שנייה, כי רואים את התמונה הגדולה ולא נתקעים בפרטים.',
+      'כתוב מה היית אומר לחבר טוב שמתלבט בדיוק על זה. הרבה פעמים זו התשובה שלך.',
+    ],
+  },
+  reality: {
+    title: 'ציון לפי מה שחשוב לך',
+    body: [
+      'כתוב עד 3 דברים שחשובים לך בהחלטה (למשל מחיר, מרחק, שקט), ותן לכל אחד כוכבים: ★ קצת חשוב, ★★★ מאוד.',
+      `אחר כך תן לכל אפשרות ציון 1–5 בכל דבר. האפליקציה מחשבת ממוצע ומציעה את הראשונה ש"מספיק טובה" (${DECISIONS.goodEnough} ומעלה).`,
+      'למה "מספיק טוב" ולא "הכי טוב"? מי שמחפש את המושלם מתלבט יותר ומרוצה פחות.',
+    ],
+  },
+  distance: {
+    title: 'מה זה 10-10-10?',
+    body: [
+      'קח את האפשרות שאתה הכי נוטה אליה, ודמיין שכבר בחרת בה. איך תרגיש בעוד 10 דקות? בעוד 10 חודשים? בעוד 10 שנים?',
+      'אחרי 10 דקות מדברים הפחד או ההתרגשות. אחרי 10 שנים נשאר רק מה שבאמת חשוב. אם בעוד 10 שנים זה כמעט לא ישנה, אל תיתן לפחד של עכשיו להחליט.',
+      'מתלבט בין שתיים? עשה את זה לכל אחת, משפט קצר לכל אחת.',
+    ],
+  },
+  premortem: {
+    title: 'למה לדמיין כישלון?',
+    body: [
+      'דמיין שעברה שנה, בחרת, וזה לא הצליח. מה הכי סביר שקרה?',
+      'כשמדמיינים שזה כבר נכשל, קל לראות סיכונים שמתעלמים מהם כשמתלהבים. ככה אפשר להתכונן מראש, או לגלות שאפשרות אחרת בטוחה יותר.',
+      'זה לא כדי להפחיד. זה מוריד גם ביטחון-יתר וגם חרדה.',
+    ],
+  },
+  experiment: {
+    title: 'מה זה ניסוי קטן?',
+    body: [
+      'לפני שמתחייבים להחלטה גדולה, בודקים אותה בקטן: מדברים עם מישהו שעשה את זה, ישנים לילה בשכונה החדשה, עובדים שבוע מהבית.',
+      'ניסוי קטן נותן מידע אמיתי במקום ניחוש. כשהוא נגמר, כותבים מה למדת.',
+      'רשות. אם אין ניסוי שמתאים, דלג.',
+    ],
+  },
+  choose: {
+    title: 'להחליט',
+    body: [
+      'בחר אפשרות, כתוב במשפט למה, ואיך זה מרגיש.',
+      `הנקודות הן על החלטה בזמן, לא על "צדקתי": ${DECISIONS.points.large.onTime} עד התאריך, ${DECISIONS.points.large.late} אחריו.`,
+    ],
+  },
+};
+
+// A step's one-line hint with its ⓘ.
+const stepHead = (key, hint) => `
+  <div class="decision-step-head">
+    <p class="decision-hint">${hint}</p>
+    ${infoButton(key, `הסבר: ${HELP[key].title}`)}
+  </div>`;
 
 function pill(attr, value, label, active) {
   return `<button type="button" class="pill${active ? ' active' : ''}" ${attr}="${esc(value)}" aria-pressed="${active}">${label}</button>`;
@@ -213,7 +287,7 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
       function criteriaBlock() {
         const list = named();
         return `
-          <div class="sheet-field-label">מה חשוב לך? (עד ${DECISIONS.maxCriteria})</div>
+          <div class="sheet-field-label decision-label-info">מה חשוב לך? (עד ${DECISIONS.maxCriteria}) ${infoButton('reality', `הסבר: ${HELP.reality.title}`)}</div>
           <div class="decision-criteria">
             ${d.criteria.map((c, i) => `
               <div class="decision-criterion">
@@ -241,8 +315,9 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
       }
 
       const tenBlock = () => `
-        <div class="sheet-field-label">10-10-10</div>
-        <textarea class="search-bar decision-text" data-d-ten rows="2" maxlength="300" placeholder="איך תרגיש עם זה בעוד 10 דקות, 10 חודשים ו־10 שנים?">${esc(d.tenTenTen)}</textarea>`;
+        <div class="sheet-field-label decision-label-info">10-10-10 ${infoButton('distance', `הסבר: ${HELP.distance.title}`)}</div>
+        <p class="decision-hint decision-hint--top">קח את האפשרות שאתה הכי נוטה אליה ודמיין שבחרת בה.</p>
+        <textarea class="search-bar decision-text" data-d-ten rows="3" maxlength="300" placeholder="בעוד 10 דקות ארגיש… בעוד 10 חודשים… בעוד 10 שנים…">${esc(d.tenTenTen)}</textarea>`;
 
       function suggestBlock() {
         const sug = suggestion(d);
@@ -293,6 +368,7 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
         return `
           <div class="decision-by">
             <span class="decision-by-label">${icon('calendar-days', { className: 'icon--sm' })} להחליט עד</span>
+            ${infoButton('decideBy', `הסבר: ${HELP.decideBy.title}`)}
             <div class="decision-by-field" data-d-by></div>
           </div>
           <p class="decision-hint" data-d-by-left>${text}</p>`;
@@ -301,26 +377,26 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
       function largeBody() {
         if (largeStep === 'options') {
           return `
-            <p class="decision-hint">לפחות ${DECISIONS.minOptionsLarge}. ואם אף אחת מהן לא הייתה קיימת, מה היית עושה?</p>
+            ${stepHead('options', `לפחות ${DECISIONS.minOptionsLarge}. ואם אף אחת מהן לא הייתה קיימת, מה היית עושה?`)}
             ${optionInputs()}`;
         }
         if (largeStep === 'friend') {
           return `
-            <p class="decision-hint">חבר טוב שואל אותך בדיוק את השאלה הזאת. מה היית אומר לו?</p>
+            ${stepHead('friend', 'חבר טוב שואל אותך בדיוק את השאלה הזאת. מה היית אומר לו?')}
             <textarea class="search-bar decision-text" data-d-friend rows="3" maxlength="400" placeholder="הייתי אומר לו…">${esc(d.friendAdvice)}</textarea>`;
         }
-        if (largeStep === 'reality') return `<p class="decision-hint">רשות: מה חשוב לך, וכמה כל אפשרות עונה על זה.</p>${criteriaBlock()}${suggestBlock()}`;
+        if (largeStep === 'reality') return `<p class="decision-hint decision-hint--top">רשות: מה חשוב לך, וכמה כל אפשרות עונה על זה.</p>${criteriaBlock()}${suggestBlock()}`;
         if (largeStep === 'distance') return tenBlock();
         if (largeStep === 'premortem') {
           return `
-            <p class="decision-hint">עברה שנה, ובחרת, וזה לא הצליח. מה הכי סביר שקרה? כך אפשר להתכונן מראש.</p>
+            ${stepHead('premortem', 'עברה שנה, בחרת, וזה לא הצליח. מה הכי סביר שקרה?')}
             <textarea class="search-bar decision-text" data-d-premortem rows="3" maxlength="400" placeholder="זה לא הצליח כי…">${esc(d.premortem)}</textarea>`;
         }
         if (largeStep === 'experiment') {
           const exp = d.experiment || { text: '', by: null, learned: '' };
           const byKey = exp.by ? dateKey(toDate(exp.by)) : null;
           return `
-            <p class="decision-hint">צעד קטן שבודק לפני שמתחייבים. למשל: לדבר עם מישהו שעשה את זה, או לנסות שבוע.</p>
+            ${stepHead('experiment', 'צעד קטן שבודק לפני שמתחייבים. למשל: לדבר עם מישהו שעשה את זה.')}
             <input type="text" class="search-bar" data-d-exp maxlength="120" placeholder="מה בודקים?" value="${esc(exp.text)}">
             ${exp.text.trim() ? `
               <div class="sheet-field-label">עד מתי? (רשות)</div>
@@ -329,7 +405,7 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
               <div class="sheet-field-label">מה למדתי?</div>
               <textarea class="search-bar decision-text" data-d-learned rows="2" maxlength="300" placeholder="אחרי הניסוי">${esc(exp.learned)}</textarea>` : ''}`;
         }
-        return `${suggestBlock()}${chooseBlock()}`;
+        return `${stepHead('choose', 'בוחרים, כותבים למה, וזהו.')}${suggestBlock()}${chooseBlock()}`;
       }
 
       function largeView() {
@@ -476,6 +552,7 @@ export function openDecisionSheet({ decision = null, prefill = {}, newId, onSave
         const el = e.target.closest('button');
         if (!el || el.disabled || !body.contains(el)) return;
         const a = el.dataset;
+        if (a.info) return infoDialog(HELP[a.info]);
         if (a.dNext !== undefined) {
           if (!d.question.trim()) return body.querySelector('[data-d-question]').focus();
           step = 'triage';

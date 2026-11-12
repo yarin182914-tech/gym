@@ -5565,8 +5565,68 @@ body.keyboard-open .fab,
   margin-top: var(--space-3);
 }
 
-.decision-large-body > .decision-hint:first-child {
-  margin: 0 0 var(--space-2);
+/* A step's hint with its ⓘ (js/ui/info-dialog.js). */
+.decision-step-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.decision-step-head .decision-hint {
+  flex: 1;
+  margin: 0;
+}
+
+.decision-label-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.decision-hint--top {
+  margin: 0 0 var(--space-1);
+}
+
+.info-btn {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--gold);
+}
+
+.info-btn:active {
+  background: var(--accent-dim);
+}
+
+/* The info popup opens from a bottom sheet, so it sits above it. */
+.modal-overlay--top {
+  z-index: 300;
+}
+
+.info-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+  color: var(--text);
+  font-size: var(--text-lg);
+}
+
+.info-title .icon {
+  color: var(--gold);
+}
+
+.info-text {
+  margin: 0 0 var(--space-3);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 1.6;
 }
 
 /* The feet game (js/ui/choosers/feet.js, art in feet-art.js). */
