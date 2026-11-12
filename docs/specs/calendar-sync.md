@@ -1,5 +1,5 @@
 # חיבור ליומן גוגל
-Milestone: M7 · Branch: feature/m7-calendar · Status: approved
+Milestone: M7 · Branch: feature/m7-calendar · Status: built
 Requested by ירין on 2026-11-12: "בוא נעבוד על פי מפת הדרכים... כן, M7"
 
 ## למה (הבעיה)
@@ -14,7 +14,9 @@ Requested by ירין on 2026-11-12: "בוא נעבוד על פי מפת הדר�
 - **מחובר:** "מחובר · <כתובת המייל>", "סנכרון אחרון: היום 18:02", וכפתור קטן "ניתוק".
 - **צריך לחבר מחדש** (גוגל ביטל את האישור): שורה אפורה "החיבור פג. חיבור מחדש" עם אותו כפתור. לא אדום.
 - **השרת עוד לא מוגדר:** הכרטיס נשאר אפור "בקרוב".
-- **מצב `?dev`:** הכרטיס מוצג כ"מחובר (הדגמה)", שום דבר לא נשלח לגוגל.
+- **מצב `?dev`:** הכרטיס מוצג כ"מחובר (הדגמה)", ואפשר ללחוץ "ניתוק" ו"חיבור היומן" כדי לראות את שני המצבים. שום דבר לא נשלח לגוגל.
+
+צילומים: `img/calendar-card-connect-bright.png`, `img/calendar-card-connected-dark.png`, `img/calendar-task-icon-dark.png`.
 
 **במשימות:** משימה שיש לה אירוע ביומן מקבלת סמל יומן קטן בשורה שלה. אין מסך חדש ואין שאלה בזמן השמירה.
 
@@ -38,7 +40,9 @@ Requested by ירין on 2026-11-12: "בוא נעבוד על פי מפת הדר�
 `CALENDAR` in `js/lib/rules.js`:
 - `durationMin: { S: 15, M: 60, L: 120 }` — event length by task size.
 - `connectSyncMax: 50` — at most this many open tasks pushed right after connecting.
-- `retryMax: 30` — pending task ids kept on the device for retry.
+- `batchSize: 20` — task ids the server takes in one request.
+- `retryMax: 60` — pending task ids kept on the device for retry.
+- `syncDelayMs: 1500` — a burst of saves goes out as one request.
 - `appUrl` — the link written in the event description.
 
 Rules:
@@ -46,12 +50,14 @@ Rules:
 - ג׳ימי touches only events it created (private extended property `gymi=true` + `taskId`); before deleting it checks the mark.
 - Marking done changes only the event's name, so an event moved by hand in the calendar stays where it was put.
 - An event deleted by hand in the calendar is not recreated until the task's day or time changes.
+- The calendar must belong to the Google account the user signs in to ג׳ימי with (another account is refused with a Hebrew message).
+- Each task has its own fixed event id (`sha256(uid:taskId)`), so a request sent twice never makes two events.
 - A calendar failure never blocks or changes the task itself, and shows nothing red.
 
 ## Data (Firestore)
 - `users/{uid}/tasks/{id}` (existing):
   - `calendarEventId` string | null — now written by the server.
-  - `calendarSync` string | null — new. Signature of what was last sent (`<start>|<end>|<title>|<done>`), so an unchanged task costs no Google call. Missing on old docs = `null`. Server only.
+  - `calendarSync` string | null — new. Signature of what was last sent (`<start>|<end>#<event name>`), so an unchanged task costs no Google call. Missing on old docs = `null`. Server only.
   - The server does not touch `updatedAt` when writing these two.
 - `users/{uid}` (existing doc), new map `calendar`: `{ connected: boolean, email: string, connectedAt: Timestamp, lastSyncAt: Timestamp | null, needsReconnect: boolean }`. Missing = not connected. Server writes, app reads.
 - `calendarTokens/{uid}` — new top-level collection, **server only**: `{ refreshToken, scope, createdAt }`. No rule matches it, so every client read/write is denied (firebase-admin bypasses rules). No `firestore.rules` change.
@@ -61,9 +67,13 @@ Rules:
   - `POST { action: 'start' }` (Firebase ID token in `Authorization`) → the Google consent URL (`access_type=offline`, `prompt=consent`, scope `calendar.events` + `email`), `state` signed with HMAC and short-lived.
   - `GET ?code&state` (Google's redirect) → exchanges the code, stores the refresh token, sets `users/{uid}.calendar`, redirects to `/#/connections`.
   - `POST { action: 'sync', taskIds: [...] }` → for each task: create / patch / delete its event, write `calendarEventId` + `calendarSync`.
-  - `POST { action: 'remove', eventId }` → for a task already deleted; deletes only an event marked `gymi=true`.
+  - A deleted task goes through the same `sync`: its event is found by the task's fixed event id. A linked event with another id is deleted only if it carries the `gymi=true` mark.
+  - `POST { action: 'status' }` → `{ configured, calendar }` for the card.
   - `POST { action: 'disconnect' }` → revokes the token, deletes `calendarTokens/{uid}`, `calendar.connected = false`.
-- `api/_lib/calendar.js` — token refresh + Calendar REST calls with `fetch` (no new npm dependency). `invalid_grant` → `calendar.needsReconnect = true`.
+- `api/_lib/calendar.js` — consent link, token refresh + Calendar REST calls with `fetch` (no new npm dependency). `invalid_grant` → `calendar.needsReconnect = true`.
+- `api/_lib/calendar-events.js` — which calls to make for a task; no Firebase, tested by `tools/test-calendar-sync.mjs` against a pretend calendar.
+- `js/lib/calendar-sync.js` — the app's side: the retry list in localStorage, sent after Firestore has the save.
+- `sw.js` — the service worker leaves `/api/` requests alone.
 - `js/lib/calendar-event.js` — pure: task → `{ action, event, signature }`. Shared by server and tests (`tools/test-calendar-event.mjs`).
 - The Claude connector (`api/_lib/tools.js`) has no task tools yet. The sync is one server function (`syncTasks(uid, taskIds)`), so those tools call it when they are added.
 - ID-token check with `firebase-admin/auth` (already a dependency).
@@ -90,4 +100,6 @@ Rules:
 - הכרטיס והסמל קריאים ב-DARK, ב-BRIGHT ובכל ערכה אקראית.
 
 ## שאלות פתוחות
+- לא נבדק מול גוגל אמיתי לפני ההגדרה של ירין: כל הזרימה (אישור, יצירה, הזזה, ✓, מחיקה) נבדקה רק מול יומן מדומה בבדיקות. הבדיקה האמיתית היא על ה-preview אחרי ההגדרה.
+- משימה שנכתבה מבחוץ (לא דרך האפליקציה) נכנסת ליומן רק בשמירה הבאה שלה באפליקציה.
 - האם חזרה ממסך האישור של גוגל נוחתת בתוך האפליקציה המותקנת באייפון או בספארי — ייבדק על המכשיר; החיבור עצמו נשמר בשני המקרים.
