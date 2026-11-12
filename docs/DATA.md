@@ -1097,10 +1097,12 @@ and `scheduledAt` as above; to add one, write the whole document with
 
 ## Decisions — `users/{uid}/decisions/{auto}`
 
-One document per decision on "משימות → להחליט" (M6b); the nearest open one
-also shows on "היום". Two questions sort it into a track — `small` (a
-2-minute budget and the feet draw) or `medium` (10 minutes, or by the end of
-the next day, with criteria and a score). The reward is for deciding inside
+One document per decision on "משימות → להחליט" (M6b, M6c); the nearest open
+one also shows on "היום". Two questions sort it into a track — `small` (a
+2-minute budget and the feet draw), `medium` (10 minutes, or by the end of
+the next day, with criteria and a score) or `large` (M6c: a decide-by date
+a week out, and optional WRAP steps — a friend's advice, the score check,
+10-10-10, a premortem and a small experiment). The reward is for deciding inside
 the budget, never for being "right". The app saves it when its track starts
 (`startedAt` starts the clock) and whenever a field is left, so a decision
 closed half-way stays open in the list.
@@ -1108,15 +1110,18 @@ closed half-way stays open in the list.
 | Field | Type | Notes |
 |---|---|---|
 | `question` | string | Hebrew, one line — `"איזו מסעדה הערב?"` |
-| `track` | string | `small` · `medium` (a "large" answer runs as `medium` until M6c) |
+| `track` | string | `small` · `medium` · `large` (M6c; before it, a "large" answer ran as `medium`) |
 | `triage` | map | `{ "reversible": true \| false \| null, "impact": "low" \| "some" \| "high" \| null }` — the two answers |
-| `options` | array | 2–4 of `{ "id": "o3k9x1", "text": "סושי", "scores": { "<criterionId>": 1–5 } }`. `scores` is `{}` on a small decision. |
-| `criteria` | array | Medium: up to 3 of `{ "id": "c7a2b0", "name": "מחיר", "weight": 1 \| 2 \| 3 }`. `[]` on a small one. |
+| `options` | array | 2–4 (large: 3–4) of `{ "id": "o3k9x1", "text": "סושי", "scores": { "<criterionId>": 1–5 } }`. `scores` is `{}` on a small decision. |
+| `criteria` | array | Medium and large: up to 3 of `{ "id": "c7a2b0", "name": "מחיר", "weight": 1 \| 2 \| 3 }`. `[]` on a small one. |
 | `goodEnough` | number | The bar for "מספיק טוב" — an option's weighted average (1–5). Default 3.5. |
-| `tenTenTen` | string | Medium: the 10-10-10 answer. `""` = none. |
-| `budgetSec` | number | The visible timer: 120 (small) · 600 (medium) |
+| `tenTenTen` | string | Medium and large: the 10-10-10 answer. `""` = none. |
+| `friendAdvice` | string | Large: "what would you tell a friend?". `""` = none; missing reads as `""`. |
+| `premortem` | string | Large: "a year on it failed — why?". `""` = none; missing reads as `""`. |
+| `experiment` | map \| null | Large: `{ "text": "לדבר עם דנה", "by": <Timestamp local noon> \| null, "learned": "" }`. Waiting on it while `text` is set and `learned` is `""` ("מחכה לניסוי"). Missing reads as `null`. |
+| `budgetSec` | number | The visible timer: 120 (small) · 600 (medium). Large: 604800 (7 days), no timer shown. |
 | `startedAt` | Timestamp \| null | When its track started. `null` = only the question so far. |
-| `decideBy` | Timestamp \| null | Local noon of the day to decide by. Medium: tomorrow, set on start. Small: `null` unless set from the ladder. |
+| `decideBy` | Timestamp \| null | Local noon of the day to decide by. Medium: tomorrow, set on start. Large: a week out, set on start, the user may move it. Small: `null` unless set from the ladder. |
 | `decidedAt` | Timestamp \| null | When "החלטתי" was tapped |
 | `choiceId` | string \| null | The chosen option's `id` |
 | `method` | string \| null | `feet` (the draw picked it) · `score` (the suggestion) · `manual` (picked by hand, or another option after the draw) |
@@ -1131,14 +1136,16 @@ closed half-way stays open in the list.
 
 **On time** — computed, never stored: small, `decidedAt` within `budgetSec`
 of `startedAt`; medium, before the midnight that ends the day after
-`startedAt` (Israel time), or within its 600 seconds if that's later.
+`startedAt` (Israel time), or within its 600 seconds if that's later;
+large, before the midnight that ends its `decideBy` day (a week after
+`startedAt` if it has none). Moving `decideBy` moves the line.
 
 **The ladder** — computed from `createdAt`: an open decision with no
 `decideBy` shows "לקבוע תאריך החלטה" after 7 days and "מה חסר כדי
 להחליט?" after 14. Never red, never a penalty.
 
 **Points** (pointsLedger rules `decision` and `decision-first`, on the day
-of `decidedAt`): small 5 on time / 2 late; medium 15 / 5; +5 when not
+of `decidedAt`): small 5 on time / 2 late; medium 15 / 5; large 40 / 10; +5 when not
 `reopened`. Badges for 5, 20 and 50 on-time decisions in a row. All in
 `DECISIONS`, `js/lib/rules.js`.
 
