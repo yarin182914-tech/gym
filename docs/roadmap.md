@@ -4,7 +4,7 @@ Each milestone = one branch + one PR. Build them in order; each one must leave t
 Section names in quotes refer to headings in `docs/upgrade-plan.md` (Hebrew).
 Defaults for every number come from the plan and live in one config module (`js/lib/rules.js`).
 
-Status legend: ☐ not started · ◐ in progress (branch or PR open) · ☑ merged
+Status legend: ☐ not started · ◐ in progress (branch or PR open) · ☑ merged · ✕ dropped
 
 **Adding work:** run `/feature <request>` in Claude Code (`.claude/commands/feature.md`). It asks questions, writes a spec in `docs/specs/`, adds or updates the milestone here and waits for ירין's "כן" before building. A new milestone goes where it fits in the build order, with the next free number or a letter suffix (M6c, M8d), in this format:
 
@@ -117,22 +117,20 @@ Plan: "קבלת החלטות: "להחליט"" (the parts M6b left out). Spec: `d
 - Once M7 exists: the decide-by date goes into the calendar.
 - Done when: a large decision runs through every step offline, is scored on/late at the end of its decide-by day (unit test), and DATA.md documents the new fields.
 
-## M6c2 ◐ Decisions — screen and editing fixes — `feature/m6c2-decisions-polish`
+## M6c2 ☑ Decisions — screen and editing fixes — `feature/m6c2-decisions-polish`
 Asked by ירין 2026-11-12 after testing on the iPhone (small fix, no spec file; the PR description holds it).
 - A switch at the top of משימות: "משימות | החלטות" (open count), each part with its own tabs — היום / מטריצה / הכול, or פתוחות / החלטתי — and its own add button.
 - A decided decision opens to be edited (question, choice, why, feeling) or deleted, with a confirm. `decidedAt` and earned points stay.
 - New decision: a real field label 8px above a 48px field, and focus only after the sheet has slid up (the keyboard no longer shoves it mid-animation).
 - Done when: all three work at 390px in every colour theme.
 
-## M6d ☐ Decisions — personal rules — `feature/m6d-decision-rules`
-Spec: `docs/specs/decision-rules.md`. Needs M6c merged.
-- `users/{uid}/decisionRules/{auto}` with keywords; a new question with one of them offers the rule, which decides it in one tap. "להפוך לכלל?" after a decision, and "הכללים שלי" on להחליט.
-- Points: using a rule +3, a new rule +10, with daily caps (`ruleUsePerDay`, `ruleNewPerDay` in rules.js).
-- Done when: a rule closes a matching decision in one tap (match unit test incl. Hebrew prefix letters), the daily caps hold (unit test), and DATA.md documents `decisionRules`.
+## M6d ✕ Decisions — personal rules — dropped
+Dropped by ירין 2026-11-12: "לא נראה לי שהוא יהיה שימושי עבורי". The spec stays in `docs/specs/decision-rules.md` and a first build on the local branch `wip/m6c-all`, in case it comes back.
 
-## M6e ☐ Decisions — "איך זה יצא?" — `feature/m6e-decision-review`
+## M6e ◐ Decisions — "איך זה יצא?" — `feature/m6e-decision-review`
 Spec: `docs/specs/decision-review.md`. Needs M6c merged.
 - A month after a medium decision, three after a large one: one line on Today and a section on להחליט. Three answers (טוב / בסדר / פחות) and a note; 3 points whatever the answer.
+- Also (ירין 2026-11-12, testing it): "החלטתי" opens as soon as there is a question ("מה החלטת?" in one line when no options were written), and `?dev` sample data runs on branch previews (never the live site) so the review can be tried on the iPhone.
 - Done when: the review shows on its day (unit test), pays 3 once, and DATA.md documents the review fields.
 
 ## M7 ☐ Google Calendar sync from the app — `feature/m7-calendar`
@@ -166,6 +164,9 @@ Asked by ירין 2026-11-10 ("ממשק המעקב לא נוח").
 Plan: "שלב 3: התראות פוש", "שרת קטן" in "מענה טכני".
 - Web Push (VAPID) subscription stored per device; Vercel serverless function to send; scheduled check every 15 min from GitHub Actions. Rules: only when something is missing, max 4/day, quiet hours, quiet Saturday, merge multiple reminders.
 - Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
+
+- **What sends a notification** (ירין 2026-11-12: "תרשום את זה במפת הדרכים שלא נשכח"). Keep adding to this list as features ask for one:
+  - "איך זה יצא?" (M6e): on the day a decision's review is due, one notification with its question ("איך זה יצא? <השאלה>"), opening the review.
 
 ## M10 ☐ Signup and profile — `feature/m10-onboarding`
 Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). Includes "במה תרצה להשתמש?" (the M8 feature switches). Questionnaire on first login (level 1 only is required; ends with "set goals now / later / never" → `lifePlan.planDepth`); personal BMR (Mifflin-St Jeor) replaces the hard-coded 1950; targets from the goal; remove `weddingDate`.

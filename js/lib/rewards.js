@@ -10,7 +10,7 @@
 // Level, totals, streaks and badges are derived from the ledger here.
 // All numbers: REWARDS in js/lib/rules.js.
 
-import { REWARDS, NUTRITION, BAD_HABITS, TASKS } from './rules.js';
+import { REWARDS, NUTRITION, BAD_HABITS, TASKS, DECISIONS } from './rules.js';
 import { evaluateNight, sleepSettings, shiftDays, dateKey } from './sleep.js';
 import {
   habitContext, entryFor, isDone, isDue, weekStart, isBad, isGood, badMark, badDayLevel, slipReported,
@@ -48,6 +48,7 @@ export const RULE_SOURCE = {
   'task-start': 'task',
   decision: 'decision',
   'decision-first': 'decision',
+  'decision-review': 'decision',
 };
 
 // Firestore ids can't hold '/', and stay short.
@@ -293,6 +294,12 @@ export function scoreDay(key, ctx, { closed }) {
     const { raw, onTime, first } = decisionPoints(d);
     out.push(award(key, 'decision', { ref: d.id, raw, grade: onTime ? 'on-time' : 'late', reason: onTime ? `החלטה בזמן — ${d.question}` : `החלטתי — ${d.question}` }));
     if (first) out.push(award(key, 'decision-first', { ref: d.id, raw: first, reason: 'בלי לחזור לשקול' }));
+  }
+  // M6e: "איך זה יצא?" answered, on the day answered, whatever the answer.
+  for (const d of ctx.decisions || []) {
+    if (d.reviewedAt && dateKey(toDate(d.reviewedAt)) === key) {
+      out.push(award(key, 'decision-review', { ref: d.id, raw: DECISIONS.review, reason: `איך זה יצא — ${d.question}` }));
+    }
   }
 
   if (closed) {

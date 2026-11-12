@@ -887,7 +887,7 @@ higher value, so two phones can't lower each other's entries.
 |---|---|---|
 | `date` | string | `yyyy-mm-dd` — the day it counts for (a night: its morning) |
 | `source` | string | `sleep` · `habit` · `meal` · `nutrition` · `weight` · `workout` · `bonus` · `task` · `decision` |
-| `rule` | string | `sleep-bedtime` · `sleep-duration` · `habit` · `habit-week` · `meal-log` · `calories` · `protein` · `meal-count` · `weigh-in` · `workout` · `workout-week` · `pr` · `perfect-day` · `bad-clean` · `bad-slip` · `bad-week` · `bad-streak` · `task` · `task-start` · `decision` · `decision-first` |
+| `rule` | string | `sleep-bedtime` · `sleep-duration` · `habit` · `habit-week` · `meal-log` · `calories` · `protein` · `meal-count` · `weigh-in` · `workout` · `workout-week` · `pr` · `perfect-day` · `bad-clean` · `bad-slip` · `bad-week` · `bad-streak` · `task` · `task-start` · `decision` · `decision-first` · `decision-review` |
 | `ref` | string \| null | The habit / meal / `<workoutId>_<exercise>` it's for |
 | `points` | number | Points awarded (after the daily cap) |
 | `raw` | number | What the rule earned before the cap |
@@ -1098,7 +1098,7 @@ and `scheduledAt` as above; to add one, write the whole document with
 ## Decisions — `users/{uid}/decisions/{auto}`
 
 One document per decision on "משימות → להחליט" (M6b, M6c); the nearest open
-one also shows on "היום". Two questions sort it into a track — `small` (a
+one also shows on "היום", and so does one whose "איך זה יצא?" is due (M6e). Two questions sort it into a track — `small` (a
 2-minute budget and the feet draw), `medium` (10 minutes, or by the end of
 the next day, with criteria and a score) or `large` (M6c: a decide-by date
 a week out, and optional WRAP steps — a friend's advice, the score check,
@@ -1129,6 +1129,9 @@ closed half-way stays open in the list.
 | `reason` | string | Why, one line. `""` = none. |
 | `feeling` | string \| null | `happy` · `unsure` · `disappointed` |
 | `stuckReason` | string \| null | The answer to "מה חסר כדי להחליט?": `info` · `talk` · `courage` |
+| `reviewedAt` | Timestamp \| null | M6e: when "איך זה יצא?" was answered. Set once; a later save keeps it. Missing reads as `null`. |
+| `outcome` | string \| null | M6e: the answer — `good` (טוב) · `ok` (בסדר) · `meh` (פחות). None is wrong. Missing reads as `null`. |
+| `outcomeNote` | string | M6e: "מה למדתי?", optional. `""` = none; missing reads as `""`. |
 | `status` | string | `open` · `decided` · `dropped` ("לוותר עליה" — kept, just off the list) |
 | `source` | string | `manual` · `quick` (the + button) · `coach` (written from outside) |
 | `createdAt` | Timestamp | First saved — the ladder counts from it |
@@ -1144,9 +1147,15 @@ large, before the midnight that ends its `decideBy` day (a week after
 `decideBy` shows "לקבוע תאריך החלטה" after 7 days and "מה חסר כדי
 להחליט?" after 14. Never red, never a penalty.
 
-**Points** (pointsLedger rules `decision` and `decision-first`, on the day
+**"איך זה יצא?"** (M6e) — computed, never stored: a decided medium one is due
+30 days after the day of `decidedAt` (Israel time), a large one 90, a small one
+never. It stays due (on "היום" and on top of להחליט → פתוחות) until
+`reviewedAt` is set; "לא עכשיו" changes nothing.
+
+**Points** (pointsLedger rules `decision`, `decision-first` and `decision-review`, on the day
 of `decidedAt`): small 5 on time / 2 late; medium 15 / 5; large 40 / 10; +5 when not
-`reopened`. Badges for 5, 20 and 50 on-time decisions in a row. All in
+`reopened`. `decision-review` (M6e): 3 on the day of `reviewedAt`, whatever the
+`outcome`. Badges for 5, 20 and 50 on-time decisions in a row. All in
 `DECISIONS`, `js/lib/rules.js`.
 
 **From outside the app (the evening check):** read the open ones
@@ -1169,6 +1178,7 @@ one decided from outside.
   "decidedAt": "<Timestamp 2026-11-12 10:08 Israel>",
   "choiceId": "ob2", "method": "score", "reopened": false,
   "reason": "יותר זול, מספיק טוב", "feeling": "unsure", "stuckReason": null,
+  "reviewedAt": "<Timestamp 2026-12-14 20:10 Israel>", "outcome": "good", "outcomeNote": "הסוללה באמת מחזיקה",
   "status": "decided", "source": "manual",
   "createdAt": "serverTimestamp()", "updatedAt": "serverTimestamp()" }
 ```

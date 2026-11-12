@@ -11,6 +11,8 @@
 // above) and החלטות (M6b) — the open decisions (with their own ladder) and
 // the journal of decided ones, each part with its own tabs and add button.
 // A decided one opens to be edited or deleted (js/ui/decision-edit.js).
+// Medium and large ones come back on פתוחות as "איך זה יצא?" a month or
+// three later (M6e, js/ui/decision-review.js).
 // The flow itself is js/ui/decision-sheet.js; logic js/lib/decisions.js.
 
 import {
@@ -18,10 +20,11 @@ import {
 } from '../lib/firestore.js';
 import {
   TRACKS, FEELINGS, MISSING, MISSING_TIPS, normalizeDecision, openDecisions, decidedDecisions, ladderStage as decisionLadder,
-  choiceText, isOnTime, daysLeft, experimentPending,
+  choiceText, isOnTime, daysLeft, experimentPending, OUTCOMES, reviewsDue,
 } from '../lib/decisions.js';
 import { openDecisionSheet } from '../ui/decision-sheet.js';
 import { openDecisionEditSheet } from '../ui/decision-edit.js';
+import { openReviewSheet } from '../ui/decision-review.js';
 import {
   AREAS, OWNERS, SIZES, STUCK_REASONS, STUCK_TIPS, normalizeTask, dayList, isRepeating, isOpen, isDoneOn,
   isUnscheduled, quadrant, sortTasks, ladderStage, whenText, toggleDoneDate, noonOf, weekOf, isUrgent, scheduledKey,
@@ -83,9 +86,12 @@ export async function mountTasks(rootEl) {
     decideTab = 'open';
     render();
     if (action === 'decision') return openDecision(null, { source: 'quick' });
-    // 'decision:<id>' — from the home screen's nearest decision.
+    // 'decision:<id>' — the home screen's nearest decision; 'review:<id>' —
+    // its "איך זה יצא?".
     const dec = decisions.find((x) => `decision:${x.id}` === action);
-    if (dec) openDecision(dec);
+    if (dec) return openDecision(dec);
+    const rev = decisions.find((x) => `review:${x.id}` === action);
+    if (rev) openReview(rev);
   });
 }
 
@@ -122,6 +128,16 @@ function openDecided(decision) {
       deleteDecision(id).catch(failed('decision delete'));
       render();
       showToast('נמחקה');
+    },
+  });
+}
+
+function openReview(decision) {
+  openReviewSheet({
+    decision,
+    onSave: (id, patch) => {
+      saveDecision(id, patch);
+      showToast(`${icon('check', { className: 'icon--sm' })} נשמר ביומן`);
     },
   });
 }
@@ -200,7 +216,7 @@ function postpone(task) {
 }
 
 function onClick(e) {
-  const el = e.target.closest('[data-view], [data-filter-area], [data-filter-owner], [data-check], [data-open], [data-add], [data-postpone], [data-why], [data-reason], [data-act], [data-dec-new], [data-dec-open], [data-dec-when], [data-dec-missing], [data-dec-why], [data-area], [data-dec-tab], [data-dec-edit]');
+  const el = e.target.closest('[data-view], [data-filter-area], [data-filter-owner], [data-check], [data-open], [data-add], [data-postpone], [data-why], [data-reason], [data-act], [data-dec-new], [data-dec-open], [data-dec-when], [data-dec-missing], [data-dec-why], [data-area], [data-dec-tab], [data-dec-edit], [data-dec-review]');
   if (!el || !container?.contains(el)) return;
   const d = el.dataset;
   if (d.view) {
@@ -222,9 +238,10 @@ function onClick(e) {
     return;
   }
   if (d.decNew !== undefined) return openDecision(null);
-  const dec = decisions.find((x) => x.id === (d.decOpen || d.decWhy || (d.decWhen || d.decMissing || '').split('|')[0]));
+  const dec = decisions.find((x) => x.id === (d.decOpen || d.decWhy || d.decReview || (d.decWhen || d.decMissing || '').split('|')[0]));
   if (dec) {
     if (d.decOpen) return openDecision(dec);
+    if (d.decReview) return openReview(dec);
     if (d.decWhy) {
       openLadder = openLadder === dec.id ? null : dec.id;
       return render();
@@ -291,7 +308,7 @@ function render() {
   const deciding = view === 'decide';
   if (!deciding) lastTaskView = view;
   const body = view === 'matrix' ? matrixView() : view === 'all' ? allView() : deciding ? decideView() : todayView();
-  const openCount = openDecisions(decisions).length;
+  const openCount = openDecisions(decisions).length + reviewsDue(decisions, todayKey()).length;
   const tabs = deciding
     ? Object.entries(DECIDE_TABS).map(([k, l]) => `<button type="button" data-dec-tab="${k}"${decideTab === k ? ' class="active" aria-current="page"' : ''}>${l}</button>`)
     : Object.entries(VIEWS).map(([k, l]) => `<button type="button" data-view="${k}"${view === k ? ' class="active" aria-current="page"' : ''}>${l}</button>`);
@@ -319,13 +336,33 @@ function decideView() {
       <div class="task-list">${done.slice(0, 50).map(journalRow).join('')}</div>`;
   }
   const open = openDecisions(decisions);
+  const reviews = reviewsDue(decisions, todayKey());
+  const reviewPart = reviews.length
+    ? section('איך זה יצא?', reviews.map(reviewRow), { count: reviews.length, note: 'הגיע הזמן להסתכל אחורה. אין תשובה נכונה.' })
+    : '';
   if (!open.length) {
+    if (reviewPart) return reviewPart;
     return `<div class="card decision-empty">
       ${emptyState('מתלבט? כתוב את השאלה, ותקבל לה זמן קצוב. קטנה: 2 דקות והגרלה. בינונית: עד מחר, עם ציון. גדולה: שבוע, בשלבים.', { centered: true })}
       <button type="button" class="btn btn-primary" data-dec-new>החלטה חדשה</button>
     </div>`;
   }
-  return `<div class="task-list">${open.map(decisionRow).join('')}</div>`;
+  return `${reviewPart}${reviewPart ? section('פתוחות', open.map(decisionRow)) : `<div class="task-list">${open.map(decisionRow).join('')}</div>`}`;
+}
+
+// A decision whose "איך זה יצא?" is due.
+function reviewRow(dec) {
+  return `
+    <div class="card task-row decision-row">
+      <div class="task-row-main">
+        <span class="decision-row-icon">${icon('repeat', { className: 'icon--sm' })}</span>
+        <button type="button" class="task-row-body" data-dec-review="${esc(dec.id)}">
+          <span class="task-title">${esc(dec.question)}</span>
+          <span class="decision-choice">${esc(choiceText(dec))}</span>
+          <span class="task-when">החלטת ${shortDayOf(dec.decidedAt)}</span>
+        </button>
+      </div>
+    </div>`;
 }
 
 // "להחליט עד …" with the days left, for a decision with a date.
@@ -400,8 +437,10 @@ function journalRow(dec) {
             ${dec.method === 'feet' ? '<span class="task-tag">הגרלה</span>' : dec.method === 'score' ? '<span class="task-tag">לפי ציון</span>' : ''}
             ${dec.track === 'large' ? `<span class="task-tag task-tag--quiet">${TRACKS.large}</span>` : ''}
             ${dec.feeling ? `<span class="task-tag task-tag--quiet">${FEELINGS[dec.feeling]}</span>` : ''}
+            ${dec.outcome ? `<span class="task-tag">יצא: ${OUTCOMES[dec.outcome]}</span>` : ''}
           </span>
           ${dec.reason ? `<span class="task-step">${esc(dec.reason)}</span>` : ''}
+          ${dec.outcomeNote ? `<span class="task-step">למדתי: ${esc(dec.outcomeNote)}</span>` : ''}
         </button>
       </div>
     </div>`;

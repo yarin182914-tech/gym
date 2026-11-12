@@ -1,12 +1,13 @@
 // "משימות להיום" on the home screen (M6): the few most pressing open tasks
 // for today (TASKS.homeCount), each with its tick, and a link to the
 // tasks page; under them the nearest open decision (M6b, one line, opens it
-// on להחליט). Hidden when there is nothing. Loads and saves on its own, so
+// on להחליט), and a decision whose "איך זה יצא?" is due (M6e, opens its
+// review). Hidden when there is nothing. Loads and saves on its own, so
 // js/pages/today.js only gives it a place.
 
 import { listTasks, setTask, listDecisions } from '../lib/firestore.js';
 import { normalizeTask, topToday, isRepeating, toggleDoneDate, whenText, shortDay } from '../lib/tasks.js';
-import { normalizeDecision, openDecisions } from '../lib/decisions.js';
+import { normalizeDecision, openDecisions, reviewsDue } from '../lib/decisions.js';
 import { DECISIONS } from '../lib/rules.js';
 import { dateKey } from '../lib/sleep.js';
 import { toDate } from '../lib/format.js';
@@ -29,7 +30,8 @@ export function mountTodayTasks(host) {
     const done = tasks.filter((t) => justDone.has(t.id));
     const list = [...top, ...done];
     const nearest = openDecisions(decisions).slice(0, DECISIONS.homeCount);
-    if (!list.length && !nearest.length) {
+    const reviews = reviewsDue(decisions, key).slice(0, DECISIONS.homeReviewCount);
+    if (!list.length && !nearest.length && !reviews.length) {
       host.innerHTML = '';
       return;
     }
@@ -64,6 +66,16 @@ export function mountTodayTasks(host) {
               </button>
             </div>
           </div>`).join('')}
+        ${reviews.map((d) => `
+          <div class="card task-row decision-row">
+            <div class="task-row-main">
+              <span class="decision-row-icon">${icon('repeat', { className: 'icon--sm' })}</span>
+              <button type="button" class="task-row-body" data-today-review="${esc(d.id)}">
+                <span class="task-title">איך זה יצא? ${esc(d.question)}</span>
+                <span class="task-when">הגיע הזמן להסתכל אחורה</span>
+              </button>
+            </div>
+          </div>`).join('')}
       </div>`;
   }
 
@@ -92,6 +104,8 @@ export function mountTodayTasks(host) {
     }
     const dec = e.target.closest('[data-today-decision]');
     if (dec) return runQuickAction('tasks', `decision:${dec.dataset.todayDecision}`);
+    const rev = e.target.closest('[data-today-review]');
+    if (rev) return runQuickAction('tasks', `review:${rev.dataset.todayReview}`);
     const all = e.target.closest('[data-tasks-all]');
     if (all) {
       if (all.dataset.tasksAll === 'decide') return runQuickAction('tasks', 'decisions');

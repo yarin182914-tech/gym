@@ -17,10 +17,13 @@ const firebaseConfig = {
 // Opt-in local sandbox: `?dev` on localhost swaps the cloud backend for a
 // localStorage store (js/lib/dev-store.js) and skips the Google sign-in gate.
 // It exists so the app can be exercised end-to-end without interactive auth.
-// Deliberately impossible to enable on the deployed site, and it never touches
-// real Firestore data — plain localhost with no flag behaves exactly as before.
+// It also works on a branch's Vercel preview (gym-git-…-yarin9.vercel.app),
+// so sample data (js/dev/seed.js) can be tested on the iPhone. Deliberately
+// impossible to enable on the live site, and it never touches real
+// Firestore data — any page with no flag behaves exactly as before.
 const IS_LOCALHOST = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
-export const useCloud = !(IS_LOCALHOST && new URLSearchParams(location.search).has('dev'));
+const IS_PREVIEW = /^gym-git-[a-z0-9-]+-yarin9\.vercel\.app$/.test(location.hostname);
+export const useCloud = !((IS_LOCALHOST || IS_PREVIEW) && new URLSearchParams(location.search).has('dev'));
 
 export const app = useCloud ? initializeApp(firebaseConfig) : null;
 export const auth = useCloud ? getAuth(app) : null;
