@@ -32,7 +32,7 @@ import {
 } from '../lib/tasks.js';
 import { dateKey, shiftDays } from '../lib/sleep.js';
 import { wantsEvent } from '../lib/calendar-event.js';
-import { calendarOn } from '../lib/calendar-sync.js';
+import { calendarOn, catchUpCalendar } from '../lib/calendar-sync.js';
 import { toDate } from '../lib/format.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { esc } from '../core/dom.js';
@@ -82,6 +82,7 @@ export async function mountTasks(rootEl) {
   decisions = loadedDecisions.map(normalizeDecision);
   inCalendar = calendarOn();
   render();
+  catchUpCalendar(tasks);
   container.addEventListener('click', onClick);
   // The + button: "משימה" — one line into the inbox; "החלטה" — a new decision.
   stopQuickActions = handleQuickActions('tasks', (action) => {

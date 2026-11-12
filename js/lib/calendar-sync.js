@@ -11,7 +11,7 @@
 import { waitForPendingWrites } from 'https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js';
 import { auth, db, useCloud } from '../firebase-config.js';
 import { CALENDAR } from './rules.js';
-import { addPending } from './calendar-event.js';
+import { addPending, tasksMissingEvent } from './calendar-event.js';
 
 const PENDING_KEY = 'gymi.calendar.pending';
 const ON_KEY = 'gymi.calendar.on';
@@ -46,6 +46,8 @@ export const calendarOn = () => (useCloud ? read(ON_KEY) === '1' : read(ON_KEY) 
 export function setCalendarOn(on) {
   write(ON_KEY, on ? '1' : '0');
   if (!on) write(PENDING_KEY, '[]');
+  // A screen may have loaded its tasks before this was known.
+  else if (lastTasks) catchUpCalendar(lastTasks);
 }
 
 async function call(action, extra = {}) {
@@ -101,6 +103,20 @@ export function queueCalendarSync(ids) {
   write(PENDING_KEY, JSON.stringify(addPending(pending(), ids)));
   if (running) ids.forEach((id) => dirty.add(id));
   else schedule();
+}
+
+// The screens that load the tasks hand them over (normalized): any that
+// should have an event and never got one is sent now. This is what fills
+// the calendar after connecting, wherever Google's screen came back to.
+// Each task is tried once per visit to the app.
+const caughtUp = new Set();
+let lastTasks = null;
+export function catchUpCalendar(tasks) {
+  lastTasks = tasks;
+  if (!useCloud || !calendarOn()) return;
+  const ids = tasksMissingEvent(tasks).filter((id) => !caughtUp.has(id));
+  ids.forEach((id) => caughtUp.add(id));
+  queueCalendarSync(ids);
 }
 
 // Sends what is waiting. Called after saves, at app start and when the

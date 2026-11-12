@@ -94,6 +94,15 @@ check('open, from today, soonest first', C.tasksToConnect(list, NOW), ['today', 
 const many = Array.from({ length: CALENDAR.connectSyncMax + 5 }, (_, i) => exact({ id: `t${i}` }));
 check('capped', C.tasksToConnect(many, NOW).length, CALENDAR.connectSyncMax);
 
+console.log('catching up');
+const sent = C.signatureOf(C.eventFor(exact()));
+check('never sent → goes', C.tasksMissingEvent([exact({ id: 'new' })], NOW), ['new']);
+check('already has an event → skipped', C.tasksMissingEvent([exact({ id: 'has', calendarEventId: 'e1', calendarSync: sent })], NOW), []);
+check('deleted by hand → left alone', C.tasksMissingEvent([exact({ id: 'gone', calendarSync: sent })], NOW), []);
+check('same rules as connecting', C.tasksMissingEvent(list, NOW), ['today', 'later']);
+check('the signature survives normalizing', T.normalizeTask({ calendarSync: sent }).calendarSync, sent);
+check('and is null when missing', T.normalizeTask({}).calendarSync, null);
+
 console.log('the retry list');
 check('adds', C.addPending(['a'], ['b']), ['a', 'b']);
 check('no repeats, newest last', C.addPending(['a', 'b'], ['a']), ['b', 'a']);

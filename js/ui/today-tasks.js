@@ -6,6 +6,7 @@
 // js/pages/today.js only gives it a place.
 
 import { listTasks, setTask, listDecisions } from '../lib/firestore.js';
+import { catchUpCalendar } from '../lib/calendar-sync.js';
 import { normalizeTask, topToday, isRepeating, toggleDoneDate, whenText, shortDay } from '../lib/tasks.js';
 import { normalizeDecision, openDecisions, reviewsDue } from '../lib/decisions.js';
 import { DECISIONS } from '../lib/rules.js';
@@ -118,6 +119,7 @@ export function mountTodayTasks(host) {
       tasks = list.map(normalizeTask);
       decisions = decs.map(normalizeDecision);
       render();
+      catchUpCalendar(tasks);
     })
     .catch((err) => console.error('[today] tasks load failed', err));
 
