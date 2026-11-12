@@ -5,9 +5,8 @@
 //
 // A decision is triaged into a track (small / medium / large), gets a time
 // budget from startedAt (large: a decide-by date), and earns its points by
-// being decided inside it. A personal rule (decisionRules) closes a
-// matching one at once; medium and large ones get "איך זה יצא?" later.
-// Nothing here judges whether the choice was right.
+// being decided inside it. Nothing here judges whether the choice was
+// right.
 
 import { DECISIONS } from './rules.js';
 import { dateKey, shiftDays, parseKey } from './sleep.js';
@@ -16,8 +15,6 @@ import { toDate } from './format.js';
 export const TRACKS = { small: 'קטנה', medium: 'בינונית', large: 'גדולה' };
 export const IMPACTS = { low: 'כמעט כלום', some: 'קצת', high: 'הרבה' };
 export const FEELINGS = { happy: 'שמחתי', unsure: 'לא בטוח', disappointed: 'התאכזבתי' };
-// "איך זה יצא?" — no wrong answer, the same points for each.
-export const OUTCOMES = { good: 'טוב', ok: 'בסדר', meh: 'פחות' };
 // "What's missing to decide?" — the ladder's question after two weeks.
 export const MISSING = { info: 'מידע', talk: 'שיחה עם מישהו', courage: 'אומץ' };
 export const MISSING_TIPS = {
@@ -25,7 +22,7 @@ export const MISSING_TIPS = {
   talk: 'עם מי? קבע איתו עכשיו, ואחר כך תחליט.',
   courage: 'רוב ההחלטות הפיכות. נסה את המסלול הקטן: 2 דקות והגרלה.',
 };
-const METHODS = ['manual', 'feet', 'score', 'rule'];
+const METHODS = ['manual', 'feet', 'score'];
 const STATUSES = ['open', 'decided', 'dropped'];
 const DAY_MS = 86400000;
 
@@ -85,11 +82,6 @@ export function normalizeDecision(raw = {}) {
     experiment: raw.experiment && typeof raw.experiment === 'object'
       ? { text: String(raw.experiment.text || ''), by: raw.experiment.by || null, learned: String(raw.experiment.learned || '') }
       : null,
-    // Rules and the review (M6c).
-    ruleId: raw.ruleId || null,
-    reviewedAt: raw.reviewedAt || null,
-    outcome: OUTCOMES[raw.outcome] ? raw.outcome : null,
-    outcomeNote: String(raw.outcomeNote || ''),
     status: STATUSES.includes(raw.status) ? raw.status : 'open',
     source: raw.source || 'manual',
     createdAt: raw.createdAt || null,
@@ -180,46 +172,18 @@ export function suggestion(d) {
   return { ...best, goodEnough: false };
 }
 
-// Points for a decided decision: { raw, onTime, first, rule } (first: the
-// bonus for not reopening it; rule: for closing it with a personal rule,
-// which takes the place of first). Nothing for an open or dropped one.
+// Points for a decided decision: { raw, onTime, first } (first: the bonus
+// for not reopening it). Nothing for an open or dropped one.
 export function decisionPoints(d) {
-  if (d.status !== 'decided' || !d.decidedAt) return { raw: 0, onTime: false, first: 0, rule: 0 };
+  if (d.status !== 'decided' || !d.decidedAt) return { raw: 0, onTime: false, first: 0 };
   const onTime = isOnTime(d);
   const table = DECISIONS.points[d.track];
-  const byRule = d.method === 'rule' && !!d.ruleId;
-  return {
-    raw: onTime ? table.onTime : table.late,
-    onTime,
-    first: byRule || d.reopened ? 0 : DECISIONS.firstChoiceBonus,
-    rule: byRule ? DECISIONS.ruleUse : 0,
-  };
+  return { raw: onTime ? table.onTime : table.late, onTime, first: d.reopened ? 0 : DECISIONS.firstChoiceBonus };
 }
 
 // A large decision waiting on its small experiment: one was written and
 // nothing learned from it yet.
 export const experimentPending = (d) => d.status === 'open' && !!d.experiment?.text.trim() && !d.experiment.learned.trim();
-
-// ---------- "איך זה יצא?" ----------
-
-// The day key its review is due (decidedAt + reviewDays of its track), or
-// null for a small or undecided one. Derived, not stored.
-export function reviewKey(d) {
-  const days = DECISIONS.reviewDays[d.track];
-  if (!days || d.status !== 'decided' || !d.decidedAt) return null;
-  return shiftDays(dateKey(toDate(d.decidedAt)), days);
-}
-
-// Due on or before today and not answered yet.
-export function reviewDue(d, todayKey) {
-  const key = reviewKey(d);
-  return !!key && !d.reviewedAt && key <= todayKey;
-}
-
-// The decisions waiting for their review, the oldest due first.
-export function reviewsDue(list, todayKey) {
-  return list.filter((d) => reviewDue(d, todayKey)).sort((a, b) => (reviewKey(a) < reviewKey(b) ? -1 : 1));
-}
 
 // The procrastination ladder for an open decision with no decide-by date:
 // null, 'setDate' (a week: "לקבוע תאריך החלטה"), 'missing' (two weeks:
@@ -284,85 +248,4 @@ export function drumPlan(n, rand = secureRandom, game = DECISIONS.game) {
     at += gap;
   }
   return beats;
-}
-
-// ---------- personal rules (M6c) ----------
-// users/{uid}/decisionRules/{auto}: { name, rule, keywords[] }. A rule is
-// offered when one of its keywords is a word of the new question: the
-// word itself, or after one or two Hebrew prefix letters ("במסעדה" carries
-// "מסעדה"). A keyword of several words matches as a phrase.
-
-const PREFIXES = 'הובלמשכ';
-// Common question words a suggested keyword shouldn't be.
-const STOP_WORDS = new Set([
-  'איזה', 'איזו', 'אילו', 'איך', 'איפה', 'מתי', 'כמה', 'למה', 'האם', 'כדאי', 'צריך', 'צריכה', 'רוצה',
-  'אני', 'אנחנו', 'הוא', 'היא', 'הם', 'את', 'של', 'עם', 'על', 'אל', 'לא', 'כן', 'או', 'גם', 'זה', 'זאת',
-  'היום', 'מחר', 'הערב', 'עכשיו', 'השבוע', 'לעשות', 'ללכת', 'לקחת', 'יותר', 'פחות',
-]);
-
-// Lower case, no niqqud or punctuation, single spaces.
-export function normalizeText(s) {
-  return String(s || '')
-    .replace(/[\u0591-\u05C7]/g, '')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-const words = (s) => normalizeText(s).split(' ').filter(Boolean);
-
-export function normalizeRule(raw = {}) {
-  const seen = new Set();
-  const keywords = (Array.isArray(raw.keywords) ? raw.keywords : [])
-    .map(normalizeText)
-    .filter((k) => k && !seen.has(k) && seen.add(k))
-    .slice(0, DECISIONS.maxKeywords);
-  return {
-    id: raw.id,
-    name: String(raw.name || '').trim(),
-    rule: String(raw.rule || '').trim(),
-    keywords,
-    fromDecisionId: raw.fromDecisionId || null,
-    createdAt: raw.createdAt || null,
-  };
-}
-
-// Does this question word carry the keyword (itself, or after 1–2 prefix letters)?
-function wordMatches(word, keyword) {
-  if (word === keyword) return true;
-  const extra = word.length - keyword.length;
-  if (extra < 1 || extra > 2 || !word.endsWith(keyword)) return false;
-  return [...word.slice(0, extra)].every((c) => PREFIXES.includes(c));
-}
-
-export function ruleMatches(question, rule) {
-  const qWords = words(question);
-  const phrase = ` ${qWords.join(' ')} `;
-  return rule.keywords.some((k) => (k.includes(' ') ? phrase.includes(` ${k} `) : qWords.some((w) => wordMatches(w, k))));
-}
-
-// The first rule (oldest first) one of whose keywords is in the question, or null.
-export function matchRule(question, rules) {
-  const time = (r) => (r.createdAt ? toDate(r.createdAt).getTime() : 0);
-  return [...rules].sort((a, b) => time(a) - time(b)).find((r) => ruleMatches(question, r)) || null;
-}
-
-// Keywords to offer for a new rule from its question: its longer words
-// that aren't question words, as written.
-export function suggestKeywords(question) {
-  const out = [];
-  for (const w of words(question)) {
-    if (w.length < 3 || STOP_WORDS.has(w) || out.includes(w)) continue;
-    out.push(w);
-    if (out.length >= DECISIONS.suggestKeywords) break;
-  }
-  return out;
-}
-
-// How many decisions each rule closed: ruleId → count. Derived, not stored.
-export function ruleUses(decisions) {
-  const uses = new Map();
-  for (const d of decisions) if (d.status === 'decided' && d.method === 'rule' && d.ruleId) uses.set(d.ruleId, (uses.get(d.ruleId) || 0) + 1);
-  return uses;
 }

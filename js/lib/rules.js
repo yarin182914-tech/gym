@@ -426,18 +426,4 @@ export const DECISIONS = {
   // The feet game (js/ui/choosers/feet.js): the drum roll's length, the
   // beat it starts and ends on, the hush before the toe, and the toe.
   game: { drumMs: 2400, firstBeatMs: 260, lastBeatMs: 70, hushMs: 500, toeMs: 600 },
-  // Personal rules (M6c): a rule closes a matching decision in one tap
-  // (decided on time as a small one, plus ruleUse). A new rule is paid at
-  // most ruleNewPerDay times a day, so deleting and rewriting it earns
-  // nothing more.
-  ruleUse: 3,
-  ruleNew: 10,
-  ruleNewPerDay: 1,
-  maxKeywords: 6,
-  suggestKeywords: 3,
-  // "איך זה יצא?": days after deciding, per track (small: never). The
-  // answer is worth the same whatever it says.
-  reviewDays: { medium: 30, large: 90 },
-  review: 3,
-  homeReviewCount: 1,
 };
