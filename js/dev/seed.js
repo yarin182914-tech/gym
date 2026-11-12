@@ -91,6 +91,13 @@ export async function seedDevStoreIfEmpty() {
   ];
   const state = JSON.parse(localStorage.getItem('gym-dev-store') || '{}');
   state.tasks = TASKS.map((t, i) => ({ ...base, ...t, id: `task${i + 1}`, updatedAt: t.createdAt }));
+  // A medium decision from 31 days ago, so "איך זה יצא?" (M6e) is due.
+  state.decisions = [{
+    id: 'dec1', question: 'לעבור לחדר כושר ליד העבודה?', track: 'medium', triage: { reversible: true, impact: 'some' },
+    options: [{ id: 'o1', text: 'לעבור' }, { id: 'o2', text: 'להישאר' }], choiceId: 'o1', method: 'score',
+    reason: 'חוסך חצי שעה ביום', feeling: 'happy', status: 'decided',
+    startedAt: daysAgo(31), decidedAt: daysAgo(31), createdAt: daysAgo(31), updatedAt: daysAgo(31), source: 'manual',
+  }];
   localStorage.setItem('gym-dev-store', JSON.stringify(state));
   console.info('[dev] seeded sandbox with', WORKOUTS.length, 'workouts');
 }
