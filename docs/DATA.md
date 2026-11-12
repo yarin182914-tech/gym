@@ -1083,7 +1083,7 @@ one (`daily`) and a repeating one (`recurring`, weekly or monthly) are
 | `firstStep` | string | The first 5 minutes, e.g. `"למצוא את הברגים"`. `""` = none. |
 | `stuckReason` | string \| null | The answer to "למה היא תקועה?": `unclear` · `big` · `unpleasant` · `stressful` · `notImportant` |
 | `startedAt` | Timestamp \| null | "התחלתי 10 דקות" on a stuck task (a one-time start bonus) |
-| `calendarEventId` | string \| null | The Google Calendar event linked to the task (M7). `null` when it has none. **Written by the server** (`api/calendar.js`) — leave it alone. |
+| `calendarEventId` | string \| null | The Google Calendar event linked to the task (M7). `null` when it has none. **Written by the server** (`api/calendar.js`) — leave it alone (a new task written from outside: `null`). |
 | `calendarSync` | string \| null | What was last sent to the calendar, as `<start>\|<end>#<event name>`, so an unchanged task costs no Google call. Missing = `null`. A value with `calendarEventId: null` means the user deleted the event in the calendar: it returns only when the task's day or time changes. **Written by the server** — leave it alone. |
 | `source` | string | `manual` (the form) · `quick` (the + button's one line) · `coach` (written from outside) |
 | `createdAt` | Timestamp | First saved — the procrastination ladder counts from it |
@@ -1111,8 +1111,10 @@ task (or `someday`, or dropping its day) deletes it. Each event carries the
 private extended properties `gymi: "true"` and `taskId`; only events with
 that mark (or the task's own event id, `sha256("<uid>:<taskId>")`) are
 ever deleted. The app asks the server to sync after each save
-(`POST /api/calendar`, `{ "action": "sync", "taskIds": [...] }`), so a
-task written from outside gets its event the next time the app saves it.
+(`POST /api/calendar`, `{ "action": "sync", "taskIds": [...] }`), and whenever the home or
+tasks screen loads it sends any task that should have an event and has
+neither `calendarEventId` nor `calendarSync` — so a task written from
+outside gets its event the next time the user opens the app.
 Numbers in `CALENDAR`, `js/lib/rules.js`; logic in
 `js/lib/calendar-event.js`.
 
