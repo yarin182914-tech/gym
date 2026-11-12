@@ -1116,7 +1116,11 @@ Israel by default, up to 7 days back). The same rules as the in-app import
 below: steps only ever go up, and `stepsKcal` / `totalOutKcal` are
 recomputed; it writes `dailyActivity/{date}` with `source: "shortcut"`.
 Answers `{ ok, saved, steps, date, message }`, the message in Hebrew. Needs
-the `FIREBASE_SA_JSON` environment variable on Vercel.
+the `FIREBASE_SA_JSON` environment variable on Vercel. Two shortcuts use
+it: "ג׳ימי צעדים" (today) and "ג׳ימי צעדים אתמול" (yesterday's date, so the
+evening's last steps still land). Apple Health can't be read while the
+iPhone is locked, so both run from an "app closed" automation (WhatsApp by
+default), many times a day; that's safe because steps only go up.
 
 ---
 

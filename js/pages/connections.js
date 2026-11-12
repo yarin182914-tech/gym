@@ -184,6 +184,9 @@ function stepsCard() {
 // The iPhone's own label, shown as it appears on the phone.
 const chip = (text) => `<b class="ios-label" dir="auto">${esc(text)}</b>`;
 
+// Something to type exactly as shown (a number, a date format).
+const code = (text) => `<span class="connection-code" dir="ltr">${esc(text)}</span>`;
+
 // The address the shortcut opens, up to where the steps number goes.
 const importBase = () => `${location.origin}/#/import?steps=`;
 
@@ -246,6 +249,7 @@ function buildSteps() {
 
 function howTo() {
   const L = IOS_LABELS[lang];
+  if (STEPS_IMPORT.silentShortcutUrl) return appCloseHowTo(L);
   const steps = [
     ['smartphone', `פותחים את ${chip(L.shortcutsApp)} ועוברים ללשונית ${chip(L.automationTab)}.`],
     ['plus', `לוחצים ${chip('+')} (או ${chip(L.newAutomation)}) ובוחרים ${chip(L.timeOfDay)}.`],
@@ -261,6 +265,62 @@ function howTo() {
       ${STEPS_IMPORT.silentShortcutUrl ? '' : '<li>האוטומציה פותחת את Safari לרגע ושומרת. בפעם הראשונה צריך להתחבר עם גוגל גם ב-Safari.</li>'}
       <li>אם הטלפון נעול בשעה הזאת, האוטומציה עלולה לא לרוץ. אפשר תמיד להריץ את הקיצור ידנית: לחיצה עליו ב${chip(L.shortcutsApp)}, או מהווידג׳ט במסך הבית.</li>
     </ul>`;
+}
+
+// The silent shortcuts' automation. Apple Health can't be read while the
+// iPhone is locked, so a timed automation at night often fails; closing
+// an app the user opens all day is a moment the phone is surely open.
+function appCloseHowTo(L) {
+  const S = IOS_SEARCH[lang];
+  const app = STEPS_IMPORT.automationApp;
+  const steps = [
+    ['smartphone', `ב${chip(L.shortcutsApp)} עוברים ללשונית ${chip(L.automationTab)} (למטה) ולוחצים ${chip('+')}.`],
+    ['plus', `בוחרים ${chip(L.appTrigger)}. ליד ${chip(L.appTrigger)} לוחצים ${chip(L.choose)}, מסמנים את ${chip(app.ios)} ולוחצים ${chip(L.done)}.`],
+    ['check', `מסמנים רק את ${chip(L.isClosed)}, בוחרים ${chip(L.runImmediately)} ולוחצים ${chip(L.next)} ← הריבוע האפור ${chip(L.blankAutomation)}.`],
+    ['footprints', `בחיפוש הפעולות מקלידים ${chip(S.runShortcut)} ומוסיפים. לוחצים על המילה הכחולה ${chip(L.shortcutWord)} ובוחרים ${chip(STEPS_IMPORT.shortcutName)}.`],
+    ['calendar-days', `מוסיפים עוד ${chip(L.runShortcut)} מתחת, ובו בוחרים ${chip(STEPS_IMPORT.yesterdayShortcutName)}. לוחצים ${chip(L.done)}.`],
+    ['bell', `לא רוצים הודעה בכל פעם? פותחים את האוטומציה ומכבים ${chip(L.notifyWhenRun)}.`],
+  ];
+  return `
+    <p class="connection-note">ואז אוטומציה אחת, שמריצה את שני הקיצורים כשסוגרים את ${esc(app.name)}:</p>
+    <ol class="connection-steps">
+      ${steps.map(([name, text], i) => `<li><span class="connection-step-num">${i + 1}</span>${icon(name, { className: 'icon--sm' })}<span>${text}</span></li>`).join('')}
+    </ol>
+    <ul class="connection-notes text-muted">
+      <li>למה כשסוגרים ${esc(app.name)} ולא בשעה קבועה: כשהאייפון נעול, אפל לא נותנת לקרוא את הצעדים מהבריאות, אז אוטומציה בלילה נכשלת בשקט. כשסוגרים ${esc(app.name)} הטלפון בטוח פתוח.</li>
+      <li>זה ירוץ הרבה פעמים ביום, וזה בסדר: מספר הצעדים רק עולה, אף פעם לא יורד. בבוקר, בפעם הראשונה שסוגרים ${esc(app.name)}, נכנסים גם הצעדים האחרונים של אתמול.</li>
+      <li>אפשר לבחור אפליקציה אחרת שפותחים כל יום, במקום ${esc(app.name)}.</li>
+    </ul>`;
+}
+
+// The second silent shortcut: a copy of the first that sends yesterday's
+// steps. One tap while the key is still on the clipboard, once ירין has
+// shared it; otherwise made from a copy, which already holds the key.
+function yesterdayStep(L) {
+  const S = IOS_SEARCH[lang];
+  const name = STEPS_IMPORT.yesterdayShortcutName;
+  const url = STEPS_IMPORT.yesterdayShortcutUrl;
+  const title = `<b class="connection-silent-title">${icon('calendar-days', { className: 'icon--sm' })} קיצור שני: הצעדים של אתמול</b>
+    <p class="text-muted connection-note">שולח בבוקר את המספר הסופי של אתמול, כולל הצעדים שהלכת אחרי הפעם האחרונה שהקיצור רץ בערב.</p>`;
+  if (url && newKey && installing) {
+    return `${title}
+      <a class="btn btn-secondary btn-block" href="${esc(url)}" target="_blank" rel="noopener">${icon('download', { className: 'icon--sm' })} הוספת קיצור אתמול</a>
+      <p class="text-muted connection-note">אותו מפתח, עדיין מועתק: ${chip(L.addShortcut)} ← לוחצים בשדה ← ${chip(L.paste)}.</p>`;
+  }
+  const steps = [
+    `ברשימת הקיצורים: לחיצה ארוכה על ${chip(STEPS_IMPORT.shortcutName)} ← ${chip(L.duplicate)}. לחיצה ארוכה על העותק ← ${chip(L.rename)}, וכותבים ${chip(name)}.`,
+    `פותחים את העותק (שלוש הנקודות). בחיפוש מקלידים ${chip(S.adjustDate)} ומוסיפים את ${chip(L.adjustDate)}. גוררים אותה לראש הקיצור, שתהיה ראשונה. בתוכה בוחרים ${chip(L.subtract)}, ${code('1')} ${chip(L.days)}, מ${chip(L.currentDate)}.`,
+    `בפעולה ${chip(L.findHealth)} לוחצים על ${chip(L.today)} שליד ${chip(L.startDate)}, בוחרים ${chip(L.onDate)}, ובשדה התאריך בוחרים את המשתנה ${chip(L.adjustedVar)}. אם אין שורת משתנים: לחיצה ארוכה על השדה ← ${chip(L.selectVar)}.`,
+    `בפעולה ${chip(L.formatDate)} מחליפים את ${chip(L.currentDate)} במשתנה ${chip(L.adjustedVar)}. שימו לב: הפורמט מתאפס. פותחים בחץ הקטן, שוב ${chip(L.custom)}, וכותבים ${code('yyyy-MM-dd')}.`,
+    `לוחצים ▶. מופיע "נשמרו … צעדים". משווים למספר של אתמול באפליקציית ${chip(L.steps === 'Steps' ? 'Health' : 'בריאות')}.`,
+  ];
+  return `${title}
+    <details class="connection-build">
+      <summary>${icon('copy', { className: 'icon--sm' })} הכנה מעותק, בערך 2 דקות</summary>
+      <ol class="connection-steps connection-steps--build">
+        ${steps.map((text, i) => `<li><span class="connection-step-num">${i + 1}</span><span>${text}</span></li>`).join('')}
+      </ol>
+    </details>`;
 }
 
 function renderStatus() {
@@ -288,7 +348,8 @@ function renderStatus() {
 
 // ---------- the silent way: the shortcut posts to /api/steps ----------
 // A personal key (js/lib/api-key.js) lets the shortcut send the steps in
-// the background — no Safari, and it runs with the phone locked.
+// the background — no Safari. Apple Health is unreadable while the phone
+// is locked, so the automation runs on an app closing (appCloseHowTo).
 
 function renderSilent() {
   const host = container?.querySelector('[data-silent]');
@@ -297,13 +358,14 @@ function renderSilent() {
   const S = IOS_SEARCH[lang];
   const copyBtn = (what, label) => `<button type="button" class="btn btn-secondary connection-copy" data-copy="${what}">${icon('copy', { className: 'icon--sm' })} ${label}</button>`;
   const head = `<b class="connection-silent-title">${icon('sparkles', { className: 'icon--sm' })} שליחה שקטה — מומלץ</b>
-    <p class="text-muted connection-note">הקיצור שולח את הצעדים ישירות לג׳ימי: שום דבר לא נפתח, וזה עובד גם כשהטלפון נעול.</p>`;
+    <p class="text-muted connection-note">הקיצור שולח את הצעדים ישירות לג׳ימי, בלי לפתוח שום דבר. הוא צריך שהטלפון יהיה פתוח (לא נעול), ולכן האוטומציה למטה מריצה אותו ברגע שמשתמשים בטלפון.</p>`;
   if (!loaded) {
     host.innerHTML = head;
     return;
   }
   if (STEPS_IMPORT.silentShortcutUrl) {
-    host.innerHTML = `${head}${oneTap(L)}`;
+    const second = stepsKey || installing ? `<div class="connection-silent-next">${yesterdayStep(L)}</div>` : '';
+    host.innerHTML = `${head}${oneTap(L)}${second}`;
     return;
   }
   if (!stepsKey && !newKey) {
@@ -347,7 +409,7 @@ function oneTap(L) {
     return `
       <p class="connection-key-status"><span class="status-dot status-dot--on"></span>המפתח האישי הועתק</p>
       <a class="btn btn-primary btn-block" href="${esc(STEPS_IMPORT.silentShortcutUrl)}" target="_blank" rel="noopener">${icon('download', { className: 'icon--sm' })} הוספת הקיצור לאייפון</a>
-      <p class="text-muted connection-note">לוחצים ${chip(L.addShortcut)}. כשהאייפון שואל על המפתח, לוחצים בשדה ← ${chip(L.paste)}. אחר כך האוטומציה היומית (למטה), וזהו.</p>
+      <p class="text-muted connection-note">לוחצים ${chip(L.addShortcut)}. כשהאייפון שואל על המפתח, לוחצים בשדה ← ${chip(L.paste)}. אחר כך הקיצור השני והאוטומציה (למטה), וזהו.</p>
       <details class="connection-build">
         <summary>${icon('copy', { className: 'icon--sm' })} ההדבקה לא עבדה?</summary>
         <div class="connection-key-box">
@@ -361,9 +423,12 @@ function oneTap(L) {
     return `${install('התקנת הקיצור', 'btn-primary')}
       <p class="text-muted connection-note">לוחצים, ומפתח אישי מועתק לבד. בשלב הבא מוסיפים את הקיצור ומדביקים.</p>`;
   }
-  const used = stepsKey.lastUsedAt ? `נשלח לאחרונה ${formatDayMonthHe(toDate(stepsKey.lastUsedAt))} ב-${formatTimeHe(toDate(stepsKey.lastUsedAt))}` : 'עוד לא נשלח בו כלום';
+  // A key alone doesn't mean the shortcut works: "connected" only once it sent.
+  const status = stepsKey.lastUsedAt
+    ? `<span class="status-dot status-dot--on"></span>הקיצור מחובר · נשלח לאחרונה ${formatDayMonthHe(toDate(stepsKey.lastUsedAt))} ב-${formatTimeHe(toDate(stepsKey.lastUsedAt))}`
+    : '<span class="status-dot"></span>המפתח מוכן · מחכה לשליחה הראשונה (אפשר ללחוץ ▶ בקיצור)';
   return `
-    <p class="connection-key-status"><span class="status-dot status-dot--on"></span>הקיצור מחובר · ${used}</p>
+    <p class="connection-key-status">${status}</p>
     ${install('התקנה מחדש (טלפון חדש)', 'btn-outline')}
     <p class="text-muted connection-note">התקנה מחדש יוצרת מפתח חדש, והקיצור הישן מפסיק לשלוח.</p>`;
 }

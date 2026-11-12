@@ -5199,6 +5199,16 @@ body.keyboard-open .fab,
   margin: 0;
 }
 
+/* The second shortcut ("yesterday") under the first one's install. */
+.connection-silent-next {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
 .connection-key-status {
   display: flex;
   align-items: center;

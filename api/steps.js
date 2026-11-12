@@ -1,5 +1,6 @@
 // POST /api/steps — the iPhone shortcut sends the day's steps here in the
-// background (no Safari, works with the phone locked). Same rules as the
+// background (no Safari). The phone must be unlocked for the shortcut to read
+// Apple Health, so it runs when an app is closed. Same rules as the
 // in-app import (#/import, js/lib/steps-import.js): a whole number, today
 // or up to a week back, and a day's steps never go down.
 //

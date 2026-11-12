@@ -78,8 +78,19 @@ export const STEPS_IMPORT = {
   // import question that asks for the personal key. ירין publishes it once;
   // while it's empty, "חיבורים" shows the build-it-yourself steps instead.
   silentShortcutUrl: 'https://www.icloud.com/shortcuts/9554d3d8965744319559cd1bc51cd7cd',
-  // Suggested time for the daily automation (shown in the how-to).
+  // Suggested time for the daily automation of the Safari way (shown in
+  // the how-to while there's no silent shortcut).
   automationTime: '21:00',
+  // The second silent shortcut: a copy of the first that sends
+  // yesterday's steps, so the last steps of the evening still count. Its
+  // iCloud link (same import question for the key) once ירין shares it;
+  // while it's empty, "חיבורים" shows how to make it from a copy.
+  yesterdayShortcutName: 'ג׳ימי צעדים אתמול',
+  yesterdayShortcutUrl: '',
+  // Apple Health can't be read while the iPhone is locked, so the silent
+  // shortcuts run when this app is closed — a moment the phone is open.
+  // `ios`: the app's name in the iPhone's app list.
+  automationApp: { name: 'וואטסאפ', ios: 'WhatsApp' },
 };
 
 // App time from the iPhone (M3e): one shared shortcut, run by an "app

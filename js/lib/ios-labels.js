@@ -10,8 +10,8 @@ export const IOS_LANGS = ['he', 'en'];
 // The words to type in the actions search box. A short stem finds the
 // action even when its full name differs between iOS versions.
 export const IOS_SEARCH = {
-  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'מלל', openUrls: 'כתובות', getContents: 'תוכן של כתובת', url: 'כתובת אינטרנט', runShortcut: 'הפעלת קיצור' },
-  en: { findHealth: 'Health', getDetails: 'Details', roundNumber: 'Round', formatDate: 'Format Date', text: 'Text', openUrls: 'Open URL', getContents: 'Get Contents', url: 'URL', runShortcut: 'Run Shortcut' },
+  he: { findHealth: 'בריאות', getDetails: 'פרטי', roundNumber: 'עיגול', formatDate: 'תאריך', text: 'מלל', openUrls: 'כתובות', getContents: 'תוכן של כתובת', url: 'כתובת אינטרנט', runShortcut: 'הפעלת קיצור', adjustDate: 'התאמת תאריך' },
+  en: { findHealth: 'Health', getDetails: 'Details', roundNumber: 'Round', formatDate: 'Format Date', text: 'Text', openUrls: 'Open URL', getContents: 'Get Contents', url: 'URL', runShortcut: 'Run Shortcut', adjustDate: 'Adjust Date' },
 };
 
 export const IOS_LABELS = {
@@ -77,6 +77,16 @@ export const IOS_LABELS = {
     // The blue placeholder inside Run Shortcut until one is picked.
     shortcutWord: 'קיצור',
     input: 'קלט',
+    // The "yesterday" copy of the steps shortcut. Adjust Date, Subtract,
+    // "ב-" and Adjusted Date as ירין's iPhone shows them (12.11).
+    duplicate: 'שכפול',
+    adjustDate: 'התאמת תאריך',
+    subtract: 'הפחתה',
+    days: 'ימים',
+    onDate: 'ב-',
+    adjustedVar: 'תאריך מותאם',
+    // Not checked on a Hebrew iPhone yet.
+    notifyWhenRun: 'הודעה בעת הפעלה',
   },
   en: {
     shortcutsApp: 'Shortcuts',
@@ -132,5 +142,12 @@ export const IOS_LABELS = {
     runShortcut: 'Run Shortcut',
     shortcutWord: 'Shortcut',
     input: 'Input',
+    duplicate: 'Duplicate',
+    adjustDate: 'Adjust Date',
+    subtract: 'Subtract',
+    days: 'days',
+    onDate: 'is',
+    adjustedVar: 'Adjusted Date',
+    notifyWhenRun: 'Notify When Run',
   },
 };
