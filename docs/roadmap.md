@@ -133,7 +133,7 @@ Spec: `docs/specs/decision-review.md`. Needs M6c merged.
 - Also (ירין 2026-11-12, testing it): "החלטתי" opens as soon as there is a question ("מה החלטת?" in one line when no options were written), and `?dev` sample data runs on branch previews (never the live site) so the review can be tried on the iPhone.
 - Done when: the review shows on its day (unit test), pays 3 once, and DATA.md documents the review fields.
 
-## M7 ◐ Google Calendar sync from the app — `feature/m7-calendar`
+## M7 ☑ Google Calendar sync from the app — `feature/m7-calendar`
 Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון עם היומן". Spec: `docs/specs/calendar-sync.md`.
 - Through the server (ירין 2026-11-12), not from the browser: a one-time Google consent (`calendar.events`), the refresh token kept server-only in `calendarTokens/{uid}`, and `api/calendar.js` creates / moves / marks ✓ / deletes the event of a one-off task with a time (timed event, length by size) or a day (all-day event). The event id stays on the task; events carry a private extended property `{ gymi: true, taskId }`.
 - Only touches events linked to a task, in the primary calendar. Offline saves queue on the device and retry on the next open. The sync is one server function, so the Claude connector can call it once it gets task tools.

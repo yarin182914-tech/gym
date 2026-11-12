@@ -74,6 +74,7 @@ export function normalizeTask(raw = {}) {
     stuckReason: STUCK_REASONS[raw.stuckReason] ? raw.stuckReason : null,
     startedAt: raw.startedAt || null,
     calendarEventId: raw.calendarEventId || null,
+    calendarSync: raw.calendarSync || null,
     source: raw.source || 'manual',
     createdAt: raw.createdAt || null,
   };

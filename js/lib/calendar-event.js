@@ -96,6 +96,14 @@ export function tasksToConnect(tasks, now = new Date()) {
     .map((t) => t.id);
 }
 
+// Tasks that should be in the calendar and were never sent: connected on
+// another screen or device, written from outside the app, or a send that
+// got lost. An event the user deleted by hand (a signature with no event)
+// is left alone.
+export function tasksMissingEvent(tasks, now = new Date()) {
+  return tasksToConnect(tasks.filter((t) => !t.calendarEventId && !t.calendarSync), now);
+}
+
 // The retry list kept on the device: newest last, no repeats, capped.
 export function addPending(list, ids) {
   const merged = [...(Array.isArray(list) ? list : []).filter((id) => !ids.includes(id)), ...ids];
