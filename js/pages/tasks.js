@@ -7,18 +7,21 @@
 // שבוע" after a week, "למה תקועה?" after two (or after 3 moves), and a
 // decision after three. Never red, never a penalty.
 //
-// A fourth view, להחליט (M6b), holds the decisions: the open ones (with
-// their own ladder) and the journal of decided ones. The flow itself is
-// js/ui/decision-sheet.js; logic js/lib/decisions.js.
+// A switch at the top splits the page in two: משימות (the three views
+// above) and החלטות (M6b) — the open decisions (with their own ladder) and
+// the journal of decided ones, each part with its own tabs and add button.
+// A decided one opens to be edited or deleted (js/ui/decision-edit.js).
+// The flow itself is js/ui/decision-sheet.js; logic js/lib/decisions.js.
 
 import {
-  listTasks, newTaskId, setTask, deleteTask, listDecisions, newDecisionId, setDecision,
+  listTasks, newTaskId, setTask, deleteTask, listDecisions, newDecisionId, setDecision, deleteDecision,
 } from '../lib/firestore.js';
 import {
   TRACKS, FEELINGS, MISSING, MISSING_TIPS, normalizeDecision, openDecisions, decidedDecisions, ladderStage as decisionLadder,
   choiceText, isOnTime, daysLeft, experimentPending,
 } from '../lib/decisions.js';
 import { openDecisionSheet } from '../ui/decision-sheet.js';
+import { openDecisionEditSheet } from '../ui/decision-edit.js';
 import {
   AREAS, OWNERS, SIZES, STUCK_REASONS, STUCK_TIPS, normalizeTask, dayList, isRepeating, isOpen, isDoneOn,
   isUnscheduled, quadrant, sortTasks, ladderStage, whenText, toggleDoneDate, noonOf, weekOf, isUrgent, scheduledKey,
@@ -34,7 +37,8 @@ import { emptyState } from '../ui/empty-state.js';
 import { openTaskSheet, openQuickTask } from '../ui/task-sheet.js';
 import { handleQuickActions } from '../ui/quick-add.js';
 
-const VIEWS = { today: 'היום', matrix: 'מטריצה', all: 'הכול', decide: 'להחליט' };
+const VIEWS = { today: 'היום', matrix: 'מטריצה', all: 'הכול' };
+const DECIDE_TABS = { open: 'פתוחות', done: 'החלטתי' };
 const QUADRANTS = {
   do: { title: 'חשוב ודחוף', hint: 'לעשות עכשיו' },
   plan: { title: 'חשוב, לא דחוף', hint: 'לקבוע לו זמן' },
@@ -44,7 +48,8 @@ const QUADRANTS = {
 
 let container = null;
 let tasks = []; // normalized
-let view = 'today';
+let view = 'today'; // a tasks view, or 'decide' for the decisions part
+let decideTab = 'open';
 let filter = { area: null, owner: null };
 let openLadder = null; // the task whose "why stuck?" answer is showing
 let decisions = []; // normalized
@@ -75,6 +80,7 @@ export async function mountTasks(rootEl) {
   stopQuickActions = handleQuickActions('tasks', (action) => {
     if (action === 'task') return quickAdd();
     view = 'decide';
+    decideTab = 'open';
     render();
     if (action === 'decision') return openDecision(null, { source: 'quick' });
     // 'decision:<id>' — from the home screen's nearest decision.
@@ -102,6 +108,22 @@ function saveDecision(id, patch, { isNew = false } = {}) {
   decisions = existing ? decisions.map((d) => (d.id === id ? normalizeDecision(merged) : d)) : [...decisions, normalizeDecision(merged)];
   setDecision(id, patch, { isNew }).catch(failed('decision'));
   if (view === 'decide') render();
+}
+
+function openDecided(decision) {
+  openDecisionEditSheet({
+    decision,
+    onSave: (id, patch) => {
+      saveDecision(id, patch);
+      showToast('נשמר');
+    },
+    onDelete: (id) => {
+      decisions = decisions.filter((x) => x.id !== id);
+      deleteDecision(id).catch(failed('decision delete'));
+      render();
+      showToast('נמחקה');
+    },
+  });
 }
 
 function openDecision(decision, prefill = {}) {
@@ -178,12 +200,26 @@ function postpone(task) {
 }
 
 function onClick(e) {
-  const el = e.target.closest('[data-view], [data-filter-area], [data-filter-owner], [data-check], [data-open], [data-add], [data-postpone], [data-why], [data-reason], [data-act], [data-dec-new], [data-dec-open], [data-dec-when], [data-dec-missing], [data-dec-why]');
+  const el = e.target.closest('[data-view], [data-filter-area], [data-filter-owner], [data-check], [data-open], [data-add], [data-postpone], [data-why], [data-reason], [data-act], [data-dec-new], [data-dec-open], [data-dec-when], [data-dec-missing], [data-dec-why], [data-area], [data-dec-tab], [data-dec-edit]');
   if (!el || !container?.contains(el)) return;
   const d = el.dataset;
   if (d.view) {
     view = d.view;
     return render();
+  }
+  if (d.area) {
+    // Back to the tasks part on the view it was last on.
+    view = d.area === 'decide' ? 'decide' : lastTaskView;
+    return render();
+  }
+  if (d.decTab) {
+    decideTab = d.decTab;
+    return render();
+  }
+  if (d.decEdit) {
+    const dec = decisions.find((x) => x.id === d.decEdit);
+    if (dec) openDecided(dec);
+    return;
   }
   if (d.decNew !== undefined) return openDecision(null);
   const dec = decisions.find((x) => x.id === (d.decOpen || d.decWhy || (d.decWhen || d.decMissing || '').split('|')[0]));
@@ -248,15 +284,25 @@ function onClick(e) {
 
 // ---------- render ----------
 
+let lastTaskView = 'today';
+
 function render() {
   if (!container) return;
-  const body = view === 'matrix' ? matrixView() : view === 'all' ? allView() : view === 'decide' ? decideView() : todayView();
+  const deciding = view === 'decide';
+  if (!deciding) lastTaskView = view;
+  const body = view === 'matrix' ? matrixView() : view === 'all' ? allView() : deciding ? decideView() : todayView();
+  const openCount = openDecisions(decisions).length;
+  const tabs = deciding
+    ? Object.entries(DECIDE_TABS).map(([k, l]) => `<button type="button" data-dec-tab="${k}"${decideTab === k ? ' class="active" aria-current="page"' : ''}>${l}</button>`)
+    : Object.entries(VIEWS).map(([k, l]) => `<button type="button" data-view="${k}"${view === k ? ' class="active" aria-current="page"' : ''}>${l}</button>`);
   container.innerHTML = `
+    <nav class="task-switch" aria-label="משימות או החלטות">
+      <button type="button" data-area="tasks"${deciding ? '' : ' class="active" aria-current="page"'}>${icon('list-checks', { className: 'icon--sm' })} משימות</button>
+      <button type="button" data-area="decide"${deciding ? ' class="active" aria-current="page"' : ''}>${icon('split', { className: 'icon--sm' })} החלטות${openCount ? ` <span class="task-switch-count num">${openCount}</span>` : ''}</button>
+    </nav>
     <div class="task-head">
-      <nav class="toggle-group task-tabs" aria-label="תצוגה">
-        ${Object.entries(VIEWS).map(([k, l]) => `<button type="button" data-view="${k}"${view === k ? ' class="active" aria-current="page"' : ''}>${l}</button>`).join('')}
-      </nav>
-      ${view === 'decide'
+      <nav class="toggle-group task-tabs" aria-label="תצוגה">${tabs.join('')}</nav>
+      ${deciding
         ? `<button type="button" class="btn btn-primary task-add" data-dec-new>${icon('plus', { className: 'icon--sm' })} החלטה</button>`
         : `<button type="button" class="btn btn-primary task-add" data-add>${icon('plus', { className: 'icon--sm' })} משימה</button>`}
     </div>
@@ -266,16 +312,20 @@ function render() {
 // ---------- להחליט ----------
 
 function decideView() {
+  if (decideTab === 'done') {
+    const done = decidedDecisions(decisions);
+    if (!done.length) return `<div class="card decision-empty">${emptyState('כאן יופיעו ההחלטות שקיבלת: מה בחרת, למה ואיך הרגשת.', { centered: true })}</div>`;
+    return `<p class="task-note">בלי "צדקתי" או "טעיתי": הנקודות הן על הזמן. לחיצה על החלטה פותחת עריכה.</p>
+      <div class="task-list">${done.slice(0, 50).map(journalRow).join('')}</div>`;
+  }
   const open = openDecisions(decisions);
-  const done = decidedDecisions(decisions);
-  if (!open.length && !done.length) {
+  if (!open.length) {
     return `<div class="card decision-empty">
       ${emptyState('מתלבט? כתוב את השאלה, ותקבל לה זמן קצוב. קטנה: 2 דקות והגרלה. בינונית: עד מחר, עם ציון. גדולה: שבוע, בשלבים.', { centered: true })}
       <button type="button" class="btn btn-primary" data-dec-new>החלטה חדשה</button>
     </div>`;
   }
-  return section('פתוחות', open.map(decisionRow), { count: open.length || null })
-    + section('החלטתי', done.slice(0, 30).map(journalRow), { note: 'בלי "צדקתי" או "טעיתי": הנקודות הן על הזמן.' });
+  return `<div class="task-list">${open.map(decisionRow).join('')}</div>`;
 }
 
 // "להחליט עד …" with the days left, for a decision with a date.
@@ -341,7 +391,7 @@ function journalRow(dec) {
     <div class="card task-row decision-journal">
       <div class="task-row-main">
         <span class="decision-row-icon">${icon('check', { className: 'icon--sm' })}</span>
-        <div class="task-row-body">
+        <button type="button" class="task-row-body" data-dec-edit="${esc(dec.id)}" aria-label="${esc(`עריכה: ${dec.question}`)}">
           <span class="task-title">${esc(dec.question)}</span>
           <span class="decision-choice">${esc(choiceText(dec))}</span>
           <span class="task-tags">
@@ -352,7 +402,7 @@ function journalRow(dec) {
             ${dec.feeling ? `<span class="task-tag task-tag--quiet">${FEELINGS[dec.feeling]}</span>` : ''}
           </span>
           ${dec.reason ? `<span class="task-step">${esc(dec.reason)}</span>` : ''}
-        </div>
+        </button>
       </div>
     </div>`;
 }
