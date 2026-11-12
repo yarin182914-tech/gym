@@ -2,12 +2,18 @@
 // one-tap action and short steps. Opened from the profile sheet. M3c
 // builds the page and its first card (steps from the iPhone); later
 // milestones replace their grey "בקרוב" card with a real one. M11 adds the
-// Claude connector card (personal keys, js/lib/mcp-keys.js).
+// Claude connector card (personal keys, js/lib/mcp-keys.js). M7 adds
+// Google Calendar (a one-time consent; the server keeps it —
+// js/lib/calendar-sync.js).
 //
 // How-tos name the iPhone's own buttons, so each has a switch for the
 // phone's language (labels in js/lib/ios-labels.js); the rest stays Hebrew.
 
-import { listDailyActivity, listApiKeys, addApiKey, deleteApiKey } from '../lib/firestore.js';
+import { listDailyActivity, listApiKeys, addApiKey, deleteApiKey, listTasks } from '../lib/firestore.js';
+import { calendarStatus, startCalendarConnect, disconnectCalendar, queueCalendarSync } from '../lib/calendar-sync.js';
+import { tasksToConnect } from '../lib/calendar-event.js';
+import { normalizeTask } from '../lib/tasks.js';
+import { routeParams } from '../lib/router.js';
 import { makeSecret, formatKey, hashSecret } from '../lib/api-key.js';
 import { currentUid } from '../auth.js';
 import { useCloud } from '../firebase-config.js';
@@ -28,8 +34,8 @@ import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 const LANG_KEY = 'gymi.iosLang';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const CALENDAR_SOON = { icon: 'calendar-days', title: 'יומן גוגל', text: 'משימות עם יום או שעה נכנסות ליומן' };
 const SOON = [
-  { icon: 'calendar-days', title: 'יומן גוגל', text: 'משימות עם שעה נכנסות ליומן' },
   { icon: 'bell', title: 'התראות', text: 'תזכורת רק כשמשהו חסר' },
   { icon: 'cloud', title: 'אחסון בענן', text: 'גיבוי התכנית לדרייב, דרך קלוד' },
   { icon: 'watch', title: 'Garmin', text: 'אימונים, שינה ודופק מהשעון' },
@@ -46,6 +52,8 @@ let mcpKeys = null; // the user's Claude keys, or null while loading
 let newUrl = null; // the connector address of a key made just now — shown once
 let mcpBusy = false;
 let usageCard = null; // "אינסטגרם מהאייפון" (js/ui/usage-card.js)
+let cal = null; // { configured, calendar, demo? } from the server, or null while loading
+let calBusy = false;
 
 function savedLang() {
   try {
@@ -62,7 +70,10 @@ export async function mountConnections(rootEl) {
   loaded = false;
   mcpKeys = null;
   newUrl = null;
+  cal = null;
+  calBusy = false;
   render();
+  loadCalendar(token);
   listMcpKeys().catch((err) => {
     console.error('[connections] keys load failed', err);
     return [];
@@ -99,6 +110,7 @@ export function unmountConnections() {
   newKey = '';
   installing = false;
   usageCard = null;
+  cal = null;
 }
 
 function render() {
@@ -106,16 +118,10 @@ function render() {
     <p class="text-muted connections-intro">מקורות שמעדכנים את ג׳ימי לבד, בלי רישום ידני.</p>
     ${stepsCard()}
     <section class="card connection-main" aria-labelledby="conn-claude-title" data-claude></section>
+    <section class="card connection-main" aria-labelledby="conn-calendar-title" data-calendar hidden></section>
     <div data-usage></div>
     <h2 class="connections-soon-title">בקרוב</h2>
-    <div class="connections-soon">
-      ${SOON.map((s) => `
-        <div class="connection-card connection-card--soon">
-          <span class="connection-icon">${icon(s.icon)}</span>
-          <span class="connection-text"><b>${s.title}</b><span class="text-muted">${s.text}</span></span>
-          <span class="connection-badge">בקרוב</span>
-        </div>`).join('')}
-    </div>`;
+    <div class="connections-soon" data-soon></div>`;
 
   const group = container.querySelector('[data-lang-group]');
   group.classList.add('toggle-group--live', 'ios-lang-switch');
@@ -137,6 +143,8 @@ function render() {
   container.addEventListener('click', onCopy);
   container.addEventListener('click', onKeyAction);
   container.addEventListener('click', onClaudeClick);
+  container.addEventListener('click', onCalendarClick);
+  renderCalendar();
   renderStatus();
   renderSilent();
   renderClaude();
@@ -566,3 +574,134 @@ async function revokeClaudeKey(hash) {
   }
   renderClaude();
 }
+
+// ---------- Google Calendar (M7) ----------
+// One consent, kept by the server; from then on a task with a day or a
+// time has its event (js/lib/calendar-sync.js, docs/specs/calendar-sync.md).
+
+// What Google's way back (#/connections?calendar=<result>) says.
+const CALENDAR_RESULTS = {
+  ok: 'היומן מחובר',
+  cancelled: 'החיבור בוטל',
+  scope: 'כדי לחבר, צריך לסמן את ההרשאה ליומן במסך של גוגל',
+  account: 'צריך לבחור את אותו חשבון גוגל שאיתו נכנסת לג׳ימי',
+  failed: 'החיבור לא הצליח, אפשר לנסות שוב',
+};
+
+async function loadCalendar(token) {
+  const result = routeParams().get('calendar');
+  if (result) {
+    // Shown once: the address goes back to plain #/connections.
+    history.replaceState(null, '', '#/connections');
+    showToast(`${result === 'ok' ? `${icon('check', { className: 'icon--sm' })} ` : ''}${CALENDAR_RESULTS[result] || CALENDAR_RESULTS.failed}`);
+  }
+  try {
+    cal = await calendarStatus();
+  } catch (err) {
+    console.error('[connections] calendar status failed', err);
+    cal = { configured: false };
+  }
+  if (isStale(token)) return;
+  renderCalendar();
+  // Just connected: the open tasks that already have a day or a time.
+  if (result === 'ok' && cal.calendar?.connected) {
+    listTasks()
+      .then((list) => queueCalendarSync(tasksToConnect(list.map(normalizeTask))))
+      .catch((err) => console.error('[connections] first calendar sync failed', err));
+  }
+}
+
+function calendarStatusLine() {
+  const c = cal.calendar;
+  if (cal.demo && c?.connected) return '<span class="status-dot status-dot--on"></span>מחובר (הדגמה)';
+  if (c?.connected) {
+    const synced = whenHe(c.lastSyncAt);
+    return `<span class="status-dot status-dot--on"></span><span>מחובר${c.email ? ` · <span dir="ltr">${esc(c.email)}</span>` : ''}${synced ? ` · סנכרון אחרון ${synced}` : ''}</span>`;
+  }
+  return '<span class="status-dot"></span>לא מחובר';
+}
+
+// The real card once the server is set up; until then (and while
+// checking) the grey "בקרוב" one, in its old place.
+function renderCalendar() {
+  const card = container?.querySelector('[data-calendar]');
+  const soon = container?.querySelector('[data-soon]');
+  if (!card || !soon) return;
+  const ready = !!cal?.configured;
+  soon.innerHTML = [...(ready ? [] : [CALENDAR_SOON]), ...SOON].map((s) => `
+    <div class="connection-card connection-card--soon">
+      <span class="connection-icon">${icon(s.icon)}</span>
+      <span class="connection-text"><b>${s.title}</b><span class="text-muted">${s.text}</span></span>
+      <span class="connection-badge">בקרוב</span>
+    </div>`).join('');
+  card.hidden = !ready;
+  if (!ready) return;
+  const c = cal.calendar;
+  const connected = !!c?.connected;
+  const connectBtn = (label) => `
+    <button type="button" class="btn btn-primary btn-block" data-cal-connect${calBusy ? ' disabled' : ''}>
+      ${icon('calendar-days', { className: 'icon--sm' })} ${calBusy ? 'פותח את גוגל…' : label}
+    </button>`;
+  card.innerHTML = `
+    <div class="connection-head">
+      <span class="connection-icon">${icon('calendar-days')}</span>
+      <span class="connection-text">
+        <b id="conn-calendar-title">יומן גוגל</b>
+        <span class="connection-status">${calendarStatusLine()}</span>
+      </span>
+    </div>
+    ${!connected && c?.needsReconnect ? '<p class="connection-hint">החיבור ליומן פג. חיבור מחדש לוקח רגע, והמשימות שלך לא נפגעו.</p>' : ''}
+    <p class="text-muted connection-desc">משימה עם יום או שעה נכנסת לבד ליומן שלך. כשמזיזים אותה האירוע זז, וכשמסיימים הוא מקבל ✓. ג׳ימי נוגע רק באירועים שהוא יצר.</p>
+    ${connected
+      ? `<button type="button" class="btn btn-outline btn-block" data-cal-disconnect${calBusy ? ' disabled' : ''}>ניתוק היומן</button>`
+      : `${connectBtn(c?.needsReconnect ? 'חיבור מחדש' : 'חיבור היומן')}
+         <p class="text-muted connection-note">מאשרים פעם אחת במסך של גוגל, וזה נשאר מחובר.</p>`}`;
+}
+
+async function onCalendarClick(e) {
+  if (calBusy) return;
+  if (e.target.closest('[data-cal-connect]')) {
+    calBusy = true;
+    renderCalendar();
+    try {
+      if (await startCalendarConnect()) return; // left for Google's screen
+      cal = await calendarStatus();
+      showToast(`${icon('check', { className: 'icon--sm' })} ${CALENDAR_RESULTS.ok} (הדגמה)`);
+      calBusy = false;
+      renderCalendar();
+    } catch (err) {
+      console.error('[connections] calendar connect failed', err);
+      showToast(navigator.onLine ? 'לא הצלחתי לפתוח את החיבור, אפשר לנסות שוב' : 'צריך חיבור לאינטרנט כדי לחבר את היומן');
+      calBusy = false;
+      renderCalendar();
+    }
+  } else if (e.target.closest('[data-cal-disconnect]')) {
+    const yes = await confirmDialog({
+      title: 'לנתק את היומן?',
+      message: 'ג׳ימי יפסיק לכתוב ליומן. האירועים שכבר שם נשארים, והמשימות שלך לא משתנות.',
+      confirmLabel: 'ניתוק',
+      cancelLabel: 'השארה',
+    });
+    if (!yes) return;
+    calBusy = true;
+    renderCalendar();
+    try {
+      await disconnectCalendar();
+      cal = { ...cal, calendar: { connected: false, needsReconnect: false } };
+      showToast('היומן נותק');
+    } catch (err) {
+      console.error('[connections] calendar disconnect failed', err);
+      showToast('לא הצלחתי לנתק, אפשר לנסות שוב');
+    }
+    calBusy = false;
+    renderCalendar();
+  }
+}
+
+// Back from Google's screen with the browser's back button: the page is
+// restored as it was left, mid-"opening".
+window.addEventListener('pageshow', (e) => {
+  if (!e.persisted || !container) return;
+  calBusy = false;
+  renderCalendar();
+});
