@@ -183,5 +183,12 @@ Plan: "שלב 6", and the "ליזום, לא לחייב" rules in "שאלון ח�
 ## M13 ☐ Share achievements — `feature/m13-share`
 Asked by ירין 2026-11-10, for after the app is ready for other users (after the pilot). Share a level-up, badge, PR, streak or weekly summary as an image card (canvas → PNG) through the phone's share sheet (`navigator.share` with files), no raw data. Opt-in per share, nothing posted automatically.
 
+## M4c ☐ The "זהב" look — design base + Today — `feature/m4c-gold-look`
+Asked by ירין 2026-11-12: "שיפור המראה הכללי של האפליקציה … ברמה של תאגיד ענק כמו גוגל או מייקרוסופט". Picked "זהב" of four proposals. Spec: `docs/specs/gold-look.md`. Built last, by ירין's choice (2026-11-12), so Today is designed once after the other milestones add their cards.
+- Data: none (rings and level read existing data).
+- UI: retuned tokens (16px body, new type ramp, radius 26/16, warm elevation, motion tokens, ring/reward/missed tokens) in every theme block; shared cards, buttons, FAB and nav restyled; Today rebuilt as greeting → gradient level card with streak → three rings (אימון · תזונה · שינה) → existing sections. Gold shine + glow toast for the +points moment (when it fires stays with M4b).
+- Done when: Today matches the comparison mockup at 390px with real data (also offline), every tab still lays out at 16px body, and DARK, BRIGHT and all five RANDOM palettes stay readable with missed = grey.
+- Follow-up: M4d, screen-by-screen polish of אימון, תזונה, שינה, משימות, החלטות and התקדמות.
+
 ## Later
 "לאורך זמן" (graduating habits, seasons, monthly recalibration, vacation mode), Garmin (שלב 7), pilot (שלב 8).
