@@ -25,6 +25,7 @@ public repo.
 | `users/{uid}/habits` | auto | The user's habits (definitions) |
 | `users/{uid}/habitLogs` | `yyyy-mm-dd` | Which habits were done that day |
 | `users/{uid}/tasks` | auto | Tasks: one-off, daily and repeating ("משימות") |
+| `users/{uid}/decisions` | auto | Decisions, open and decided ("להחליט") |
 | `users/{uid}/apiKeys` | sha-256 of the key's secret | Personal keys for sending data from outside (the steps shortcut) — app only |
 | `users/{uid}/appUsage` | `yyyy-mm-dd` | Minutes in apps (Instagram, TikTok, any app the user picked), from the iPhone shortcut — server only |
 | `users/{uid}/appSessions` | the app id (`instagram`, `c-strava`) | The app's open session, if any — server only |
@@ -885,12 +886,12 @@ higher value, so two phones can't lower each other's entries.
 | Field | Type | Notes |
 |---|---|---|
 | `date` | string | `yyyy-mm-dd` — the day it counts for (a night: its morning) |
-| `source` | string | `sleep` · `habit` · `meal` · `nutrition` · `weight` · `workout` · `bonus` |
-| `rule` | string | `sleep-bedtime` · `sleep-duration` · `habit` · `habit-week` · `meal-log` · `calories` · `protein` · `meal-count` · `weigh-in` · `workout` · `workout-week` · `pr` · `perfect-day` · `bad-clean` · `bad-slip` · `bad-week` · `bad-streak` |
+| `source` | string | `sleep` · `habit` · `meal` · `nutrition` · `weight` · `workout` · `bonus` · `task` · `decision` |
+| `rule` | string | `sleep-bedtime` · `sleep-duration` · `habit` · `habit-week` · `meal-log` · `calories` · `protein` · `meal-count` · `weigh-in` · `workout` · `workout-week` · `pr` · `perfect-day` · `bad-clean` · `bad-slip` · `bad-week` · `bad-streak` · `task` · `task-start` · `decision` · `decision-first` |
 | `ref` | string \| null | The habit / meal / `<workoutId>_<exercise>` it's for |
 | `points` | number | Points awarded (after the daily cap) |
 | `raw` | number | What the rule earned before the cap |
-| `grade` | string \| null | `full` · `close` · `short` (habit) · `free` (a flexible night's bedtime) |
+| `grade` | string \| null | `full` · `close` · `short` (habit) · `free` (a flexible night's bedtime) · `on-time` (task, decision) · `late` (decision) |
 | `reason` | string | Short Hebrew, e.g. `"נרדמת בזמן"` |
 | `createdAt`, `updatedAt` | Timestamp | Server timestamps |
 
@@ -1090,6 +1091,79 @@ and `scheduledAt` as above; to add one, write the whole document with
 // a weekly one: every Friday
 { "title": "לנקות את מכונת הקפה", "type": "recurring",
   "recurrence": { "every": "week", "day": 5 }, "complexity": "S", "...": "..." }
+```
+
+---
+
+## Decisions — `users/{uid}/decisions/{auto}`
+
+One document per decision on "משימות → להחליט" (M6b); the nearest open one
+also shows on "היום". Two questions sort it into a track — `small` (a
+2-minute budget and the feet draw) or `medium` (10 minutes, or by the end of
+the next day, with criteria and a score). The reward is for deciding inside
+the budget, never for being "right". The app saves it when its track starts
+(`startedAt` starts the clock) and whenever a field is left, so a decision
+closed half-way stays open in the list.
+
+| Field | Type | Notes |
+|---|---|---|
+| `question` | string | Hebrew, one line — `"איזו מסעדה הערב?"` |
+| `track` | string | `small` · `medium` (a "large" answer runs as `medium` until M6c) |
+| `triage` | map | `{ "reversible": true \| false \| null, "impact": "low" \| "some" \| "high" \| null }` — the two answers |
+| `options` | array | 2–4 of `{ "id": "o3k9x1", "text": "סושי", "scores": { "<criterionId>": 1–5 } }`. `scores` is `{}` on a small decision. |
+| `criteria` | array | Medium: up to 3 of `{ "id": "c7a2b0", "name": "מחיר", "weight": 1 \| 2 \| 3 }`. `[]` on a small one. |
+| `goodEnough` | number | The bar for "מספיק טוב" — an option's weighted average (1–5). Default 3.5. |
+| `tenTenTen` | string | Medium: the 10-10-10 answer. `""` = none. |
+| `budgetSec` | number | The visible timer: 120 (small) · 600 (medium) |
+| `startedAt` | Timestamp \| null | When its track started. `null` = only the question so far. |
+| `decideBy` | Timestamp \| null | Local noon of the day to decide by. Medium: tomorrow, set on start. Small: `null` unless set from the ladder. |
+| `decidedAt` | Timestamp \| null | When "החלטתי" was tapped |
+| `choiceId` | string \| null | The chosen option's `id` |
+| `method` | string \| null | `feet` (the draw picked it) · `score` (the suggestion) · `manual` (picked by hand, or another option after the draw) |
+| `reopened` | boolean | Drawn again before deciding — no "first choice" bonus |
+| `reason` | string | Why, one line. `""` = none. |
+| `feeling` | string \| null | `happy` · `unsure` · `disappointed` |
+| `stuckReason` | string \| null | The answer to "מה חסר כדי להחליט?": `info` · `talk` · `courage` |
+| `status` | string | `open` · `decided` · `dropped` ("לוותר עליה" — kept, just off the list) |
+| `source` | string | `manual` · `quick` (the + button) · `coach` (written from outside) |
+| `createdAt` | Timestamp | First saved — the ladder counts from it |
+| `updatedAt` | Timestamp | Last saved |
+
+**On time** — computed, never stored: small, `decidedAt` within `budgetSec`
+of `startedAt`; medium, before the midnight that ends the day after
+`startedAt` (Israel time), or within its 600 seconds if that's later.
+
+**The ladder** — computed from `createdAt`: an open decision with no
+`decideBy` shows "לקבוע תאריך החלטה" after 7 days and "מה חסר כדי
+להחליט?" after 14. Never red, never a penalty.
+
+**Points** (pointsLedger rules `decision` and `decision-first`, on the day
+of `decidedAt`): small 5 on time / 2 late; medium 15 / 5; +5 when not
+`reopened`. Badges for 5, 20 and 50 on-time decisions in a row. All in
+`DECISIONS`, `js/lib/rules.js`.
+
+**From outside the app (the evening check):** read the open ones
+(`status: 'open'`) and ask about them; to add one, write `question`,
+`track`, `status: 'open'`, `source: 'coach'` and `createdAt`, and leave
+`startedAt` `null` so the clock starts when the user opens it. Don't mark
+one decided from outside.
+
+```json
+// users/{uid}/decisions/<auto id> — a medium one, decided
+{ "question": "איזה מחשב לקנות?", "track": "medium",
+  "triage": { "reversible": false, "impact": "some" },
+  "options": [
+    { "id": "oa1", "text": "מקבוק", "scores": { "cp1": 2, "cb2": 5 } },
+    { "id": "ob2", "text": "לנובו", "scores": { "cp1": 4, "cb2": 3 } } ],
+  "criteria": [ { "id": "cp1", "name": "מחיר", "weight": 3 }, { "id": "cb2", "name": "סוללה", "weight": 2 } ],
+  "goodEnough": 3.5, "tenTenTen": "", "budgetSec": 600,
+  "startedAt": "<Timestamp 2026-11-12 10:00 Israel>",
+  "decideBy": "<Timestamp 2026-11-13 12:00 Israel>",
+  "decidedAt": "<Timestamp 2026-11-12 10:08 Israel>",
+  "choiceId": "ob2", "method": "score", "reopened": false,
+  "reason": "יותר זול, מספיק טוב", "feeling": "unsure", "stuckReason": null,
+  "status": "decided", "source": "manual",
+  "createdAt": "serverTimestamp()", "updatedAt": "serverTimestamp()" }
 ```
 
 ---

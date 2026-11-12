@@ -98,8 +98,10 @@ Plan: "דף המשימות", "מניעת דחיינות".
 - Views: today, Eisenhower matrix, week/all with filters. Quick capture via + (free text → inbox).
 - Procrastination ladder computed from `createdAt`/`postponeCount`: 1 week → orange "מחכה שבוע", 2 weeks → "why stuck?" quick answers, 3 weeks → forced decision (schedule / someday / delete). Max 3 important tasks per day. Top 3 tasks shown on Today.
 
-## M6b ☐ Decisions — "להחליט" — `feature/m6b-decisions`
-Plan: "קבלת החלטות: "להחליט"". Built for Maya: the problem is the time indecision burns, so everything is built around a time budget.
+## M6b ◐ Decisions — "להחליט" — `feature/m6b-decisions`
+Plan: "קבלת החלטות: "להחליט"". Built for Maya: the problem is the time indecision burns, so everything is built around a time budget. Spec: `docs/specs/decisions.md`.
+- **Split (ירין 2026-11-12):** M6b = triage, small and medium tracks, the open list with its ladder, points and badges. Lives as a 4th tab "להחליט" on משימות, plus "החלטה" on the + button and the nearest decision on Today. The large track, personal rules and the review move to **M6c**.
+- Small decision game (ירין 2026-11-12): a pair of cartoon feet, one option each (2 by default, up to 4). The randomly chosen foot raises its big toe like a thumbs-up. The game is swappable (`js/ui/choosers/`), and ירין will send their own art.
 - **Fully offline and self-contained:** all steps, timers, scoring and math run in client code on the Firestore local cache. No network, no Claude, no server needed. Claude may read open decisions later, but nothing depends on it.
 - Data: `users/{uid}/decisions/{auto}` (question, track small|medium|large, options, criteria + weights, goodEnough threshold, budgetSec, decideBy, startedAt, decidedAt, choice, reason, feeling, reviewAt, outcome) and `users/{uid}/decisionRules/{auto}` (personal rules, e.g. "restaurant: first good-looking option").
 - Triage: two questions (reversible? matters in a year?) → track; user can override.
@@ -107,6 +109,14 @@ Plan: "קבלת החלטות: "להחליט"". Built for Maya: the problem is th
 - Scoring (all in `js/lib/rules.js`): on time small 5 / medium 15 / large 40; late 2 / 5 / 10; no re-open +5; used a rule +3; new rule +10; review logged 3; "decides on time" streak with badges at 5/20/50. Never points for being "right", never a penalty. Points go to the ledger once M4 exists; until then store them on the decision.
 - Open decisions list with the procrastination ladder from M6 (1 week no date → orange "תקבעי תאריך החלטה"; 2 weeks → "what's missing?"). Nearest decision on Today. Review reminder after 1 month (medium) / 3 months (large).
 - Done when: a small decision can be made start-to-finish in airplane mode within 2 minutes, a medium one is scored on/late correctly at the boundary (unit test), and DATA.md documents both collections.
+
+## M6c ☐ Decisions, part 2 — large track, personal rules, review — `feature/m6c-decisions-large`
+Plan: "קבלת החלטות: "להחליט"" (the parts M6b left out). Spec: `docs/specs/decisions.md` ("לא בגרסה הזאת").
+- Large track: full WRAP (at least 3 options, "what would you tell a friend", premortem, a small experiment), `decideBy` default 1 week, and a "החלטתי" button on every step. 40 points on time / 10 late.
+- Personal rules `users/{uid}/decisionRules/{auto}`: offered on a matching new decision, which then ends at once. Using a rule +3, a new rule +10.
+- Decision journal review: "איך זה יצא?" after 1 month (medium) or 3 months (large), worth 3 points.
+- Once M7 exists: the decide-by date goes into the calendar.
+- Done when: a large decision runs through WRAP offline, a rule closes a matching decision in one tap, and the review shows up on its day.
 
 ## M7 ☐ Google Calendar sync from the app — `feature/m7-calendar`
 Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון עם היומן".

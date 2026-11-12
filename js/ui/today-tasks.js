@@ -1,20 +1,26 @@
 // "משימות להיום" on the home screen (M6): the few most pressing open tasks
 // for today (TASKS.homeCount), each with its tick, and a link to the
-// tasks page. Hidden when there are none. Loads and saves on its own, so
+// tasks page; under them the nearest open decision (M6b, one line, opens it
+// on להחליט). Hidden when there is nothing. Loads and saves on its own, so
 // js/pages/today.js only gives it a place.
 
-import { listTasks, setTask } from '../lib/firestore.js';
-import { normalizeTask, topToday, isRepeating, toggleDoneDate, whenText } from '../lib/tasks.js';
+import { listTasks, setTask, listDecisions } from '../lib/firestore.js';
+import { normalizeTask, topToday, isRepeating, toggleDoneDate, whenText, shortDay } from '../lib/tasks.js';
+import { normalizeDecision, openDecisions } from '../lib/decisions.js';
+import { DECISIONS } from '../lib/rules.js';
 import { dateKey } from '../lib/sleep.js';
+import { toDate } from '../lib/format.js';
 import { navigate } from '../lib/router.js';
 import { esc } from '../core/dom.js';
 import { icon } from './icon.js';
 import { showToast } from './toast.js';
+import { runQuickAction } from './quick-add.js';
 
 // host: an element on the home screen. Returns { refresh } for re-renders
 // of the screen that rebuild the host.
 export function mountTodayTasks(host) {
   let tasks = [];
+  let decisions = [];
   let justDone = new Set(); // ticked here: stays on the card, ticked, until the next visit
 
   function render() {
@@ -22,15 +28,16 @@ export function mountTodayTasks(host) {
     const top = topToday(tasks.filter((t) => !justDone.has(t.id)), key);
     const done = tasks.filter((t) => justDone.has(t.id));
     const list = [...top, ...done];
-    if (!list.length) {
+    const nearest = openDecisions(decisions).slice(0, DECISIONS.homeCount);
+    if (!list.length && !nearest.length) {
       host.innerHTML = '';
       return;
     }
     host.innerHTML = `
       <div class="today-section-head">
-        <h2 class="today-section-title">משימות להיום</h2>
+        <h2 class="today-section-title">${list.length ? 'משימות להיום' : 'להחליט'}</h2>
         <span class="today-section-count"></span>
-        <button type="button" class="btn-mini-dashed" data-tasks-all>כל המשימות</button>
+        <button type="button" class="btn-mini-dashed" data-tasks-all="${list.length ? '' : 'decide'}">${list.length ? 'כל המשימות' : 'כל ההחלטות'}</button>
       </div>
       <div class="task-list">
         ${list.map((t) => {
@@ -47,6 +54,16 @@ export function mountTodayTasks(host) {
             </div>
           </div>`;
         }).join('')}
+        ${nearest.map((d) => `
+          <div class="card task-row decision-row">
+            <div class="task-row-main">
+              <span class="decision-row-icon">${icon('split', { className: 'icon--sm' })}</span>
+              <button type="button" class="task-row-body" data-today-decision="${esc(d.id)}">
+                <span class="task-title">${esc(d.question)}</span>
+                <span class="task-when">${d.decideBy ? `להחליט עד ${esc(shortDay(dateKey(toDate(d.decideBy)), key))}` : 'מחכה להחלטה'}</span>
+              </button>
+            </div>
+          </div>`).join('')}
       </div>`;
   }
 
@@ -73,12 +90,19 @@ export function mountTodayTasks(host) {
       if (task) toggle(task);
       return;
     }
-    if (e.target.closest('[data-tasks-all]')) navigate('tasks');
+    const dec = e.target.closest('[data-today-decision]');
+    if (dec) return runQuickAction('tasks', `decision:${dec.dataset.todayDecision}`);
+    const all = e.target.closest('[data-tasks-all]');
+    if (all) {
+      if (all.dataset.tasksAll === 'decide') return runQuickAction('tasks', 'decisions');
+      navigate('tasks');
+    }
   });
 
-  listTasks()
-    .then((list) => {
+  Promise.all([listTasks(), listDecisions().catch(() => [])])
+    .then(([list, decs]) => {
       tasks = list.map(normalizeTask);
+      decisions = decs.map(normalizeDecision);
       render();
     })
     .catch((err) => console.error('[today] tasks load failed', err));

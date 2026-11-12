@@ -296,6 +296,26 @@ export async function devListTasks() {
   return [...(load().tasks || [])];
 }
 
+export async function devSetDecision(decisionId, data, { isNew = false } = {}) {
+  const state = load();
+  state.decisions = state.decisions || [];
+  const existing = state.decisions.find((d) => d.id === decisionId);
+  const now = new Date().toISOString();
+  const entry = { ...(existing || {}), ...data, id: decisionId, updatedAt: now, ...(isNew || !existing ? { createdAt: now } : {}) };
+  state.decisions = state.decisions.filter((d) => d.id !== decisionId).concat(entry);
+  save(state);
+}
+
+export async function devDeleteDecision(decisionId) {
+  const state = load();
+  state.decisions = (state.decisions || []).filter((d) => d.id !== decisionId);
+  save(state);
+}
+
+export async function devListDecisions() {
+  return [...(load().decisions || [])];
+}
+
 // mark: { level, value, source } or null to clear the habit's day.
 export async function devSetHabitMark(dateKey, habitId, mark) {
   const state = load();

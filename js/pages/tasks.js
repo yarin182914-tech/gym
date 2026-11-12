@@ -6,11 +6,23 @@
 // The procrastination ladder shows on a task with no time: orange "מחכה
 // שבוע" after a week, "למה תקועה?" after two (or after 3 moves), and a
 // decision after three. Never red, never a penalty.
+//
+// A fourth view, להחליט (M6b), holds the decisions: the open ones (with
+// their own ladder) and the journal of decided ones. The flow itself is
+// js/ui/decision-sheet.js; logic js/lib/decisions.js.
 
-import { listTasks, newTaskId, setTask, deleteTask } from '../lib/firestore.js';
+import {
+  listTasks, newTaskId, setTask, deleteTask, listDecisions, newDecisionId, setDecision,
+} from '../lib/firestore.js';
+import {
+  TRACKS, FEELINGS, MISSING, MISSING_TIPS, normalizeDecision, openDecisions, decidedDecisions, ladderStage as decisionLadder,
+  choiceText, isOnTime,
+} from '../lib/decisions.js';
+import { openDecisionSheet } from '../ui/decision-sheet.js';
 import {
   AREAS, OWNERS, SIZES, STUCK_REASONS, STUCK_TIPS, normalizeTask, dayList, isRepeating, isOpen, isDoneOn,
   isUnscheduled, quadrant, sortTasks, ladderStage, whenText, toggleDoneDate, noonOf, weekOf, isUrgent, scheduledKey,
+  shortDay,
 } from '../lib/tasks.js';
 import { dateKey, shiftDays } from '../lib/sleep.js';
 import { toDate } from '../lib/format.js';
@@ -22,7 +34,7 @@ import { emptyState } from '../ui/empty-state.js';
 import { openTaskSheet, openQuickTask } from '../ui/task-sheet.js';
 import { handleQuickActions } from '../ui/quick-add.js';
 
-const VIEWS = { today: 'היום', matrix: 'מטריצה', all: 'הכול' };
+const VIEWS = { today: 'היום', matrix: 'מטריצה', all: 'הכול', decide: 'להחליט' };
 const QUADRANTS = {
   do: { title: 'חשוב ודחוף', hint: 'לעשות עכשיו' },
   plan: { title: 'חשוב, לא דחוף', hint: 'לקבוע לו זמן' },
@@ -35,6 +47,7 @@ let tasks = []; // normalized
 let view = 'today';
 let filter = { area: null, owner: null };
 let openLadder = null; // the task whose "why stuck?" answer is showing
+let decisions = []; // normalized
 let stopQuickActions = null;
 
 const todayKey = () => dateKey(new Date());
@@ -48,16 +61,26 @@ export async function mountTasks(rootEl) {
   const token = beginMount();
   container = rootEl;
   renderLoading(container, 'טוען משימות…');
-  const loaded = await listTasks().catch((err) => {
-    console.error('[tasks] load failed', err);
+  const soft = (p, what) => p.catch((err) => {
+    console.error(`[tasks] ${what} load failed`, err);
     return [];
   });
+  const [loaded, loadedDecisions] = await Promise.all([soft(listTasks(), 'tasks'), soft(listDecisions(), 'decisions')]);
   if (isStale(token)) return;
   tasks = loaded.map(normalizeTask);
+  decisions = loadedDecisions.map(normalizeDecision);
   render();
   container.addEventListener('click', onClick);
-  // The + button's "משימה": one line into the inbox.
-  stopQuickActions = handleQuickActions('tasks', () => quickAdd());
+  // The + button: "משימה" — one line into the inbox; "החלטה" — a new decision.
+  stopQuickActions = handleQuickActions('tasks', (action) => {
+    if (action === 'task') return quickAdd();
+    view = 'decide';
+    render();
+    if (action === 'decision') return openDecision(null, { source: 'quick' });
+    // 'decision:<id>' — from the home screen's nearest decision.
+    const dec = decisions.find((x) => `decision:${x.id}` === action);
+    if (dec) openDecision(dec);
+  });
 }
 
 export function unmountTasks() {
@@ -66,7 +89,29 @@ export function unmountTasks() {
   container?.removeEventListener('click', onClick);
   container = null;
   tasks = [];
+  decisions = [];
   openLadder = null;
+}
+
+// ---------- decisions ----------
+
+function saveDecision(id, patch, { isNew = false } = {}) {
+  const now = new Date();
+  const existing = decisions.find((d) => d.id === id);
+  const merged = { ...(existing || {}), ...patch, id, ...(isNew ? { createdAt: now } : {}) };
+  decisions = existing ? decisions.map((d) => (d.id === id ? normalizeDecision(merged) : d)) : [...decisions, normalizeDecision(merged)];
+  setDecision(id, patch, { isNew }).catch(failed('decision'));
+  if (view === 'decide') render();
+}
+
+function openDecision(decision, prefill = {}) {
+  openDecisionSheet({
+    decision,
+    prefill,
+    newId: newDecisionId,
+    onSave: saveDecision,
+    onDecided: (text) => showToast(`${icon('check', { className: 'icon--sm' })} החלטת: ${esc(text)}`),
+  });
 }
 
 // ---------- writes ----------
@@ -133,12 +178,30 @@ function postpone(task) {
 }
 
 function onClick(e) {
-  const el = e.target.closest('[data-view], [data-filter-area], [data-filter-owner], [data-check], [data-open], [data-add], [data-postpone], [data-why], [data-reason], [data-act]');
+  const el = e.target.closest('[data-view], [data-filter-area], [data-filter-owner], [data-check], [data-open], [data-add], [data-postpone], [data-why], [data-reason], [data-act], [data-dec-new], [data-dec-open], [data-dec-when], [data-dec-missing], [data-dec-why]');
   if (!el || !container?.contains(el)) return;
   const d = el.dataset;
   if (d.view) {
     view = d.view;
     return render();
+  }
+  if (d.decNew !== undefined) return openDecision(null);
+  const dec = decisions.find((x) => x.id === (d.decOpen || d.decWhy || (d.decWhen || d.decMissing || '').split('|')[0]));
+  if (dec) {
+    if (d.decOpen) return openDecision(dec);
+    if (d.decWhy) {
+      openLadder = openLadder === dec.id ? null : dec.id;
+      return render();
+    }
+    if (d.decWhen) {
+      const days = Number(d.decWhen.split('|')[1]);
+      saveDecision(dec.id, { decideBy: noonOf(shiftDays(todayKey(), days)) });
+      return showToast('נקבע תאריך החלטה');
+    }
+    if (d.decMissing) {
+      openLadder = dec.id;
+      return saveDecision(dec.id, { stuckReason: d.decMissing.split('|')[1] });
+    }
   }
   if (d.filterArea !== undefined) {
     filter.area = d.filterArea || null;
@@ -187,16 +250,102 @@ function onClick(e) {
 
 function render() {
   if (!container) return;
-  const body = view === 'matrix' ? matrixView() : view === 'all' ? allView() : todayView();
+  const body = view === 'matrix' ? matrixView() : view === 'all' ? allView() : view === 'decide' ? decideView() : todayView();
   container.innerHTML = `
     <div class="task-head">
       <nav class="toggle-group task-tabs" aria-label="תצוגה">
         ${Object.entries(VIEWS).map(([k, l]) => `<button type="button" data-view="${k}"${view === k ? ' class="active" aria-current="page"' : ''}>${l}</button>`).join('')}
       </nav>
-      <button type="button" class="btn btn-primary task-add" data-add>${icon('plus', { className: 'icon--sm' })} משימה</button>
+      ${view === 'decide'
+        ? `<button type="button" class="btn btn-primary task-add" data-dec-new>${icon('plus', { className: 'icon--sm' })} החלטה</button>`
+        : `<button type="button" class="btn btn-primary task-add" data-add>${icon('plus', { className: 'icon--sm' })} משימה</button>`}
     </div>
     ${body}`;
 }
+
+// ---------- להחליט ----------
+
+function decideView() {
+  const open = openDecisions(decisions);
+  const done = decidedDecisions(decisions);
+  if (!open.length && !done.length) {
+    return `<div class="card decision-empty">
+      ${emptyState('מתלבט? כתוב את השאלה, ותקבל לה זמן קצוב. קטנה: 2 דקות והגרלה. בינונית: עד מחר, עם ציון.', { centered: true })}
+      <button type="button" class="btn btn-primary" data-dec-new>החלטה חדשה</button>
+    </div>`;
+  }
+  return section('פתוחות', open.map(decisionRow), { count: open.length || null })
+    + section('החלטתי', done.slice(0, 30).map(journalRow), { note: 'בלי "צדקתי" או "טעיתי": הנקודות הן על הזמן.' });
+}
+
+function decisionRow(dec) {
+  const stage = decisionLadder(dec);
+  const id = esc(dec.id);
+  const by = dec.decideBy ? `להחליט עד ${shortDayOf(dec.decideBy)}` : dec.startedAt ? 'התחלת, אפשר להמשיך' : 'עוד לא התחלת';
+  let ladder = '';
+  if (stage === 'setDate') {
+    ladder = `
+      <div class="task-ladder">
+        <p class="task-ladder-q">שבוע בלי תאריך. מתי להחליט?</p>
+        <div class="pill-row">
+          <button type="button" class="pill" data-dec-when="${id}|1">מחר</button>
+          <button type="button" class="pill" data-dec-when="${id}|3">בעוד 3 ימים</button>
+          <button type="button" class="pill" data-dec-when="${id}|7">בעוד שבוע</button>
+        </div>
+      </div>`;
+  } else if (stage === 'missing') {
+    ladder = openLadder !== dec.id
+      ? `<div class="task-ladder"><button type="button" class="btn-mini-dashed" data-dec-why="${id}">מה חסר כדי להחליט?</button></div>`
+      : `
+      <div class="task-ladder">
+        <p class="task-ladder-q">מה חסר כדי להחליט?</p>
+        <div class="pill-row">${Object.entries(MISSING).map(([k, l]) => `<button type="button" class="pill${dec.stuckReason === k ? ' active' : ''}" data-dec-missing="${id}|${k}" aria-pressed="${dec.stuckReason === k}">${l}</button>`).join('')}</div>
+        ${dec.stuckReason ? `<p class="task-note">${MISSING_TIPS[dec.stuckReason]}</p>` : ''}
+        <div class="pill-row">
+          <button type="button" class="pill active" data-dec-open="${id}">להחליט עכשיו</button>
+          <button type="button" class="pill" data-dec-when="${id}|3">לקבוע תאריך</button>
+        </div>
+      </div>`;
+  }
+  return `
+    <div class="card task-row decision-row${stage ? ' task-row--wait' : ''}">
+      <div class="task-row-main">
+        <span class="decision-row-icon">${icon('split', { className: 'icon--sm' })}</span>
+        <button type="button" class="task-row-body" data-dec-open="${id}">
+          <span class="task-title">${esc(dec.question)}</span>
+          <span class="task-when">${by}</span>
+          <span class="task-tags">
+            <span class="task-tag task-tag--quiet">${TRACKS[dec.track]}</span>
+            ${stage === 'setDate' ? '<span class="task-tag task-tag--wait">לקבוע תאריך החלטה</span>' : ''}
+          </span>
+        </button>
+      </div>
+      ${ladder}
+    </div>`;
+}
+
+function journalRow(dec) {
+  const onTime = isOnTime(dec);
+  return `
+    <div class="card task-row decision-journal">
+      <div class="task-row-main">
+        <span class="decision-row-icon">${icon('check', { className: 'icon--sm' })}</span>
+        <div class="task-row-body">
+          <span class="task-title">${esc(dec.question)}</span>
+          <span class="decision-choice">${esc(choiceText(dec))}</span>
+          <span class="task-tags">
+            <span class="task-tag task-tag--quiet">${shortDayOf(dec.decidedAt)}</span>
+            ${onTime ? `<span class="task-tag task-tag--accent">${icon('clock', { className: 'icon--sm' })} בזמן</span>` : ''}
+            ${dec.method === 'feet' ? '<span class="task-tag">הגרלה</span>' : dec.method === 'score' ? '<span class="task-tag">לפי ציון</span>' : ''}
+            ${dec.feeling ? `<span class="task-tag task-tag--quiet">${FEELINGS[dec.feeling]}</span>` : ''}
+          </span>
+          ${dec.reason ? `<span class="task-step">${esc(dec.reason)}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+const shortDayOf = (v) => shortDay(dateKey(toDate(v)), todayKey());
 
 function section(title, rows, { count = null, note = '' } = {}) {
   if (!rows.length) return '';
