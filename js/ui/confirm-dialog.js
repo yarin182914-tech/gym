@@ -5,10 +5,11 @@
 //
 // Returns a Promise<boolean> so call sites read almost identically to the
 // confirm() they replace: `if (!(await confirmDialog({...}))) return;`.
-export function confirmDialog({ title, message, confirmLabel = 'אישור', cancelLabel = 'ביטול', danger = false } = {}) {
+// top: above an open bottom sheet (when asked from inside one).
+export function confirmDialog({ title, message, confirmLabel = 'אישור', cancelLabel = 'ביטול', danger = false, top = false } = {}) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
+    overlay.className = `modal-overlay${top ? ' modal-overlay--top' : ''}`;
     overlay.innerHTML = `
       <div class="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
         <h3 id="confirm-dialog-title" style="color:var(--text);">${title}</h3>

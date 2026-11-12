@@ -5565,6 +5565,71 @@ body.keyboard-open .fab,
   margin-top: var(--space-3);
 }
 
+/* A labelled text field in the decision sheets: the label 8px above a
+   48px field (comfortably over the 44pt touch minimum). */
+.decision-field-label {
+  display: block;
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.decision-input {
+  min-height: 48px;
+}
+
+/* משימות | החלטות — the two parts of the page, above each one's own tabs. */
+.task-switch {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.task-switch button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+
+.task-switch button.active {
+  background: var(--accent);
+  color: var(--gold-text);
+}
+
+.task-switch-count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent-dim);
+  color: var(--gold);
+  font-size: var(--text-xs);
+  line-height: 20px;
+}
+
+.task-switch button.active .task-switch-count {
+  background: var(--gold-text);
+  color: var(--accent);
+}
+
+/* A decided decision opens its edit sheet. */
+.decision-journal .task-row-body {
+  text-align: start;
+}
+
 /* A step's hint with its ⓘ (js/ui/info-dialog.js). */
 .decision-step-head {
   display: flex;

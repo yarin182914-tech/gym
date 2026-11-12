@@ -110,12 +110,19 @@ Plan: "קבלת החלטות: "להחליט"". Built for Maya: the problem is th
 - Open decisions list with the procrastination ladder from M6 (1 week no date → orange "תקבעי תאריך החלטה"; 2 weeks → "what's missing?"). Nearest decision on Today. Review reminder after 1 month (medium) / 3 months (large).
 - Done when: a small decision can be made start-to-finish in airplane mode within 2 minutes, a medium one is scored on/late correctly at the boundary (unit test), and DATA.md documents both collections.
 
-## M6c ◐ Decisions — the large track — `feature/m6c-decisions-large`
+## M6c ☑ Decisions — the large track — `feature/m6c-decisions-large`
 Plan: "קבלת החלטות: "להחליט"" (the parts M6b left out). Spec: `docs/specs/decisions-large.md`.
 - **Split (ירין 2026-11-12):** the rest of the decisions plan is three PRs, in order: M6c the large track, M6d personal rules, M6e the review.
 - Large track: full WRAP (at least 3 options, "what would you tell a friend", the score check, 10-10-10, premortem, a small experiment), `decideBy` default 1 week, every step optional with "החלטתי" on each. 40 points on time / 10 late (until the end of the decide-by day).
 - Once M7 exists: the decide-by date goes into the calendar.
 - Done when: a large decision runs through every step offline, is scored on/late at the end of its decide-by day (unit test), and DATA.md documents the new fields.
+
+## M6c2 ◐ Decisions — screen and editing fixes — `feature/m6c2-decisions-polish`
+Asked by ירין 2026-11-12 after testing on the iPhone (small fix, no spec file; the PR description holds it).
+- A switch at the top of משימות: "משימות | החלטות" (open count), each part with its own tabs — היום / מטריצה / הכול, or פתוחות / החלטתי — and its own add button.
+- A decided decision opens to be edited (question, choice, why, feeling) or deleted, with a confirm. `decidedAt` and earned points stay.
+- New decision: a real field label 8px above a 48px field, and focus only after the sheet has slid up (the keyboard no longer shoves it mid-animation).
+- Done when: all three work at 390px in every colour theme.
 
 ## M6d ☐ Decisions — personal rules — `feature/m6d-decision-rules`
 Spec: `docs/specs/decision-rules.md`. Needs M6c merged.
