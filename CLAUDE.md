@@ -43,15 +43,16 @@ It is becoming a gamified daily hub that friends can also use, each with their o
 9. **UI language is Hebrew, RTL.** Natural, short Hebrew copy.
 10. **No punishment UI:** missed items are grey, never red; points and levels never go down.
 11. **Firestore rules:** if `firestore.rules` changes, say so in the PR in bold. ירין must run `firebase deploy --only firestore:rules` before merging.
+12. **Every new feature fully supports every colour theme:** DARK (the `:root` default), BRIGHT (`bright`), and every RANDOM palette (`synthwave`, `acid-sunset`, `pop-art`, `acid-jungle`, `groove70` — the list is `RANDOM_PALETTES` in `js/theme-boot.js`). Colours only from tokens in `css/01-tokens.css`; if a feature needs a new token, define it in **every** theme block in the same PR. Text, icons, borders, fills and animations must stay readable and on-palette in each one.
 
 ## Before every commit
 - `tools/check.sh` (parses every module; there is no compiler).
 - `for t in tools/test-*.mjs; do node "$t" || break; done` — and add a test for any new pure logic in `js/lib/`.
-- Open the app locally (`python3 -m http.server 8765`, then `http://localhost:8765/?dev`) and click through the screens you touched, in both themes and at phone width (390px). Check RTL layout and the browser console.
+- Open the app locally (`python3 -m http.server 8765`, then `http://localhost:8765/?dev`) and click through the screens you touched, in DARK, BRIGHT and each RANDOM palette (hard rule 12), at phone width (390px). Check RTL layout and the browser console.
 - Small commits in the existing style: `Area: what changed`.
 
 ## PR description
-What it delivers, screenshots (phone width), new/changed Firestore paths, whether `firestore.rules` changed, how to test on the Vercel preview, and "Follow-ups".
+What it delivers, screenshots (phone width, DARK and BRIGHT at least), new/changed Firestore paths, whether `firestore.rules` changed, how to test on the Vercel preview, and "Follow-ups".
 
 ## After a PR is opened
 - Mark the milestone ◐ in `docs/roadmap.md` (in the same PR). ירין's merge makes it ☑. The next `/feature` run fixes any status that drifted.
