@@ -98,7 +98,7 @@ Plan: "דף המשימות", "מניעת דחיינות".
 - Views: today, Eisenhower matrix, week/all with filters. Quick capture via + (free text → inbox).
 - Procrastination ladder computed from `createdAt`/`postponeCount`: 1 week → orange "מחכה שבוע", 2 weeks → "why stuck?" quick answers, 3 weeks → forced decision (schedule / someday / delete). Max 3 important tasks per day. Top 3 tasks shown on Today.
 
-## M6b ◐ Decisions — "להחליט" — `feature/m6b-decisions`
+## M6b ☑ Decisions — "להחליט" — `feature/m6b-decisions`
 Plan: "קבלת החלטות: "להחליט"". Built for Maya: the problem is the time indecision burns, so everything is built around a time budget. Spec: `docs/specs/decisions.md`.
 - **Split (ירין 2026-11-12):** M6b = triage, small and medium tracks, the open list with its ladder, points and badges. Lives as a 4th tab "להחליט" on משימות, plus "החלטה" on the + button and the nearest decision on Today. The large track, personal rules and the review move to **M6c**.
 - Small decision game (ירין 2026-11-12): a pair of cartoon feet, one option each (2 by default, up to 4). The randomly chosen foot raises its big toe like a thumbs-up. The game is swappable (`js/ui/choosers/`), and ירין will send their own art.
