@@ -49,7 +49,7 @@ check('undoable + nothing in a year → small', D.triage({ reversible: true, imp
 check('unanswered → small', D.triage({}), { track: 'small', large: false });
 check('undoable + some → medium', D.triage({ reversible: true, impact: 'some' }), { track: 'medium', large: false });
 check('can\'t undo + small → medium', D.triage({ reversible: false, impact: 'low' }), { track: 'medium', large: false });
-check('can\'t undo + big → large (runs as medium)', D.triage({ reversible: false, impact: 'high' }), { track: 'medium', large: true });
+check('can\'t undo + big → large', D.triage({ reversible: false, impact: 'high' }), { track: 'large', large: true });
 
 console.log('on time');
 const small = (decidedAt) => dec({ track: 'small', startedAt: at('2026-11-12T10:00:00'), decidedAt, status: 'decided' });
@@ -162,6 +162,24 @@ const badge = (ledger, id) => R.badgesFrom(ledger).find((b) => b.id === id).earn
 check('5 in a row → on the fifth', badge(five, 'decide-5'), '2026-11-05');
 check('a late one starts it over', badge([...five.slice(0, 4), entry('2026-11-05', 9, 'late'), entry('2026-11-06', 6, 'on-time')], 'decide-5'), null);
 check('same day counts each', badge([1, 2, 3, 4, 5].map((i) => entry('2026-11-03', i, 'on-time')), 'decide-5'), '2026-11-03');
+
+// ---------- M6c: large ----------
+console.log('large track');
+const large = (decideBy, decidedAt, extra = {}) => dec({
+  track: 'large', startedAt: at('2026-11-12T10:00:00'), decideBy: decideBy && at(decideBy), decidedAt: at(decidedAt), status: 'decided', ...extra,
+});
+check('large: 23:59 of the decide-by day → on time', D.isOnTime(large('2026-11-19T12:00:00', '2026-11-19T23:59:00')), true);
+check('large: the midnight after it → late', D.isOnTime(large('2026-11-19T12:00:00', '2026-11-20T00:00:00')), false);
+check('large: no decide-by → a week from the start', D.deadline(large(null, '2026-11-13T09:00:00')).getTime(), at('2026-11-20T00:00:00').getTime());
+check('large on time → 40 + 5', (({ raw, first }) => [raw, first])(D.decisionPoints(large('2026-11-19T12:00:00', '2026-11-15T09:00:00'))), [40, 5]);
+check('large late → 10', D.decisionPoints(large('2026-11-19T12:00:00', '2026-11-21T09:00:00')).raw, 10);
+check('large keeps its budget', dec({ track: 'large' }).budgetSec, DECISIONS.budgetSec.large);
+check('days left: 2', D.daysLeft(dec({ decideBy: at('2026-11-14T12:00:00') }), at('2026-11-12T23:00:00')), 2);
+check('days left: the day itself → 0', D.daysLeft(dec({ decideBy: at('2026-11-14T12:00:00') }), at('2026-11-14T08:00:00')), 0);
+check('large fields default', (({ friendAdvice, premortem, experiment }) => ({ friendAdvice, premortem, experiment }))(dec({})),
+  { friendAdvice: '', premortem: '', experiment: null });
+check('experiment pending', D.experimentPending(dec({ status: 'open', experiment: { text: 'לשאול את דנה' } })), true);
+check('experiment learned → not pending', D.experimentPending(dec({ status: 'open', experiment: { text: 'לשאול', learned: 'זה עובד' } })), false);
 
 if (failed) {
   console.log(`\n${failed} failed`);

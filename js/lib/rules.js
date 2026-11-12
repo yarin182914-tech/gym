@@ -399,17 +399,22 @@ export const TASKS = {
 export const DECISIONS = {
   // Time budgets from startedAt. Medium: 10 minutes, or until the end of
   // the next day (Israel time), whichever is later.
-  budgetSec: { small: 120, medium: 600 },
+  // Large (M6c): no minutes — a decide-by date, a week from the start by
+  // default, on time until that day ends.
+  budgetSec: { small: 120, medium: 600, large: 7 * 86400 },
   mediumDaysToDecide: 1,
+  decideByDays: 7,
   points: {
     small: { onTime: 5, late: 2 },
     medium: { onTime: 15, late: 5 },
+    large: { onTime: 40, late: 10 },
   },
   // Decided without reopening it (a second draw, a changed choice).
   firstChoiceBonus: 5,
   // An open decision with no decide-by date: days since it was added.
   ladder: { setDate: 7, missing: 14 },
   minOptions: 2,
+  minOptionsLarge: 3,
   maxOptions: 4,
   maxCriteria: 3,
   weights: [1, 2, 3],

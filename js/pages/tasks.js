@@ -16,7 +16,7 @@ import {
 } from '../lib/firestore.js';
 import {
   TRACKS, FEELINGS, MISSING, MISSING_TIPS, normalizeDecision, openDecisions, decidedDecisions, ladderStage as decisionLadder,
-  choiceText, isOnTime,
+  choiceText, isOnTime, daysLeft, experimentPending,
 } from '../lib/decisions.js';
 import { openDecisionSheet } from '../ui/decision-sheet.js';
 import {
@@ -270,7 +270,7 @@ function decideView() {
   const done = decidedDecisions(decisions);
   if (!open.length && !done.length) {
     return `<div class="card decision-empty">
-      ${emptyState('מתלבט? כתוב את השאלה, ותקבל לה זמן קצוב. קטנה: 2 דקות והגרלה. בינונית: עד מחר, עם ציון.', { centered: true })}
+      ${emptyState('מתלבט? כתוב את השאלה, ותקבל לה זמן קצוב. קטנה: 2 דקות והגרלה. בינונית: עד מחר, עם ציון. גדולה: שבוע, בשלבים.', { centered: true })}
       <button type="button" class="btn btn-primary" data-dec-new>החלטה חדשה</button>
     </div>`;
   }
@@ -278,10 +278,19 @@ function decideView() {
     + section('החלטתי', done.slice(0, 30).map(journalRow), { note: 'בלי "צדקתי" או "טעיתי": הנקודות הן על הזמן.' });
 }
 
+// "להחליט עד …" with the days left, for a decision with a date.
+function byText(dec) {
+  const left = daysLeft(dec);
+  if (left === null) return dec.startedAt ? 'התחלת, אפשר להמשיך' : 'עוד לא התחלת';
+  if (dec.track !== 'large' || left < 0) return `להחליט עד ${shortDayOf(dec.decideBy)}`;
+  return left === 0 ? 'להחליט היום' : left === 1 ? 'להחליט עד מחר' : `עוד ${left} ימים להחליט`;
+}
+
 function decisionRow(dec) {
   const stage = decisionLadder(dec);
   const id = esc(dec.id);
-  const by = dec.decideBy ? `להחליט עד ${shortDayOf(dec.decideBy)}` : dec.startedAt ? 'התחלת, אפשר להמשיך' : 'עוד לא התחלת';
+  const by = byText(dec);
+  const passed = (daysLeft(dec) ?? 0) < 0;
   let ladder = '';
   if (stage === 'setDate') {
     ladder = `
@@ -317,6 +326,8 @@ function decisionRow(dec) {
           <span class="task-tags">
             <span class="task-tag task-tag--quiet">${TRACKS[dec.track]}</span>
             ${stage === 'setDate' ? '<span class="task-tag task-tag--wait">לקבוע תאריך החלטה</span>' : ''}
+            ${experimentPending(dec) ? '<span class="task-tag">מחכה לניסוי</span>' : ''}
+            ${passed ? '<span class="task-tag task-tag--quiet">התאריך עבר</span>' : ''}
           </span>
         </button>
       </div>
@@ -337,6 +348,7 @@ function journalRow(dec) {
             <span class="task-tag task-tag--quiet">${shortDayOf(dec.decidedAt)}</span>
             ${onTime ? `<span class="task-tag task-tag--accent">${icon('clock', { className: 'icon--sm' })} בזמן</span>` : ''}
             ${dec.method === 'feet' ? '<span class="task-tag">הגרלה</span>' : dec.method === 'score' ? '<span class="task-tag">לפי ציון</span>' : ''}
+            ${dec.track === 'large' ? `<span class="task-tag task-tag--quiet">${TRACKS.large}</span>` : ''}
             ${dec.feeling ? `<span class="task-tag task-tag--quiet">${FEELINGS[dec.feeling]}</span>` : ''}
           </span>
           ${dec.reason ? `<span class="task-step">${esc(dec.reason)}</span>` : ''}

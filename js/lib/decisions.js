@@ -1,17 +1,18 @@
-// Decisions (M6b): pure functions — no DOM, no Firestore — so
+// Decisions (M6b, M6c): pure functions — no DOM, no Firestore — so
 // tools/test-decisions.mjs can run them under Node. The flow is
 // js/ui/decision-sheet.js, the list js/pages/tasks.js ("להחליט"); the data
 // shape is docs/DATA.md "Decisions". All numbers: DECISIONS in rules.js.
 //
-// A decision is triaged into a track (small / medium), gets a time budget
-// from startedAt, and earns its points by being decided inside it. Nothing
-// here judges whether the choice was right.
+// A decision is triaged into a track (small / medium / large), gets a time
+// budget from startedAt (large: a decide-by date), and earns its points by
+// being decided inside it. Nothing here judges whether the choice was
+// right.
 
 import { DECISIONS } from './rules.js';
 import { dateKey, shiftDays, parseKey } from './sleep.js';
 import { toDate } from './format.js';
 
-export const TRACKS = { small: 'קטנה', medium: 'בינונית' };
+export const TRACKS = { small: 'קטנה', medium: 'בינונית', large: 'גדולה' };
 export const IMPACTS = { low: 'כמעט כלום', some: 'קצת', high: 'הרבה' };
 export const FEELINGS = { happy: 'שמחתי', unsure: 'לא בטוח', disappointed: 'התאכזבתי' };
 // "What's missing to decide?" — the ladder's question after two weeks.
@@ -75,6 +76,12 @@ export function normalizeDecision(raw = {}) {
     reason: String(raw.reason || ''),
     feeling: FEELINGS[raw.feeling] ? raw.feeling : null,
     stuckReason: MISSING[raw.stuckReason] ? raw.stuckReason : null,
+    // Large (M6c).
+    friendAdvice: String(raw.friendAdvice || ''),
+    premortem: String(raw.premortem || ''),
+    experiment: raw.experiment && typeof raw.experiment === 'object'
+      ? { text: String(raw.experiment.text || ''), by: raw.experiment.by || null, learned: String(raw.experiment.learned || '') }
+      : null,
     status: STATUSES.includes(raw.status) ? raw.status : 'open',
     source: raw.source || 'manual',
     createdAt: raw.createdAt || null,
@@ -82,25 +89,36 @@ export function normalizeDecision(raw = {}) {
 }
 
 // Two questions → the track. Undoable and small in a year → small; can't
-// be undone and big in a year → large (which runs as medium until M6c);
-// anything between → medium. Unanswered counts as the lighter answer.
+// be undone and big in a year → large; anything between → medium.
+// Unanswered counts as the lighter answer.
 export function triage({ reversible = null, impact = null } = {}) {
   const undoable = reversible !== false;
-  if (impact === 'high' && !undoable) return { track: 'medium', large: true };
+  if (impact === 'high' && !undoable) return { track: 'large', large: true };
   if (undoable && (impact === 'low' || impact === null)) return { track: 'small', large: false };
   return { track: 'medium', large: false };
 }
 
+// The end of a day key: the next midnight, local (Israel) time.
+function endOfDay(key) {
+  const end = parseKey(shiftDays(key, 1));
+  end.setHours(0, 0, 0, 0);
+  return end;
+}
+
+// A large decision's default decide-by day: decideByDays after day.
+export const largeDecideByKey = (day) => shiftDays(day, DECISIONS.decideByDays);
+
 // When the budget ends (a Date), or null before it started. Small: the
 // budget's seconds. Medium: its seconds, or the end of the next day in
-// local (Israel) time — whichever is later.
+// local (Israel) time — whichever is later. Large: the end of its
+// decide-by day (a week from the start when it has none).
 export function deadline(d) {
   if (!d.startedAt) return null;
   const start = toDate(d.startedAt);
+  if (d.track === 'large') return endOfDay(d.decideBy ? dateKey(toDate(d.decideBy)) : largeDecideByKey(dateKey(start)));
   const bySeconds = new Date(start.getTime() + d.budgetSec * 1000);
   if (d.track !== 'medium') return bySeconds;
-  const end = parseKey(shiftDays(dateKey(start), DECISIONS.mediumDaysToDecide + 1));
-  end.setHours(0, 0, 0, 0);
+  const end = endOfDay(shiftDays(dateKey(start), DECISIONS.mediumDaysToDecide));
   return end > bySeconds ? end : bySeconds;
 }
 
@@ -110,7 +128,15 @@ export function isOnTime(d) {
   const end = deadline(d);
   if (!end || !d.decidedAt) return false;
   const at = toDate(d.decidedAt).getTime();
-  return d.track === 'medium' ? at < end.getTime() : at <= end.getTime();
+  return d.track === 'small' ? at <= end.getTime() : at < end.getTime();
+}
+
+// Whole days left until the decide-by day (0 on the day itself, below 0
+// once it passed), or null without one.
+export function daysLeft(d, now = new Date()) {
+  if (!d.decideBy) return null;
+  const by = parseKey(dateKey(toDate(d.decideBy)));
+  return Math.round((by - parseKey(dateKey(now))) / DAY_MS);
 }
 
 // Seconds left of the visible timer (the budget's seconds), never below 0.
@@ -154,6 +180,10 @@ export function decisionPoints(d) {
   const table = DECISIONS.points[d.track];
   return { raw: onTime ? table.onTime : table.late, onTime, first: d.reopened ? 0 : DECISIONS.firstChoiceBonus };
 }
+
+// A large decision waiting on its small experiment: one was written and
+// nothing learned from it yet.
+export const experimentPending = (d) => d.status === 'open' && !!d.experiment?.text.trim() && !d.experiment.learned.trim();
 
 // The procrastination ladder for an open decision with no decide-by date:
 // null, 'setDate' (a week: "לקבוע תאריך החלטה"), 'missing' (two weeks:

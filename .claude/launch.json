@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gymsite",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "-l", "8532", "."],
+      "port": 8532
+    },
+    {
+      "name": "gymsite-alt",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "-l", "8766", "."],
+      "port": 8766,
+      "autoPort": true
+    }
+  ]
+}
