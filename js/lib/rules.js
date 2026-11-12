@@ -433,3 +433,26 @@ export const DECISIONS = {
   review: 3,
   homeReviewCount: 1,
 };
+
+// Google Calendar sync (M7): a one-off task with a time or a day gets an
+// event in the user's primary calendar (docs/specs/calendar-sync.md). Read
+// by the app and by the server (api/calendar.js).
+export const CALENDAR = {
+  // Length of a timed event, by the task's size (minutes).
+  durationMin: { S: 15, M: 60, L: 120 },
+  // Open tasks pushed to the calendar right after connecting, at most.
+  connectSyncMax: 50,
+  // Task ids the server takes in one sync request.
+  batchSize: 20,
+  // Task ids kept on the device while waiting for a network (room for
+  // the whole push after connecting).
+  retryMax: 60,
+  // A moment after a save before the calendar is told, so a burst of
+  // edits goes out as one request.
+  syncDelayMs: 1500,
+  timeZone: 'Asia/Jerusalem',
+  // Written in the event's description.
+  appUrl: 'https://gym-yarin9.vercel.app/#/tasks',
+  // The consent link is good for this long.
+  stateTtlMs: 10 * 60 * 1000,
+};
