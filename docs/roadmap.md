@@ -53,7 +53,7 @@ No plan chapter; asked by ירין 2026-11-09. A web app can't read Apple Health
   - Placeholders (grey, "בקרוב") for: Google Calendar (M7), push notifications (M9), Claude connector (M11), cloud storage / Drive via the Claude connector (M12), Garmin (later).
 - Done when: opening the URL on the preview sets today's steps, the steps habit and the burn update, repeating it changes nothing, a lower number doesn't overwrite a higher one, and the חיבורים page shows the shortcut card with its last-sync time. Later (M11): the shortcut posts to the server instead, silently.
 
-## M3e ◐ Silent steps from the iPhone — `feature/m3e-silent-steps`
+## M3e ☑ Silent steps from the iPhone — `feature/m3e-silent-steps`
 Asked by ירין 2026-11-11 ("שהקיצור של הצעדים ייעשה אוטומטית"). The shortcut posts the steps to `POST /api/steps` (Vercel function) with a personal key made on "חיבורים" — no Safari, runs with the phone locked. Keys: `users/{uid}/apiKeys/{sha256}`, the first piece of M11's per-user keys. The Safari way stays as a fallback.
 - One-tap install (2026-11-11): "התקנת הקיצור" makes a key, copies it and opens the shared iCloud shortcut, which asks for the key on import (`STEPS_IMPORT.silentShortcutUrl`).
 - Instagram time (2026-11-11, ירין: "משהו דומה לשימוש באינסטגרם"): Screen Time can't be read, so "opened"/"closed" automations post to `POST /api/usage`; the minutes fill the Instagram part of the limit habit. `appUsage`, `appSessions` in DATA.md.
@@ -142,9 +142,10 @@ Plan: "שלב 3: התראות פוש", "שרת קטן" in "מענה טכני".
 
 ## M10 ☐ Signup and profile — `feature/m10-onboarding`
 Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). Includes "במה תרצה להשתמש?" (the M8 feature switches). Questionnaire on first login (level 1 only is required; ends with "set goals now / later / never" → `lifePlan.planDepth`); personal BMR (Mifflin-St Jeor) replaces the hard-coded 1950; targets from the goal; remove `weddingDate`.
+- Email + password sign-in for friends without a Google account (ירין 2026-11-11): already written in August as `signInWithEmail` / `signUpWithEmail` / `resetPassword` in `js/auth.js` on branch `phase-0-backup` (with its sign-in screen). Reuse it here instead of rewriting. The same branch has a CSV export (`js/lib/csv.js`, BOM for Hebrew in Excel) — a candidate for "Later".
 
-## M11 ◐ Claude connector (MCP) — `feature/m11-mcp`
-Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "what changed since last check". PR #22 open; needs `firebase deploy --only firestore:rules` before merge.
+## M11 ☑ Claude connector (MCP) — `feature/m11-mcp`
+Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "what changed since last check". PR #22 merged 2026-11-11 (rules deployed first; deploy needs `--project gym-site-ea1b7`, there is no `.firebaserc`).
 - Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
 
 ## M12 ☐ "קלוד" instructions page — `feature/m12-claude-page`
