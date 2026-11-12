@@ -25,6 +25,7 @@ import { lastPerformanceIn, exerciseHistoryIn, workoutDayKey } from './workout-t
 import { bodyKgOn as bodyKgFrom, dayWorkoutKcal, workoutKcalPatch } from './workout-kcal.js';
 import { normalizeExerciseName, findByName } from './exercise-names.js';
 import { WRITE_WAIT_MS } from './rules.js';
+import { queueCalendarSync } from './calendar-sync.js';
 
 // Writes land in the persistent local cache at once and sync by themselves,
 // but Firestore's promise waits for the server. On weak signal that froze
@@ -603,6 +604,8 @@ export function newTaskId() {
 export function setTask(taskId, data, { isNew = false } = {}) {
   dataChanged();
   if (!useCloud) return devSetTask(taskId, data, { isNew });
+  // Its Google Calendar event follows (M7) — after the save, never instead.
+  queueCalendarSync([taskId]);
   return setDoc(doc(db, 'users', uidOrThrow(), 'tasks', taskId), {
     ...data,
     updatedAt: serverTimestamp(),
@@ -614,6 +617,7 @@ export function setTask(taskId, data, { isNew = false } = {}) {
 export function deleteTask(taskId) {
   dataChanged();
   if (!useCloud) return devDeleteTask(taskId);
+  queueCalendarSync([taskId]);
   return deleteDoc(doc(db, 'users', uidOrThrow(), 'tasks', taskId));
 }
 
