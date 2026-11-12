@@ -31,6 +31,7 @@ public repo.
 | `users/{uid}/appSessions` | the app id (`instagram`, `c-strava`) | The app's open session, if any — server only |
 | `users/{uid}/pointsLedger` | `{date}_{rule}[_{ref}]` | Points, one entry per award — app only, never written from outside |
 | `mcpKeys` (top level) | SHA-256 of the key | Claude connector keys → their user — app and server only, never written from outside |
+| `calendarTokens` (top level) | the user's uid | Google Calendar consent — server only, no client can read it |
 | `siteFeedback` (top level) | auto | App feedback board — don't write here |
 
 ---
@@ -228,6 +229,14 @@ bookkeeping — never write them.
 | `rewardsStartDate` | string | `yyyy-mm-dd` — the day scoring began. Set by the app on its first run. |
 | `rewardsCheckedThrough` | string | `yyyy-mm-dd` — the last day the app scored. |
 | `rewardsSeen` | map | What the screen has already celebrated: `{ level, badges: [ids], daySummary: 'yyyy-mm-dd' }`. Display only — the points are in the ledger. |
+
+Google Calendar (M7 — see Tasks). **Written by the server only**
+(`api/calendar.js`); the app reads it for the "חיבורים" card. Never write
+it from outside.
+
+| Field | Type | Notes |
+|---|---|---|
+| `calendar` | map | `{ connected: boolean, email: string, connectedAt: Timestamp, lastSyncAt: Timestamp \| null, needsReconnect: boolean }`. Missing = not connected. `email` is the Google account whose primary calendar gets the events (the same account the user signs in with). `needsReconnect: true` = Google dropped the consent; the card asks to connect again. |
 
 The doc has other fields (`displayName`, `createdAt`…) — update only the
 field you mean to change (`set` with `merge: true`, or `update`), never
@@ -1027,6 +1036,26 @@ user doc.
 
 ---
 
+## Calendar consent — `calendarTokens/{uid}` (top level, server only)
+
+The user's Google Calendar consent (M7), one document per connected user.
+**No Firestore rule matches this collection, so the app and every other
+client are denied**; only the server functions (firebase-admin) read and
+write it. Never read, copy or log it.
+
+| Field | Type | Notes |
+|---|---|---|
+| `refreshToken` | string | Google's refresh token for the `calendar.events` scope. Secret. |
+| `scope` | string | The scopes Google granted |
+| `createdAt` | Timestamp | When the user connected |
+
+Created by Google's way back to `/api/calendar` after the consent screen;
+deleted on "ניתוק" (the token is revoked first) or when Google reports
+the consent was withdrawn. The connection's visible state is
+`users/{uid}.calendar` (see User settings).
+
+---
+
 ## Tasks — `users/{uid}/tasks/{auto}`
 
 One document per task on the "משימות" screen; the most pressing open ones
@@ -1054,7 +1083,8 @@ one (`daily`) and a repeating one (`recurring`, weekly or monthly) are
 | `firstStep` | string | The first 5 minutes, e.g. `"למצוא את הברגים"`. `""` = none. |
 | `stuckReason` | string \| null | The answer to "למה היא תקועה?": `unclear` · `big` · `unpleasant` · `stressful` · `notImportant` |
 | `startedAt` | Timestamp \| null | "התחלתי 10 דקות" on a stuck task (a one-time start bonus) |
-| `calendarEventId` | string \| null | The Google Calendar event linked to the task (M7). `null` until then. |
+| `calendarEventId` | string \| null | The Google Calendar event linked to the task (M7). `null` when it has none. **Written by the server** (`api/calendar.js`) — leave it alone. |
+| `calendarSync` | string \| null | What was last sent to the calendar, as `<start>\|<end>#<event name>`, so an unchanged task costs no Google call. Missing = `null`. A value with `calendarEventId: null` means the user deleted the event in the calendar: it returns only when the task's day or time changes. **Written by the server** — leave it alone. |
 | `source` | string | `manual` (the form) · `quick` (the + button's one line) · `coach` (written from outside) |
 | `createdAt` | Timestamp | First saved — the procrastination ladder counts from it |
 | `updatedAt` | Timestamp | Last saved |
@@ -1069,6 +1099,22 @@ schedule this week / someday / delete.
 ×2 when important, +5 when done by the due date; a daily task 5; starting
 a stuck task 5, once. A late task keeps its points — no penalty. All in
 `TASKS`, `js/lib/rules.js`.
+
+**Google Calendar (M7)** — when the user connected their calendar on
+"חיבורים" (`calendar.connected` on the user doc), a one-off task
+(`type: 'once'`, `status` `open` / `inbox` / `done`) with `timing: 'exact'`
+has a timed event in their primary calendar (15 min · 1 h · 2 h by
+`complexity`), and one with `timing: 'day'` has an all-day event on its
+Israeli day. Any other task has none. The event follows the task: a new
+`scheduledAt` moves it, done renames it to `✓ <title>`, and deleting the
+task (or `someday`, or dropping its day) deletes it. Each event carries the
+private extended properties `gymi: "true"` and `taskId`; only events with
+that mark (or the task's own event id, `sha256("<uid>:<taskId>")`) are
+ever deleted. The app asks the server to sync after each save
+(`POST /api/calendar`, `{ "action": "sync", "taskIds": [...] }`), so a
+task written from outside gets its event the next time the app saves it.
+Numbers in `CALENDAR`, `js/lib/rules.js`; logic in
+`js/lib/calendar-event.js`.
 
 **From outside the app (the evening check):** to fill in an inbox task,
 update its fields and set `status: 'open'`; to schedule one, set `timing`

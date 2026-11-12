@@ -31,6 +31,8 @@ import {
   shortDay,
 } from '../lib/tasks.js';
 import { dateKey, shiftDays } from '../lib/sleep.js';
+import { wantsEvent } from '../lib/calendar-event.js';
+import { calendarOn } from '../lib/calendar-sync.js';
 import { toDate } from '../lib/format.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { esc } from '../core/dom.js';
@@ -57,6 +59,7 @@ let filter = { area: null, owner: null };
 let openLadder = null; // the task whose "why stuck?" answer is showing
 let decisions = []; // normalized
 let stopQuickActions = null;
+let inCalendar = false; // Google Calendar is connected (M7)
 
 const todayKey = () => dateKey(new Date());
 const byId = (id) => tasks.find((t) => t.id === id);
@@ -77,6 +80,7 @@ export async function mountTasks(rootEl) {
   if (isStale(token)) return;
   tasks = loaded.map(normalizeTask);
   decisions = loadedDecisions.map(normalizeDecision);
+  inCalendar = calendarOn();
   render();
   container.addEventListener('click', onClick);
   // The + button: "משימה" — one line into the inbox; "החלטה" — a new decision.
@@ -533,6 +537,8 @@ function row(t, key) {
     stage === 'waiting' ? '<span class="task-tag task-tag--wait">מחכה שבוע</span>' : '',
     t.owner !== 'me' ? `<span class="task-tag">${OWNERS[t.owner]}</span>` : '',
     `<span class="task-tag task-tag--quiet">${SIZES[t.complexity]}</span>`,
+    // Has an event in Google Calendar (M7) — worked out, not stored.
+    inCalendar && wantsEvent(t) ? `<span class="task-tag task-tag--quiet" role="img" aria-label="ביומן גוגל" title="ביומן גוגל">${icon('calendar-days', { className: 'icon--sm' })}</span>` : '',
   ].join('');
   const when = whenText(t, key);
   const canPostpone = !done && !isRepeating(t) && (t.timing === 'exact' || t.timing === 'day') && scheduledKey(t) && scheduledKey(t) <= key;

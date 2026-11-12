@@ -48,6 +48,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  // The server functions answer for themselves (Google's way back from the
+  // calendar consent is a redirect through /api/calendar).
+  if (new URL(req.url).pathname.startsWith('/api/')) return;
 
   // Network first, but never wait long: on weak signal a screen used to hang
   // on each of ~70 module files (feedback 30.10, 1.11). After NETWORK_WAIT_MS

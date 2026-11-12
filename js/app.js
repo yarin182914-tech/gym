@@ -1,6 +1,7 @@
 import { onAuthChange, signIn } from './auth.js';
 import { useCloud } from './firebase-config.js';
-import { ensureUserDoc } from './lib/firestore.js';
+import { ensureUserDoc, getUserSettings } from './lib/firestore.js';
+import { setCalendarOn, flushCalendarSync } from './lib/calendar-sync.js';
 import { startRewards } from './lib/rewards-sync.js';
 import { mountRewardMoments } from './ui/reward-moments.js';
 import { registerRoute, startRouter } from './lib/router.js';
@@ -71,6 +72,14 @@ async function enterApp() {
   // moments ("+10", confetti, level-up) follow each pass.
   mountRewardMoments();
   startRewards();
+  // Google Calendar (M7): is it connected, and anything saved offline
+  // that the calendar hasn't heard about yet.
+  if (useCloud) {
+    getUserSettings().then((user) => {
+      setCalendarOn(!!user.calendar?.connected);
+      flushCalendarSync();
+    }).catch((err) => console.error('[calendar] status load failed', err));
+  }
   // A stashed steps import runs first, whatever screen the hash says.
   if (hasPendingImport() && !/^#\/import(\?|$)/.test(location.hash)) location.replace('#/import');
   if (!routerStarted) {
