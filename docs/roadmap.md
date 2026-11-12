@@ -130,6 +130,7 @@ Dropped by ירין 2026-11-12: "לא נראה לי שהוא יהיה שימוש
 ## M6e ◐ Decisions — "איך זה יצא?" — `feature/m6e-decision-review`
 Spec: `docs/specs/decision-review.md`. Needs M6c merged.
 - A month after a medium decision, three after a large one: one line on Today and a section on להחליט. Three answers (טוב / בסדר / פחות) and a note; 3 points whatever the answer.
+- Also (ירין 2026-11-12, testing it): "החלטתי" opens as soon as there is a question ("מה החלטת?" in one line when no options were written), and `?dev` sample data runs on branch previews (never the live site) so the review can be tried on the iPhone.
 - Done when: the review shows on its day (unit test), pays 3 once, and DATA.md documents the review fields.
 
 ## M7 ☐ Google Calendar sync from the app — `feature/m7-calendar`
