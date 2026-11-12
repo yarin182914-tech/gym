@@ -310,6 +310,11 @@ export const REWARDS = {
     { id: 'pr-first', area: 'workouts', name: 'שיא אישי', icon: 'trophy', kind: 'first', rule: 'pr' },
     { id: 'pr-5', area: 'workouts', name: '5 שיאים בחודש', icon: 'trophy', kind: 'month', rule: 'pr', n: 5 },
     { id: 'comeback', area: 'general', name: 'קאמבק', icon: 'undo-2', kind: 'comeback', rule: 'calories', grades: ['full'] },
+    // "מחליט בזמן" (M6b): n decisions in a row on time — kind run counts
+    // consecutive entries of the rule, any late one starts it over.
+    { id: 'decide-5', area: 'general', name: '5 החלטות בזמן ברצף', icon: 'split', kind: 'run', rule: 'decision', grades: ['on-time'], n: 5 },
+    { id: 'decide-20', area: 'general', name: '20 החלטות בזמן ברצף', icon: 'split', kind: 'run', rule: 'decision', grades: ['on-time'], n: 20 },
+    { id: 'decide-50', area: 'general', name: '50 החלטות בזמן ברצף', icon: 'split', kind: 'run', rule: 'decision', grades: ['on-time'], n: 50 },
   ],
 };
 
@@ -387,4 +392,33 @@ export const TASKS = {
   keepDoneDays: 120,
   // A monthly task's day is picked from 1 to this (every month has it).
   maxMonthDay: 28,
+};
+
+// Decisions (M6b) — the plan's "קבלת החלטות: "להחליט"". The reward is for
+// deciding in time, never for being "right"; nothing is ever taken away.
+export const DECISIONS = {
+  // Time budgets from startedAt. Medium: 10 minutes, or until the end of
+  // the next day (Israel time), whichever is later.
+  budgetSec: { small: 120, medium: 600 },
+  mediumDaysToDecide: 1,
+  points: {
+    small: { onTime: 5, late: 2 },
+    medium: { onTime: 15, late: 5 },
+  },
+  // Decided without reopening it (a second draw, a changed choice).
+  firstChoiceBonus: 5,
+  // An open decision with no decide-by date: days since it was added.
+  ladder: { setDate: 7, missing: 14 },
+  minOptions: 2,
+  maxOptions: 4,
+  maxCriteria: 3,
+  weights: [1, 2, 3],
+  scoreRange: [1, 5],
+  // Good enough: the option's weighted average (1–5) reaches this.
+  goodEnough: 3.5,
+  // The nearest open decision on "היום".
+  homeCount: 1,
+  // The feet game (js/ui/choosers/feet.js): the drum roll's length, the
+  // beat it starts and ends on, the hush before the toe, and the toe.
+  game: { drumMs: 2400, firstBeatMs: 260, lastBeatMs: 70, hushMs: 500, toeMs: 600 },
 };

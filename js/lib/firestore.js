@@ -14,7 +14,7 @@ import {
   devGetPlannedWorkout, devUpdatePlannedWorkout,
   devSetSleep, devListSleep, devDeleteSleep,
   devNewHabitId, devSetHabit, devDeleteHabit, devListHabits, devSetHabitMark, devListHabitLogs,
-  devSetTask, devDeleteTask, devListTasks,
+  devSetTask, devDeleteTask, devListTasks, devSetDecision, devDeleteDecision, devListDecisions,
   devCreateFeedback, devListFeedback, devUpdateFeedback, devDeleteFeedback,
   devListWorkoutTypes, devAddWorkoutType, devUpdateWorkoutType, devDeleteWorkoutType,
   devListPlannedWorkouts, devListLedger, devWriteLedger,
@@ -620,6 +620,39 @@ export function deleteTask(taskId) {
 export async function listTasks() {
   if (!useCloud) return devListTasks();
   const snap = await getDocs(collection(db, 'users', uidOrThrow(), 'tasks'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+// ---------- decisions (M6b) ----------
+// users/{uid}/decisions/{auto} — see docs/DATA.md "Decisions". Like tasks,
+// a write shows on screen at once and settles in the background.
+
+export function newDecisionId() {
+  if (!useCloud) return devNewHabitId();
+  return doc(collection(db, 'users', uidOrThrow(), 'decisions')).id;
+}
+
+// isNew: stamp createdAt (kept as it was on later edits).
+export function setDecision(decisionId, data, { isNew = false } = {}) {
+  dataChanged();
+  if (!useCloud) return devSetDecision(decisionId, data, { isNew });
+  return setDoc(doc(db, 'users', uidOrThrow(), 'decisions', decisionId), {
+    ...data,
+    updatedAt: serverTimestamp(),
+    ...(isNew ? { createdAt: serverTimestamp() } : {}),
+  }, { merge: true });
+}
+
+// Deleting is the user's own act on an open decision (its points stay).
+export function deleteDecision(decisionId) {
+  dataChanged();
+  if (!useCloud) return devDeleteDecision(decisionId);
+  return deleteDoc(doc(db, 'users', uidOrThrow(), 'decisions', decisionId));
+}
+
+export async function listDecisions() {
+  if (!useCloud) return devListDecisions();
+  const snap = await getDocs(collection(db, 'users', uidOrThrow(), 'decisions'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 

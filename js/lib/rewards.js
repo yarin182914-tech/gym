@@ -21,6 +21,7 @@ import { exerciseKind, workoutDayKey, brokenSessionRecord } from './workout-type
 import { brokenCardioRecords } from './cardio.js';
 import { toDate } from './format.js';
 import { normalizeTask, isDoneOn, taskPoints } from './tasks.js';
+import { normalizeDecision, decisionPoints } from './decisions.js';
 
 const P = REWARDS.points;
 
@@ -45,6 +46,8 @@ export const RULE_SOURCE = {
   'bad-streak': 'habit',
   task: 'task',
   'task-start': 'task',
+  decision: 'decision',
+  'decision-first': 'decision',
 };
 
 // Firestore ids can't hold '/', and stay short.
@@ -72,7 +75,7 @@ export function weeklyWorkoutGoal(userDoc = {}) {
 // ---------- the day's context ----------
 
 // data: { userDoc, nights, habits (normalized), logs, activities, meals,
-// weights, workouts, plans, tasks, today? } — any order, any range. Indexed once.
+// weights, workouts, plans, tasks, decisions, today? } — any order, any range. Indexed once.
 // today (default: now) only decides which unreported days of a bad habit
 // can still be filled in (js/lib/habits.js#cleanRuns).
 export function buildContext(data) {
@@ -117,6 +120,7 @@ export function buildContext(data) {
     plans: new Map((data.plans || []).map((p) => [p.date || p.id, p])),
     prs: prsByWorkout(data.workouts || []),
     tasks: (data.tasks || []).map(normalizeTask),
+    decisions: (data.decisions || []).map(normalizeDecision).filter((d) => d.status === 'decided' && d.decidedAt),
   };
 }
 
@@ -280,6 +284,15 @@ export function scoreDay(key, ctx, { closed }) {
     if (t.startedAt && dateKey(toDate(t.startedAt)) === key) {
       out.push(award(key, 'task-start', { ref: t.id, raw: TASKS.startBonus, reason: `התחלתי — ${t.title}` }));
     }
+  }
+
+  // Decisions (M6b): on the day decided — more inside the time budget, a
+  // bonus for not reopening it. Not part of the perfect day.
+  for (const d of ctx.decisions || []) {
+    if (dateKey(toDate(d.decidedAt)) !== key) continue;
+    const { raw, onTime, first } = decisionPoints(d);
+    out.push(award(key, 'decision', { ref: d.id, raw, grade: onTime ? 'on-time' : 'late', reason: onTime ? `החלטה בזמן — ${d.question}` : `החלטתי — ${d.question}` }));
+    if (first) out.push(award(key, 'decision-first', { ref: d.id, raw: first, reason: 'בלי לחזור לשקול' }));
   }
 
   if (closed) {
@@ -463,6 +476,18 @@ export function badgesFrom(ledger) {
 }
 
 function earnedOn(def, sorted) {
+  if (def.kind === 'run') {
+    // n entries of the rule in a row with a matching grade; any other
+    // grade starts it over (same-day entries in id order).
+    const all = sorted.filter((e) => e.rule === def.rule)
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : String(a.id).localeCompare(String(b.id))));
+    let run = 0;
+    for (const e of all) {
+      run = matches(e, def) ? run + 1 : 0;
+      if (run >= def.n) return e.date;
+    }
+    return null;
+  }
   const hits = sorted.filter((e) => matches(e, def));
   if (def.kind === 'first') return hits[0]?.date || null;
   if (def.kind === 'count') {
