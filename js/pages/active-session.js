@@ -2589,8 +2589,8 @@ function openSetDetailSheet(ex, set, ctrl) {
           // Deleting a drop-set group's leader takes its stages with it —
           // a louder, explicit confirmation than the plain "already done"
           // one below, since it can remove several logged sets at once.
-          // Closed first: confirmDialog reuses .modal-overlay, whose
-          // z-index sits below the open bottom sheet's.
+          // Closed first so the confirmation reads on its own, not
+          // stacked over the set's sheet.
           sheetApi.close();
           const confirmed = await confirmDialog({
             title: 'מחיקת דרופ סט',

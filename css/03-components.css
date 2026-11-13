@@ -403,6 +403,11 @@ textarea.search-bar {
   padding: 16px;
 }
 
+/* confirmDialog: above bottom sheets (.sheet-overlay is 200). */
+.confirm-overlay {
+  z-index: 300;
+}
+
 .modal-card {
   position: relative;
   background: var(--bg);
