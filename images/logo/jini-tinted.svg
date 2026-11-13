@@ -1,0 +1,12 @@
+<!-- Tinted variant, kept for an App Store build (a home-screen web app can't switch icons). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="j" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#ABABAB"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" fill="#1C1C1E"/>
+  <path d="M62,38 V61 C62,72 55,78 47.5,78 C41,78 36.5,74.5 35,69" fill="none" stroke="url(#j)" stroke-width="10" stroke-linecap="round"/>
+  <path transform="translate(62 22.5) scale(9)" fill="#FFFFFF" d="M0,-1 Q0.14,-0.14 1,0 Q0.14,0.14 0,1 Q-0.14,0.14 -1,0 Q-0.14,-0.14 0,-1Z"/>
+</svg>

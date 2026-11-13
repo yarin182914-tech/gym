@@ -5,7 +5,7 @@
 // build step, so every successful same-origin GET is just cached
 // opportunistically as it's fetched instead of enumerating every page module
 // here that would drift out of sync.
-const CACHE_NAME = 'gym-site-v5';
+const CACHE_NAME = 'gym-site-v6';
 const NETWORK_WAIT_MS = 1200;
 
 // The one exception: the top-level shell IS worth precaching explicitly, so
@@ -27,6 +27,7 @@ const APP_SHELL = [
   './images/apple-touch-icon.png',
   './images/icon-192.png',
   './images/icon-512.png',
+  './images/icon-maskable-512.png',
 ];
 
 self.addEventListener('install', (event) => {

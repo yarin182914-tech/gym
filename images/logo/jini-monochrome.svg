@@ -1,0 +1,7 @@
+<!-- Android themed icon: only the j and sparkle, one colour on transparent, at 82%; the phone tints it. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <g transform="translate(50 50) scale(0.82) translate(-50 -50)">
+    <path d="M62,38 V61 C62,72 55,78 47.5,78 C41,78 36.5,74.5 35,69" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/>
+    <path transform="translate(62 22.5) scale(9)" fill="#FFFFFF" d="M0,-1 Q0.14,-0.14 1,0 Q0.14,0.14 0,1 Q-0.14,0.14 -1,0 Q-0.14,-0.14 0,-1Z"/>
+  </g>
+</svg>

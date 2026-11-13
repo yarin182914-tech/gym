@@ -62,7 +62,7 @@ export function mountAppBar(beforeEl) {
     if (shown) cameFromApp = true;
     shown = name;
     titleEl.textContent = TITLES[name] || '';
-    document.title = TITLES[name] ? `${TITLES[name]} · אימונים` : 'מעקב אימונים';
+    document.title = TITLES[name] ? `${TITLES[name]} · ג׳יני` : 'ג׳יני';
     backBtn.hidden = !NO_TAB.has(name);
   });
   // Back to wherever it was opened from; opened straight from a link, home.
