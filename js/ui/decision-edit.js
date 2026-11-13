@@ -63,7 +63,6 @@ export function openDecisionEditSheet({ decision: d, onSave, onDelete }) {
             title: 'למחוק את ההחלטה?',
             message: 'היא תימחק מהיומן. הנקודות שקיבלת עליה נשארות.',
             confirmLabel: 'למחוק',
-            top: true,
           });
           if (!ok) return;
           onDelete(d.id);

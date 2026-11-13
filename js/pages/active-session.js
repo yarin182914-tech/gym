@@ -901,11 +901,12 @@ function renderPicker() {
         <button class="pill ${mode === 'strength' ? 'active' : ''}" data-picker-mode="strength">כוח</button>
         <button class="pill ${mode === 'cardio' ? 'active' : ''}" data-picker-mode="cardio">אירובי</button>
       </div>
-      <div class="pill-row-label">אימון אחר — נכנס ישר</div>
-      <div class="pill-row">
-        ${typeLibrary(workoutTypes).map((e) => `<button class="pill" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
-        <button class="pill" data-new-type>+ סוג משלך</button>
-      </div>
+      ${session.exercises.length === 0 ? `
+        <div class="pill-row-label">אימון אחר — נכנס ישר</div>
+        <div class="pill-row">
+          ${typeLibrary(workoutTypes).map((e) => `<button class="pill" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
+          <button class="pill" data-new-type>+ סוג משלך</button>
+        </div>` : ''}
       ${recentEntries.length ? `
         <div class="pill-row-label">לאחרונה</div>
         <div class="pill-row" style="margin-bottom:10px;">
@@ -1041,6 +1042,7 @@ async function addExerciseToSession(lib) {
   session.exercises.push(entry);
   picker = { open: false, query: '', category: null };
   render();
+  scrollToExercise(entry);
 
   const [prev, hist] = await Promise.all([
     getLastPerformance(lib.name, session?.editingWorkoutId),
@@ -1077,7 +1079,14 @@ function addSessionToWorkout(lib) {
   picker = { open: false, query: '', category: null };
   persistSession();
   render();
+  scrollToExercise(entry);
   loadSessionLookups(entry, session);
+}
+
+// A just-added exercise is brought to the middle of the screen, rather than
+// staying wherever the picker was (feedback 13.11).
+function scrollToExercise(entry) {
+  exerciseRefs.get(entry._uid)?.root?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // The past sessions of the same type: the last one fills the form (quick
@@ -2589,8 +2598,8 @@ function openSetDetailSheet(ex, set, ctrl) {
           // Deleting a drop-set group's leader takes its stages with it —
           // a louder, explicit confirmation than the plain "already done"
           // one below, since it can remove several logged sets at once.
-          // Closed first: confirmDialog reuses .modal-overlay, whose
-          // z-index sits below the open bottom sheet's.
+          // Closed first so the confirmation reads on its own, not
+          // stacked over the set's sheet.
           sheetApi.close();
           const confirmed = await confirmDialog({
             title: 'מחיקת דרופ סט',
