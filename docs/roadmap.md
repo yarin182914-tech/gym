@@ -149,14 +149,14 @@ Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון ע�
 
 **"עכשיו" — ready for the first friend**
 
-**New name (ירין 2026-11-13): ג׳ימי → ג׳יני, in English Jini.** She is a personal assistant, so the copy speaks of her in the feminine ("ג׳יני זוכרת"). The rename of user-visible text lands in M0b; code identifiers (`gymi`) and stored data keep their names.
+**New name (ירין 2026-11-13): ג׳ימי → ג׳יני, in English Jini.** She is a personal assistant, so the copy speaks of her in the feminine ("ג׳יני זוכרת"). The rename of user-visible text moved to M0a (ירין 2026-11-14: "השם של האתר משתנה מהיום"); code identifiers (`gymi`) and stored data keep their names.
 
 **Combined order (ירין 2026-11-13):** M0a logo → M14 UX cleanup together with the M4c "זהב" base, one visual pass → M0b name and first screen → M15 polish (the feedback page first) → M16 Maya → M9s, M10, M10b, M10c, M10d → the pilot. It merges the 2026-11-12 order (UX cleanup, polish and Maya before new features) with the 2026-11-13 one (logo, "זהב", first screen). M14–M16 keep their 2026-11-12 numbers; the growth review's own M14 / M14a / M15 / M15a / M16 are M17 / M17a / M18 / M18a / M19 here.
 
-## M0a ☐ Logo — `feature/m0a-logo`
+## M0a ◐ Logo and the name ג׳יני — `feature/m0a-logo-name`
 Asked by ירין 2026-11-13: "אני רגע רוצה לעצב את הלוגו של האפליקצייה ולהכניס אותו גם לפה".
-- 3–4 logo directions for ג׳יני on one visual page, in the "זהב" palette (`docs/specs/gold-look.md`); ירין picks one.
-- Files: the logo as SVG plus every icon size the app uses (`images/icon-192.png`, `icon-512.png`, a maskable icon for Android, `apple-touch-icon.png`, `favicon-32.png`), wired into `manifest.json` and `index.html`. The name strings themselves change in M0b.
+- ירין picked "Slim j" (a cream j with a sparkle on an amber → coral → clay gradient) in a logo artifact, 2026-11-14. Spec: `docs/specs/logo-name.md`.
+- Files: the logo as SVG plus every icon size the app uses (`images/icon-192.png`, `icon-512.png`, a maskable icon for Android, `apple-touch-icon.png`, `favicon-32.png`), wired into `manifest.json` and `index.html`. Plus (ירין 2026-11-14) the name ג׳יני in every user-visible text: tab title, home-screen name, manifest, sign-in screen, "חיבורים", calendar event description, the connector title. The iPhone shortcut names stay until ירין republishes them.
 - Done when: the new icon shows on the iPhone and Android home screen and in the browser tab, readable on dark and light backgrounds.
 
 ## M14 ☐ UX/UI cleanup — calmer, less crowded — `feature/m14-ux-cleanup`
@@ -171,7 +171,7 @@ Built inside M14 (ירין 2026-11-13), so the first screen and the logo are bui
 ## M0b ☐ Name and first screen — `feature/m0b-first-screen`
 Growth review, phase "עכשיו". Spec: `docs/specs/first-screen.md`. After M0a and M14 (with the M4c base).
 - Data: new user docs no longer get `weddingDate` (old ones keep it). No rules change.
-- UI: the name ג׳יני in the tab title, home-screen name, manifest, app bar and every user-visible text. A welcome screen for signed-out users: the logo, "כי מישהו צריך לנהל לך את החיים", and five areas (sleep, nutrition, movement, tasks, habits) that each open to 3–4 lines with a hook. An install button there (Chrome's prompt with screenshots on Android, the steps on iPhone), a professional "ההתחברות כפופה למדיניות הפרטיות" line, and a draft `privacy.html`. `import-30-7.html` moves to `_archive/`, and `_archive/` stops being served.
+- UI: (the name itself already changed in M0a.) A welcome screen for signed-out users: the logo, "כי מישהו צריך לנהל לך את החיים", and five areas (sleep, nutrition, movement, tasks, habits) that each open to 3–4 lines with a hook. An install button there (Chrome's prompt with screenshots on Android, the steps on iPhone), a professional "ההתחברות כפופה למדיניות הפרטיות" line, and a draft `privacy.html`. `import-30-7.html` moves to `_archive/`, and `_archive/` stops being served.
 - Done when: a new user sees no wedding and no "ג׳ימי" anywhere, every area opens, install works from the first screen on Android and iPhone, and the privacy link works, at 390px in every theme.
 
 ## M15 ☐ Polish the existing screens (feedback page first) — `feature/m15-polish`
