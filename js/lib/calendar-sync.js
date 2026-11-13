@@ -50,16 +50,27 @@ export function setCalendarOn(on) {
   else if (lastTasks) catchUpCalendar(lastTasks);
 }
 
-async function call(action, extra = {}) {
+// `background`: the request may finish after the app is put away (the
+// iPhone freezes a hidden page), and always ends — with an answer or an
+// error — so a frozen one can't block the sends after it.
+async function call(action, extra = {}, { background = false } = {}) {
   const token = await auth.currentUser.getIdToken();
-  const res = await fetch('/api/calendar', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ action, ...extra }),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok || !body.ok) throw new Error(body.message || `calendar ${action} failed (${res.status})`);
-  return body;
+  const stop = new AbortController();
+  const timeout = setTimeout(() => stop.abort(), CALENDAR.requestTimeoutMs);
+  try {
+    const res = await fetch('/api/calendar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action, ...extra }),
+      keepalive: background,
+      signal: stop.signal,
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.message || `calendar ${action} failed (${res.status})`);
+    return body;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // { configured, calendar } — `calendar` is the map on users/{uid}, or null.
@@ -89,6 +100,7 @@ export async function disconnectCalendar() {
 
 let timer = null;
 let running = false;
+let retries = 0; // tries after a failure, in a row (CALENDAR.retryDelaysMs)
 const dirty = new Set(); // ids queued again while a flush was in the air
 
 function schedule(delay = CALENDAR.syncDelayMs) {
@@ -119,8 +131,8 @@ export function catchUpCalendar(tasks) {
   queueCalendarSync(ids);
 }
 
-// Sends what is waiting. Called after saves, at app start and when the
-// network comes back.
+// Sends what is waiting. Called after saves, at app start, when the
+// network comes back and when the app is brought back to the front.
 export function flushCalendarSync() {
   if (useCloud && calendarOn() && pending().length) schedule(0);
 }
@@ -130,30 +142,53 @@ async function flush() {
   if (!pending().length) return;
   running = true;
   dirty.clear();
+  let failed = false;
   try {
     // The server reads the task from Firestore, so the save has to be
     // there first. Offline this waits for the network.
     await waitForPendingWrites(db);
-    let ids = pending();
-    while (ids.length) {
-      const batch = ids.slice(0, CALENDAR.batchSize);
-      const res = await call('sync', { taskIds: batch });
-      if (res.connected === false) {
+    const tried = new Set();
+    for (;;) {
+      const batch = pending().filter((id) => !tried.has(id)).slice(0, CALENDAR.batchSize);
+      if (!batch.length) break;
+      batch.forEach((id) => tried.add(id));
+      const res = await call('sync', { taskIds: batch }, { background: true });
+      // No consent, or a server with no Google setup (a branch preview).
+      if (res.connected === false || res.configured === false) {
         setCalendarOn(false);
         return;
       }
-      // Keep what was queued again meanwhile: it changed after this read.
-      ids = pending().filter((id) => !batch.includes(id) || dirty.has(id));
-      write(PENDING_KEY, JSON.stringify(ids));
+      // The server says which tasks it settled; the rest wait for another
+      // try. So does anything queued again meanwhile: it changed since.
+      const done = Array.isArray(res.done) ? res.done : batch;
+      if (done.length < batch.length) failed = true;
+      write(PENDING_KEY, JSON.stringify(pending().filter((id) => !done.includes(id) || dirty.has(id))));
       if (dirty.size) break;
     }
   } catch (err) {
-    // Stays queued; the next save or app start tries again.
+    failed = true;
     console.error('[calendar] sync failed', err);
   } finally {
     running = false;
-    if (dirty.size && pending().length) schedule();
+    if (!failed) retries = 0;
+    if (dirty.size && pending().length) {
+      schedule();
+    } else if (failed && pending().length && retries < CALENDAR.retryDelaysMs.length) {
+      // A few more tries, further and further apart; after that the next
+      // save, app start or return to the app picks it up.
+      schedule(CALENDAR.retryDelaysMs[retries]);
+      retries += 1;
+    }
   }
 }
 
-if (typeof window !== 'undefined') window.addEventListener('online', flushCalendarSync);
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', flushCalendarSync);
+  // Back from another app (say, Google Calendar): a send the iPhone froze
+  // halfway carries on.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    retries = 0;
+    flushCalendarSync();
+  });
+}

@@ -149,8 +149,8 @@ async function gcal(token, method, path = '', body) {
 }
 
 // Brings the calendar in line with these tasks (api/_lib/calendar-events.js).
-// Returns how many events were touched. Throws NotConnected when there is
-// no consent to use.
+// Returns { touched, done, failed } — which tasks are settled and which to
+// send again. Throws NotConnected when there is no consent to use.
 export async function syncTasks(uid, taskIds) {
   const tasks = userRef(uid).collection('tasks');
   let pending = null; // one token for the whole batch, fetched on first need
@@ -164,8 +164,17 @@ export async function syncTasks(uid, taskIds) {
     writeTask: (id, patch) => tasks.doc(id).update(patch).catch(() => {}),
     call: async (method, path, body) => gcal(await (pending ||= accessToken(uid)), method, path, body),
   };
-  const { touched, error } = await syncAll(io, uid, taskIds, (err) => err instanceof NotConnected);
-  if (touched) await userRef(uid).set({ calendar: { lastSyncAt: FieldValue.serverTimestamp() } }, { merge: true });
-  if (error) throw error;
-  return touched;
+  const result = await syncAll(io, uid, taskIds, (err) => err instanceof NotConnected, CALENDAR.syncWidth);
+  // The card on "חיבורים" shows the last sync, and the last failure until
+  // a later sync goes through.
+  const patch = {};
+  if (result.touched) patch.lastSyncAt = FieldValue.serverTimestamp();
+  if (result.failed.length) {
+    console.error('[calendar] sync failed for', result.failed.length, 'task(s):', result.failed[0].message);
+    patch.lastError = { at: FieldValue.serverTimestamp(), count: result.failed.length, message: result.failed[0].message };
+  } else if (result.touched) {
+    patch.lastError = null;
+  }
+  if (Object.keys(patch).length) await userRef(uid).set({ calendar: patch }, { merge: true });
+  return result;
 }

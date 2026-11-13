@@ -27,6 +27,8 @@ function nextKey(key) {
 // Does this (normalized) task belong in the calendar at all?
 export function wantsEvent(task) {
   if (!task || task.type !== 'once' || !task.scheduledAt) return false;
+  // A date written from outside in a shape that isn't a date.
+  if (Number.isNaN(toDate(task.scheduledAt).getTime())) return false;
   if (task.status !== 'open' && task.status !== 'inbox' && task.status !== 'done') return false;
   return task.timing === 'exact' || task.timing === 'day';
 }

@@ -41,6 +41,7 @@ check('daily', C.wantsEvent(task({ type: 'daily', timing: 'exact', scheduledAt: 
 check('recurring', C.wantsEvent(task({ type: 'recurring', timing: 'day', scheduledAt: AT })), false);
 check('done keeps it', C.wantsEvent(exact({ status: 'done', doneAt: AT })), true);
 check('gone', C.eventFor(null), null);
+check('a date that is not a date', [C.wantsEvent(exact({ scheduledAt: { seconds: 1 } })), C.tasksToConnect([exact({ scheduledAt: 'מחר' })], new Date('2026-11-17T08:00:00Z'))], [false, []]);
 
 console.log('the event');
 const ev = C.eventFor(exact());

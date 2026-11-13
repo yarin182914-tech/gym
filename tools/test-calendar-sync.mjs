@@ -5,7 +5,7 @@
 
 process.env.TZ = 'UTC';
 
-const { syncTask, syncAll, eventIdFor } = await import('../api/_lib/calendar-events.js');
+const { syncTask, syncAll, eventIdFor, forCard } = await import('../api/_lib/calendar-events.js');
 
 let failed = 0;
 function check(name, actual, expected) {
@@ -159,8 +159,35 @@ console.log('a batch');
 w = world({ a: { ...base }, b: { ...base, title: 'ב' }, c: { title: 'z', type: 'once', status: 'inbox' } });
 const failing = { ...w, call: async (method, path, body) => (body?.summary === 'ב' ? { ok: false, status: 500, data: {} } : w.call(method, path, body)) };
 const res = await syncAll(failing, UID, ['a', 'b', 'c']);
-check('one failure doesn\'t stop the rest', [res.touched, !!res.error, live(w).length], [1, true, 1]);
+check('one failure doesn\'t stop the rest', [res.touched, live(w).length], [1, 1]);
+check('settled ones are reported, with or without an event', res.done, ['a', 'c']);
+check('the failed one is named, with the reason', [res.failed.map((f) => f.id), res.failed[0].message], [['b'], 'calendar insert failed: 500 ']);
 check('the failed one stays unlinked, to be tried again', w.tasks.b.calendarEventId, undefined);
+const again = await syncAll(w, UID, ['a', 'b', 'c']);
+check('the next try finishes it, sending only what is missing', [again.touched, again.done.length, again.failed, live(w).length], [1, 3, [], 2]);
+
+// Several at a time: every task still gets exactly one event.
+const many = {};
+for (let i = 0; i < 23; i += 1) many[`m${i}`] = { ...base, title: `משימה ${i}` };
+w = world(many);
+let inFlight = 0;
+let widest = 0;
+const slow = {
+  ...w,
+  call: async (...args) => {
+    inFlight += 1;
+    widest = Math.max(widest, inFlight);
+    await new Promise((r) => setTimeout(r, 2));
+    inFlight -= 1;
+    return w.call(...args);
+  },
+};
+const wide = await syncAll(slow, UID, Object.keys(many), () => false, 4);
+check('23 tasks, four at a time', [wide.touched, wide.done.length, wide.failed.length, live(w).length], [23, 23, 0, 23]);
+check('never more than four calls in the air', widest <= 4 && widest > 1, true);
+check('one call per task, none sent twice', w.calls.length, 23);
+check('an empty list is fine', await syncAll(w, UID, [], () => false, 4), { touched: 0, done: [], failed: [] });
+
 let stopped = false;
 try {
   await syncAll({ ...w, readTask: async () => { throw new Error('no consent'); } }, UID, ['a', 'b'], () => true);
@@ -168,6 +195,20 @@ try {
   stopped = true;
 }
 check('no consent stops at once', stopped, true);
+
+console.log('what the card gets');
+// A Firestore Timestamp, as far as the server code can tell.
+const stamp = (millis) => ({ toMillis: () => millis, _seconds: millis / 1000, _nanoseconds: 0 });
+const card = forCard({
+  connected: true, email: 'a@b.c', connectedAt: stamp(1000), lastSyncAt: stamp(2000), needsReconnect: false,
+  lastError: { at: stamp(3000), count: 2, message: 'calendar insert failed: 403 Rate Limit Exceeded' },
+});
+check('times are plain milliseconds', [card.connectedAt, card.lastSyncAt, card.lastError.at], [1000, 2000, 3000]);
+check('which survive the trip as JSON', JSON.parse(JSON.stringify(card)).lastSyncAt, 2000);
+check('the failure comes along', [card.lastError.count, card.lastError.message], [2, 'calendar insert failed: 403 Rate Limit Exceeded']);
+check('never synced yet', forCard({ connected: true, email: 'a@b.c', lastSyncAt: null }), { connected: true, email: 'a@b.c', needsReconnect: false, connectedAt: null, lastSyncAt: null, lastError: null });
+check('not connected', forCard(null), null);
+check('no refresh token or other field leaks through', Object.keys(forCard({ connected: true, refreshToken: 'x', extra: 1 })).sort(), ['connected', 'connectedAt', 'email', 'lastError', 'lastSyncAt', 'needsReconnect']);
 
 if (failed) {
   console.log(`\n${failed} failed`);

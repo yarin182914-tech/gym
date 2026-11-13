@@ -442,8 +442,15 @@ export const CALENDAR = {
   durationMin: { S: 15, M: 60, L: 120 },
   // Open tasks pushed to the calendar right after connecting, at most.
   connectSyncMax: 50,
-  // Task ids the server takes in one sync request.
+  // Task ids the server takes in one sync request, and how many of them
+  // it works on at the same time.
   batchSize: 20,
+  syncWidth: 4,
+  // The app gives one request this long, then counts it as failed.
+  requestTimeoutMs: 45 * 1000,
+  // After a failed send: try again after these waits, then leave it for
+  // the next save, app start or return to the app.
+  retryDelaysMs: [5 * 1000, 30 * 1000, 2 * 60 * 1000],
   // Task ids kept on the device while waiting for a network (room for
   // the whole push after connecting).
   retryMax: 60,

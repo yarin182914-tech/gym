@@ -77,19 +77,50 @@ export async function syncTask(io, uid, taskId) {
   return true;
 }
 
-// Several tasks, one after the other: a failure on one doesn't stop the
-// rest. Returns { touched, error } — `error` is the first failure, if any.
-// `stop(err)` true = give up at once (no consent to use).
-export async function syncAll(io, uid, taskIds, stop = () => false) {
+// Several tasks, `width` at a time: a failure on one doesn't stop the rest.
+// Returns { touched, done, failed } — `done` the ids now in line with the
+// calendar, `failed` [{ id, message }] the ones to try again. `stop(err)`
+// true = give up at once (no consent to use).
+export async function syncAll(io, uid, taskIds, stop = () => false, width = 1) {
   let touched = 0;
-  let error = null;
-  for (const id of taskIds) {
-    try {
-      if (await syncTask(io, uid, id)) touched += 1;
-    } catch (err) {
-      if (stop(err)) throw err;
-      error ||= err;
+  const done = [];
+  const failed = [];
+  let next = 0;
+  let fatal = null;
+  async function worker() {
+    while (next < taskIds.length && !fatal) {
+      const id = taskIds[next];
+      next += 1;
+      try {
+        if (await syncTask(io, uid, id)) touched += 1;
+        done.push(id);
+      } catch (err) {
+        if (stop(err)) {
+          fatal = err;
+          return;
+        }
+        failed.push({ id, message: String(err?.message || err).slice(0, 200) });
+      }
     }
   }
-  return { touched, error };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(width, taskIds.length)) }, worker));
+  if (fatal) throw fatal;
+  return { touched, done, failed };
+}
+
+// users/{uid}.calendar as the card reads it. Times go out as milliseconds:
+// a Firestore Timestamp turns into { _seconds, _nanoseconds } in JSON,
+// which the app can't read as a date.
+const ms = (t) => (t && typeof t.toMillis === 'function' ? t.toMillis() : null);
+export function forCard(calendar) {
+  if (!calendar) return null;
+  const err = calendar.lastError;
+  return {
+    connected: calendar.connected === true,
+    email: calendar.email || '',
+    needsReconnect: calendar.needsReconnect === true,
+    connectedAt: ms(calendar.connectedAt),
+    lastSyncAt: ms(calendar.lastSyncAt),
+    lastError: err ? { at: ms(err.at), count: Number(err.count) || 1, message: String(err.message || '') } : null,
+  };
 }

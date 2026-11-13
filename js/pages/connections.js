@@ -443,6 +443,8 @@ async function createKey({ replace = false, quiet = false } = {}) {
 function whenHe(value) {
   if (!value) return null;
   const d = toDate(value);
+  // Not a date after all: say nothing rather than break the card.
+  if (Number.isNaN(d.getTime())) return null;
   const day = israelDateKey(d);
   const label = day === israelDateKey() ? 'היום'
     : day === israelDateKey(new Date(Date.now() - DAY_MS)) ? 'אתמול'
@@ -651,6 +653,7 @@ function renderCalendar() {
       </span>
     </div>
     ${!connected && c?.needsReconnect ? '<p class="connection-hint">החיבור ליומן פג. חיבור מחדש לוקח רגע, והמשימות שלך לא נפגעו.</p>' : ''}
+    ${connected && c.lastError ? `<p class="connection-hint">${c.lastError.count > 1 ? `${Number(c.lastError.count)} משימות` : 'משימה אחת'} לא נכנסו ליומן בניסיון האחרון (${whenHe(c.lastError.at) || 'עכשיו'}). ג׳ימי ינסה שוב לבד. <span class="text-muted" dir="ltr">${esc(c.lastError.message || '')}</span></p>` : ''}
     <p class="text-muted connection-desc">משימה עם יום או שעה נכנסת לבד ליומן שלך. כשמזיזים אותה האירוע זז, וכשמסיימים הוא מקבל ✓. ג׳ימי נוגע רק באירועים שהוא יצר.</p>
     ${connected
       ? `<button type="button" class="btn btn-outline btn-block" data-cal-disconnect${calBusy ? ' disabled' : ''}>ניתוק היומן</button>`

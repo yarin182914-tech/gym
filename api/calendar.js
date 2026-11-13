@@ -5,7 +5,8 @@
 //   POST, Authorization: Bearer <Firebase ID token>, JSON body:
 //     { "action": "status" }                    → is the server set up, and the user's connection
 //     { "action": "start" }                     → { url } of Google's consent screen
-//     { "action": "sync", "taskIds": ["…"] }    → events created / moved / marked ✓ / deleted
+//     { "action": "sync", "taskIds": ["…"] }    → events created / moved / marked ✓ / deleted;
+//                                                 answers { done: [ids], failed: [ids] }
 //     { "action": "disconnect" }                → consent revoked, events left as they are
 //   GET ?code=…&state=…                         → Google's way back after the consent
 //
@@ -16,6 +17,7 @@
 import { getAuth } from 'firebase-admin/auth';
 import { db, reply, readBody } from './_shared.js';
 import { CALENDAR } from '../js/lib/rules.js';
+import { forCard } from './_lib/calendar-events.js';
 import {
   configured, consentUrl, readState, exchangeCode, saveConnection, disconnect, revoke, syncTasks, NotConnected, SCOPE,
 } from './_lib/calendar.js';
@@ -89,7 +91,7 @@ export default async function handler(req, res) {
 
     if (body.action === 'status') {
       const snap = await store.collection('users').doc(uid).get();
-      return reply(res, 200, { ok: true, configured: true, calendar: (snap.exists && snap.data().calendar) || null });
+      return reply(res, 200, { ok: true, configured: true, calendar: forCard(snap.exists ? snap.data().calendar : null) });
     }
     if (body.action === 'start') {
       if (!origin) return reply(res, 400, { ok: false, message: 'כתובת לא מוכרת' });
@@ -104,8 +106,9 @@ export default async function handler(req, res) {
         .filter((id) => typeof id === 'string' && /^[\w-]{1,64}$/.test(id))
         .slice(0, CALENDAR.batchSize);
       try {
-        const touched = await syncTasks(uid, [...new Set(ids)]);
-        return reply(res, 200, { ok: true, connected: true, touched });
+        const { touched, done, failed } = await syncTasks(uid, [...new Set(ids)]);
+        // `done`: settled, the app can forget them. `failed`: send again.
+        return reply(res, 200, { ok: true, connected: true, touched, done, failed: failed.map((f) => f.id) });
       } catch (err) {
         if (err instanceof NotConnected) return reply(res, 200, { ok: true, connected: false });
         throw err;
