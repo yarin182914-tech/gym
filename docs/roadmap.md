@@ -179,6 +179,11 @@ Asked by ירין 2026-11-12: before new features, fix what exists. Start with t
 
 ## M16 ☐ Open ג׳ימי to Maya — `feature/m16-maya`
 Asked by ירין 2026-11-12: Maya is the first user after ירין. Her own ג׳ימי user (Google sign-in already works for any account; rules isolate `users/{uid}`), with ירין's personal leftovers out of her way (the 1950 base burn, `weddingDate`, ירין-only links) and a short first-run setup (the minimum of M10). Her Claude: the connector key from "חיבורים" (M11) on her own phone, plus a "ניהול חיים" project per the plan's "קלוד כעוזר אישי" (the part of M12 she needs). Check first: how Maya's Claude account works (ירין asked if she can use his paid plan; answered in the build thread).
+- **Decided by ירין 2026-11-14** (asked to bring Maya in "כמה שיותר מהר" for feedback; kept at place 5 in the order):
+  - Maya may sign in on the live site with Google before M16 and start logging; her feedback goes on the in-app board. Until M16 her base burn and targets are ירין's defaults.
+  - Her Claude: her own free Claude account (personal, not ירין's), with her own ג׳ימי key. Free allows one custom connector, which is enough; she uses it as a coach, not to maintain the app. Check in the build whether the connector works inside a project on the free plan, and how far the free message cap goes.
+  - Areas: everything on, like ירין (the switches come in M10).
+  - Burn and targets: a short form (weight, height, age, sex) → Mifflin-St Jeor base burn and calorie/protein targets on the user doc, each editable by hand; the same form is reused by M10's signup. Replaces the fixed 1950 for her (old docs and ירין keep theirs).
 
 ## M9s ☐ Security before friends — `feature/m9s-hardening`
 Growth review, phase "עכשיו".
