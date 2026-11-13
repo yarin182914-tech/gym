@@ -901,11 +901,12 @@ function renderPicker() {
         <button class="pill ${mode === 'strength' ? 'active' : ''}" data-picker-mode="strength">כוח</button>
         <button class="pill ${mode === 'cardio' ? 'active' : ''}" data-picker-mode="cardio">אירובי</button>
       </div>
-      <div class="pill-row-label">אימון אחר — נכנס ישר</div>
-      <div class="pill-row">
-        ${typeLibrary(workoutTypes).map((e) => `<button class="pill" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
-        <button class="pill" data-new-type>+ סוג משלך</button>
-      </div>
+      ${session.exercises.length === 0 ? `
+        <div class="pill-row-label">אימון אחר — נכנס ישר</div>
+        <div class="pill-row">
+          ${typeLibrary(workoutTypes).map((e) => `<button class="pill" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
+          <button class="pill" data-new-type>+ סוג משלך</button>
+        </div>` : ''}
       ${recentEntries.length ? `
         <div class="pill-row-label">לאחרונה</div>
         <div class="pill-row" style="margin-bottom:10px;">
