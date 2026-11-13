@@ -4,6 +4,8 @@ Each milestone = one branch + one PR. Build them in order; each one must leave t
 Section names in quotes refer to headings in `docs/upgrade-plan.md` (Hebrew).
 Defaults for every number come from the plan and live in one config module (`js/lib/rules.js`).
 
+**Build order now (ירין 2026-11-12):** 1. M14 UX/UI cleanup → 2. M15 polish the existing screens (the feedback page first) → 3. M16 open ג׳ימי to Maya. Only then new features (M8, M9, M10, M12, M13). M4c "זהב" is a visual layer and may be folded into M14, ירין decides at M14's `/feature`.
+
 Status legend: ☐ not started · ◐ in progress (branch or PR open) · ☑ merged · ✕ dropped
 
 **Adding work:** run `/feature <request>` in Claude Code (`.claude/commands/feature.md`). It asks questions, writes a spec in `docs/specs/`, adds or updates the milestone here and waits for ירין's "כן" before building. A new milestone goes where it fits in the build order, with the next free number or a letter suffix (M6c, M8d), in this format:
@@ -140,6 +142,18 @@ Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון ע�
 - Replaces the grey "יומן גוגל" card on the "חיבורים" page (status, one-tap connect, disconnect).
 - Needs from ירין: Calendar API + an OAuth client in Google Cloud, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in Vercel. No `firestore.rules` change.
 - Done when: a task with a time shows in Google Calendar within seconds, moving it moves the same event, done adds ✓, delete removes it, and the connection survives a day without asking again.
+
+## M14 ☐ UX/UI cleanup — calmer, less crowded — `feature/m14-ux-cleanup`
+Asked by ירין 2026-11-12: a Claude review of the app found the UX/UI "לא מספיק טוב ויותר מדי עמוס"; this goes first. Spec: `docs/specs/ux-cleanup.md` (to write in `/feature`, starting from that review).
+- Scope: structure and density, not new features: fewer cards per screen, one main action per screen, clear hierarchy, consistent spacing and copy, things moved behind "עוד" where rarely used.
+- Decide in `/feature`: whether M4c's "זהב" look is built inside this milestone or right after it.
+- Done when: every tab at 390px shows its main action without scrolling past clutter, both themes, and ירין approves before/after screenshots.
+
+## M15 ☐ Polish the existing screens (feedback page first) — `feature/m15-polish`
+Asked by ירין 2026-11-12: before new features, fix what exists. Start with the feedback page ("דף המשוב") as the example of a screen that needs work, then screen by screen (this replaces M4c's follow-up M4d). One PR per screen or two is fine (M15a, M15b…).
+
+## M16 ☐ Open ג׳ימי to Maya — `feature/m16-maya`
+Asked by ירין 2026-11-12: Maya is the first user after ירין. Her own ג׳ימי user (Google sign-in already works for any account; rules isolate `users/{uid}`), with ירין's personal leftovers out of her way (the 1950 base burn, `weddingDate`, ירין-only links) and a short first-run setup (the minimum of M10). Her Claude: the connector key from "חיבורים" (M11) on her own phone, plus a "ניהול חיים" project per the plan's "קלוד כעוזר אישי" (the part of M12 she needs). Check first: how Maya's Claude account works (ירין asked if she can use his paid plan; answered in the build thread).
 
 ## M8 ☐ Settings — "התכנית שלי" — `feature/m8-my-plan`
 Plan: "מסך ההגדרות: "התכנית שלי"".
