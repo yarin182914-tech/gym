@@ -236,7 +236,7 @@ it from outside.
 
 | Field | Type | Notes |
 |---|---|---|
-| `calendar` | map | `{ connected: boolean, email: string, connectedAt: Timestamp, lastSyncAt: Timestamp \| null, needsReconnect: boolean }`. Missing = not connected. `email` is the Google account whose primary calendar gets the events (the same account the user signs in with). `needsReconnect: true` = Google dropped the consent; the card asks to connect again. |
+| `calendar` | map | `{ connected: boolean, email: string, connectedAt: Timestamp, lastSyncAt: Timestamp \| null, needsReconnect: boolean, lastError: map \| null }`. Missing = not connected. `email` is the Google account whose primary calendar gets the events (the same account the user signs in with). `needsReconnect: true` = Google dropped the consent; the card asks to connect again. `lastError` = `{ at: Timestamp, count: number, message: string }` when tasks in the last sync could not be sent (Google's answer, for the card's grey hint); `null` or missing once a later sync goes through. |
 
 The doc has other fields (`displayName`, `createdAt`…) — update only the
 field you mean to change (`set` with `merge: true`, or `update`), never

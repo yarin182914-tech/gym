@@ -34,6 +34,7 @@ Requested by ירין on 2026-11-12: "בוא נעבוד על פי מפת הדר�
 5. מסמנים "בוצע" → ✓ בשם האירוע.
 6. מוחקים את המשימה, מעבירים ל"מתישהו" או מורידים לה את היום → האירוע נמחק.
 7. בלי רשת: המשימה נשמרת כרגיל, והיומן מתעדכן בפעם הבאה שהאפליקציה נפתחת עם רשת.
+   שליחה שלא הצליחה (רשת חלשה, האייפון הקפיא את האפליקציה כשעברו ליומן, גוגל סירב למשימה אחת) לא הולכת לאיבוד: השרת עונה אילו משימות נכנסו, רק אלה יורדות מהרשימה, והשאר נשלחות שוב אחרי 5 שניות, 30 שניות ו-2 דקות, וגם בכל חזרה לאפליקציה. אם משימה נכשלת שוב ושוב, הכרטיס ב"חיבורים" מראה שורה אפורה עם הסיבה.
 8. "ניתוק": ג׳ימי מפסיק לכתוב ליומן. האירועים שכבר שם נשארים.
 
 ## חוקים ומספרים
@@ -41,6 +42,9 @@ Requested by ירין on 2026-11-12: "בוא נעבוד על פי מפת הדר�
 - `durationMin: { S: 15, M: 60, L: 120 }` — event length by task size.
 - `connectSyncMax: 50` — at most this many open tasks pushed right after connecting.
 - `batchSize: 20` — task ids the server takes in one request.
+- `syncWidth: 4` — tasks the server works on at the same time.
+- `requestTimeoutMs: 45000` — the app counts a request with no answer as failed.
+- `retryDelaysMs: [5000, 30000, 120000]` — waits before trying a failed send again.
 - `retryMax: 60` — pending task ids kept on the device for retry.
 - `syncDelayMs: 1500` — a burst of saves goes out as one request.
 - `appUrl` — the link written in the event description.
@@ -59,14 +63,14 @@ Rules:
   - `calendarEventId` string | null — now written by the server.
   - `calendarSync` string | null — new. Signature of what was last sent (`<start>|<end>#<event name>`), so an unchanged task costs no Google call. Missing on old docs = `null`. Server only.
   - The server does not touch `updatedAt` when writing these two.
-- `users/{uid}` (existing doc), new map `calendar`: `{ connected: boolean, email: string, connectedAt: Timestamp, lastSyncAt: Timestamp | null, needsReconnect: boolean }`. Missing = not connected. Server writes, app reads.
+- `users/{uid}` (existing doc), new map `calendar`: `{ connected: boolean, email: string, connectedAt: Timestamp, lastSyncAt: Timestamp | null, needsReconnect: boolean, lastError: { at, count, message } | null }`. Missing = not connected. Server writes, app reads.
 - `calendarTokens/{uid}` — new top-level collection, **server only**: `{ refreshToken, scope, createdAt }`. No rule matches it, so every client read/write is denied (firebase-admin bypasses rules). No `firestore.rules` change.
 
 ## Server / outside the app
 - `api/calendar.js` — one endpoint:
   - `POST { action: 'start' }` (Firebase ID token in `Authorization`) → the Google consent URL (`access_type=offline`, `prompt=consent`, scope `calendar.events` + `email`), `state` signed with HMAC and short-lived.
   - `GET ?code&state` (Google's redirect) → exchanges the code, stores the refresh token, sets `users/{uid}.calendar`, redirects to `/#/connections`.
-  - `POST { action: 'sync', taskIds: [...] }` → for each task: create / patch / delete its event, write `calendarEventId` + `calendarSync`.
+  - `POST { action: 'sync', taskIds: [...] }` → for each task: create / patch / delete its event, write `calendarEventId` + `calendarSync`. Answers `{ done: [ids], failed: [ids] }`; the app forgets only the done ones.
   - A deleted task goes through the same `sync`: its event is found by the task's fixed event id. A linked event with another id is deleted only if it carries the `gymi=true` mark.
   - `POST { action: 'status' }` → `{ configured, calendar }` for the card.
   - `POST { action: 'disconnect' }` → revokes the token, deletes `calendarTokens/{uid}`, `calendar.connected = false`.
@@ -101,6 +105,7 @@ Rules:
 
 ## שאלות פתוחות
 - נבדק מול גוגל אמיתי על ידי ירין ב-2026-11-12, באתר החי: האישור ויצירת אירוע למשימה חדשה עובדים. הזזה, ✓ ומחיקה נבדקו עד עכשיו רק מול יומן מדומה.
+- 2026-11-12, אחרי התיקון של השליחה בפתיחת המסך: חלק מהמשימות הקיימות נכנסו ליומן וחלק לא (אלה של 14/11). הסיבה לא אומתה. התיקון שבא אחריו (תשובה לכל משימה, ניסיון חוזר, המשך בחזרה לאפליקציה, סיבת הכישלון בכרטיס) נועד לסגור את זה או להראות מה גוגל עונה.
 - ה-preview לא יכול לבדוק את היומן: `FIREBASE_SA_JSON` מוגדר ב-Vercel רק ל-Production.
 - אצל גוגל האפליקציה עדיין במצב Testing (ירין רשום כבודק), אז החיבור פג אחרי 7 ימים. כדי לפרסם צריך להשלים את דף Branding.
 - האם חזרה ממסך האישור של גוגל נוחתת בתוך האפליקציה המותקנת באייפון או בספארי — ייבדק על המכשיר; החיבור עצמו נשמר בשני המקרים.
