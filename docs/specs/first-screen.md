@@ -1,5 +1,5 @@
 # שם ומסך ראשון
-Milestone: M0b · Branch: feature/m0b-first-screen · Status: draft (built after M0a, the logo, and M4c, the "זהב" base)
+Milestone: M0b · Branch: feature/m0b-first-screen · Status: draft (built after M0a, the logo, and M14, the UX cleanup with the M4c "זהב" base)
 Requested by ירין on 2026-11-12, after the growth review (https://claude.ai/artifact/WkCqJqGnTUW3rM1kjHskuZ), as the first step of the "עכשיו" readiness phase before the pilot.
 Changes by ירין on 2026-11-13:
 - Welcome copy: "ג'ימי / כי מישהו צריך לנהל לך את החיים / ואז אפשר שורה לכל פיצ'ר מרכזי שזה השינה, תזונה, תנועה, יומן משימות והרגלים".
@@ -17,7 +17,7 @@ Changes by ירין on 2026-11-13:
 ## איך זה נראה
 **הדמות:** ג׳יני היא עוזרת אישית. בטקסטים היא מדברת על עצמה בלשון נקבה ("ג׳יני זוכרת"). את המשתמש פונים בלשון ניטרלית ככל האפשר (שם פועל, רבים), כמו היום.
 
-**מסך הפתיחה** (מי שלא מחובר), 390px, RTL, במראה "זהב" (M4c):
+**מסך הפתיחה** (מי שלא מחובר), 390px, RTL, במראה "זהב" (M4c, שנבנה בתוך M14):
 1. הלוגו מ־M0a.
 2. **ג׳יני** (כותרת גדולה).
 3. "כי מישהו צריך לנהל לך את החיים" (שורת משנה).
@@ -101,11 +101,11 @@ Changes by ירין on 2026-11-13:
 - **Service worker:** the cache name is bumped, so the new manifest and screen arrive on the next open.
 
 ## לא בגרסה הזאת
-- הלוגו עצמו: M0a. המראה "זהב": M4c.
+- הלוגו עצמו: M0a. ניקוי ה־UX והמראה "זהב": M14 (עם M4c).
 - כניסה עם מייל: M10.
 - כניסה עם אפל: אחרי הפיילוט, כשמחליטים על App Store, כי היא דורשת מנוי מפתחים של 99$ לשנה.
 - נעילה עם Face ID: M10b.
-- "חיבורים" לפי מכשיר, כלומר אנדרואיד בלי כרטיסי האייפון וצעדים מאנדרואיד: M15a.
+- "חיבורים" לפי מכשיר, כלומר אנדרואיד בלי כרטיסי האייפון וצעדים מאנדרואיד: M18a.
 - שינוי השם של קיצורי האייפון: אחרי שירין מפרסם אותם מחדש.
 - הסתרת שאר הקבצים הפנימיים מהאתר (`docs/`, `tools/`, `CLAUDE.md`): M9s.
 - מדיניות פרטיות מלאה ובדיקה משפטית: M10b.

@@ -1,6 +1,6 @@
 # המראה ״זהב״ — בסיס עיצובי חדש + מסך היום
 Milestone: M4c · Branch: feature/m4c-gold-look · Status: draft
-Split by ירין on 2026-11-13: M4c builds the "בסיס לכל האפליקציה" part now, before the first screen (M0b) and with the new logo (M0a); the "מסך היום" part and the +points moment move to M4c2 (`feature/m4c2-gold-today`), after M10. The app's new name is ג׳יני (Jini).
+Split by ירין on 2026-11-13: M4c builds the "בסיס לכל האפליקציה" part now, inside M14 (the UX/UI cleanup), after the new logo (M0a) and before the first screen (M0b); the "מסך היום" part and the +points moment move to M4c2 (`feature/m4c2-gold-today`), after M10. The app's new name is ג׳יני (Jini).
 Requested by ירין on 2026-11-12: "שיפור המראה הכללי של האפליקציה … אני רוצה שהאפליקציה תיראה מקצועית ברמה של תאגיד ענק כמו גוגל או מייקרוסופט."
 Chosen look: **זהב** out of four proposals (צלול, דופק, זהב, קליל). Comparison page with live mockups and the research summary: https://claude.ai/artifact/3T8ahyJNqvUAsGSTZpcVdx
 
