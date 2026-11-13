@@ -140,7 +140,7 @@ export function mountUsageCard(host, getLang) {
       `ב${chip(L.shortcutsApp)} עוברים ללשונית ${chip(L.automationTab)} (למטה) ולוחצים ${chip('+')}.`,
       `בוחרים ${chip(L.appTrigger)}. ליד ${chip(L.appTrigger)} לוחצים ${chip(L.choose)}, מסמנים את ${chip(ios)} ולוחצים ${chip(L.done)}.`,
       `מסמנים רק את ${chip(L.isOpened)}, בוחרים ${chip(L.runImmediately)} ולוחצים ${chip(L.next)}.`,
-      `לוחצים על הריבוע האפור ${chip(L.blankAutomation)}. לא על ${chip(shortcutName)}: בלי המלל שלפניו, ג׳ימי לא יודע איזו אפליקציה נפתחה.`,
+      `לוחצים על הריבוע האפור ${chip(L.blankAutomation)}. לא על ${chip(shortcutName)}: בלי המלל שלפניו, ג׳יני לא יודעת איזו אפליקציה נפתחה.`,
       `בחיפוש הפעולות מקלידים ${chip(S.text)}, מוסיפים את ${chip(L.text)} וכותבים בו בדיוק: ${code(openText, 'auto')} ${copyBtn(`text:${openText}`, 'העתקה')}`,
       `בחיפוש מקלידים ${chip(S.runShortcut)} ומוסיפים. לוחצים על המילה הכחולה ${chip(L.shortcutWord)} ובוחרים ${chip(shortcutName)}. בשורה ${chip(L.input)} צריך להופיע ${chip(L.text)}. לוחצים ${chip(L.done)}.`,
       `עוד אוטומציה בדיוק כזאת, אבל מסמנים רק את ${chip(L.isClosed)}, ובמלל: ${code(closeText, 'auto')} ${copyBtn(`text:${closeText}`, 'העתקה')}`,
@@ -180,7 +180,7 @@ export function mountUsageCard(host, getLang) {
             <span class="connection-status">${statusLine()}</span>
           </span>
         </div>
-        <p class="text-muted connection-desc">האייפון לא נותן לאף אפליקציה לקרוא את זמן המסך. במקום זה, האייפון מודיע לג׳ימי כשאפליקציה נפתחת וכשהיא נסגרת, וג׳ימי סופר את הדקות. אינסטגרם, טיקטוק, או כל אפליקציה אחרת.</p>
+        <p class="text-muted connection-desc">האייפון לא נותן לאף אפליקציה לקרוא את זמן המסך. במקום זה, האייפון מודיע לג׳יני כשאפליקציה נפתחת וכשהיא נסגרת, וג׳יני סופרת את הדקות. אינסטגרם, טיקטוק, או כל אפליקציה אחרת.</p>
         <div class="connection-silent">${body()}</div>
       </section>`;
     if (adding) host.querySelector('[data-usage-other-form] input')?.focus();

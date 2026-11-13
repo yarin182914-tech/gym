@@ -49,7 +49,7 @@ export default async function handler(req, res) {
   }
 
   const key = keyFrom(req);
-  if (!isKeyShaped(key)) return send(res, 401, rpcError(-32001, 'Missing or malformed key — copy the connector address again from ג׳ימי → חיבורים'));
+  if (!isKeyShaped(key)) return send(res, 401, rpcError(-32001, 'Missing or malformed key — copy the connector address again from ג׳יני → חיבורים'));
   let found;
   try {
     found = await lookupKey(await hashKey(key));
@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     console.error('[mcp] key lookup failed', err.message);
     return send(res, 500, rpcError(-32603, 'Server not configured'));
   }
-  if (!found) return send(res, 401, rpcError(-32001, 'Unknown or revoked key — make a new one in ג׳ימי → חיבורים'));
+  if (!found) return send(res, 401, rpcError(-32001, 'Unknown or revoked key — make a new one in ג׳יני → חיבורים'));
 
   let body;
   try {

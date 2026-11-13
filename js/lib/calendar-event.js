@@ -49,7 +49,7 @@ export function eventFor(task) {
   }
   return {
     summary: `${task.status === 'done' ? DONE_MARK : ''}${task.title}`,
-    description: `נוצר מג׳ימי\n${CALENDAR.appUrl}`,
+    description: `נוצר מג׳יני\n${CALENDAR.appUrl}`,
     start,
     end,
     extendedProperties: { private: { gymi: 'true', taskId: String(task.id) } },

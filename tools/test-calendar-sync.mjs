@@ -120,7 +120,7 @@ check('nothing recreated for it', w.tasks.t1, undefined);
 w = world({});
 check('a task that never had an event: deleting is quiet', [await syncTask(w, UID, 'ghost'), w.calls], [true, [`DELETE /${eventIdFor(UID, 'ghost')}`]]);
 
-console.log('only ג׳ימי\'s events are deleted');
+console.log('only ג׳יני\'s events are deleted');
 w = world({ t1: { ...base, status: 'someday', calendarEventId: 'theirs' } }, { theirs: { id: 'theirs', status: 'confirmed', summary: 'רופא שיניים' } });
 await syncTask(w, UID, 't1');
 check('an unmarked event stays', [live(w).map((e) => e.summary), w.calls], [['רופא שיניים'], ['GET /theirs']]);

@@ -115,7 +115,7 @@ export function unmountConnections() {
 
 function render() {
   container.innerHTML = `
-    <p class="text-muted connections-intro">מקורות שמעדכנים את ג׳ימי לבד, בלי רישום ידני.</p>
+    <p class="text-muted connections-intro">מקורות שמעדכנים את ג׳יני לבד, בלי רישום ידני.</p>
     ${stepsCard()}
     <section class="card connection-main" aria-labelledby="conn-claude-title" data-claude></section>
     <section class="card connection-main" aria-labelledby="conn-calendar-title" data-calendar hidden></section>
@@ -166,7 +166,7 @@ function stepsCard() {
         </span>
       </div>
       <p class="connection-hint" data-stale hidden></p>
-      <p class="text-muted connection-desc">קיצור באייפון קורא את הצעדים של היום מאפליקציית הבריאות ושולח אותם לג׳ימי. הרגל הצעדים והשריפה היומית מתעדכנים לבד.</p>
+      <p class="text-muted connection-desc">קיצור באייפון קורא את הצעדים של היום מאפליקציית הבריאות ושולח אותם לג׳יני. הרגל הצעדים והשריפה היומית מתעדכנים לבד.</p>
       ${toggleGroup({
         name: 'ioslang',
         active: lang,
@@ -226,7 +226,7 @@ function buildSteps() {
     `פותחים את ${chip(L.shortcutsApp)}, לוחצים ${chip('+')} למעלה. לוחצים על השם שבראש המסך, ${chip(L.rename)}, וכותבים ${chip(STEPS_IMPORT.shortcutName)}.`,
     `${find('findHealth')} בתוכה: לוחצים על הסוג ובוחרים ${chip(L.steps)}, מוודאים ש${chip(L.startDate)} הוא ${chip(L.today)}, ובשורה ${chip(L.groupBy)} בוחרים ${chip(L.day)}.`,
     `${find('getDetails')} הפעולה נראית כמו משפט אחד עם שתי מילים כחולות. לוחצים על המילה הכחולה <b>הראשונה</b> (מיד אחרי ${chip(L.getWord)}) ובוחרים ${chip(L.value)}. את המילה הכחולה השנייה לא משנים, היא כבר מחוברת לשלב 2.`,
-    `${find('roundNumber')} למה: לפעמים הבריאות מחזירה מספר עם נקודה עשרונית, וג׳ימי מקבל רק מספר שלם. לא משנים בה כלום: היא לוקחת לבד את הערך משלב 3. ממשיכים לשלב הבא.`,
+    `${find('roundNumber')} למה: לפעמים הבריאות מחזירה מספר עם נקודה עשרונית, וג׳יני מקבלת רק מספר שלם. לא משנים בה כלום: היא לוקחת לבד את הערך משלב 3. ממשיכים לשלב הבא.`,
     `${find('formatDate')} לא מקלידים תאריך. לפי הסדר:
       <ol class="connection-substeps">
         <li>לוחצים על השדה הכחול בראש הפעולה. אם קיצורים כבר שם בו לבד את המספר משלב 4, מוחקים אותו.</li>
@@ -305,7 +305,7 @@ function renderSilent() {
   const S = IOS_SEARCH[lang];
   const copyBtn = (what, label) => `<button type="button" class="btn btn-secondary connection-copy" data-copy="${what}">${icon('copy', { className: 'icon--sm' })} ${label}</button>`;
   const head = `<b class="connection-silent-title">${icon('sparkles', { className: 'icon--sm' })} שליחה שקטה — מומלץ</b>
-    <p class="text-muted connection-note">הקיצור שולח את הצעדים ישירות לג׳ימי: שום דבר לא נפתח, וזה עובד גם כשהטלפון נעול.</p>`;
+    <p class="text-muted connection-note">הקיצור שולח את הצעדים ישירות לג׳יני: שום דבר לא נפתח, וזה עובד גם כשהטלפון נעול.</p>`;
   if (!loaded) {
     host.innerHTML = head;
     return;
@@ -462,8 +462,8 @@ function claudeStatus() {
 function claudeSteps() {
   const steps = [
     ['sparkles', `ב-Claude: ${chip('Settings')} ← ${chip('Connectors')} ← ${chip('Add custom connector')}.`],
-    ['copy', `שם: ${chip('ג׳ימי')}. בשדה הכתובת מדביקים את מה שהעתקת ולוחצים ${chip('Add')}.`],
-    ['check', `בשיחה חדשה מפעילים את ג׳ימי (${chip('+')} ← ${chip('Connectors')}) ושואלים "מה מצבי היום?"`],
+    ['copy', `שם: ${chip('ג׳יני')}. בשדה הכתובת מדביקים את מה שהעתקת ולוחצים ${chip('Add')}.`],
+    ['check', `בשיחה חדשה מפעילים את ג׳יני (${chip('+')} ← ${chip('Connectors')}) ושואלים "מה מצבי היום?"`],
   ];
   return `
     <ol class="connection-steps connection-steps--build">
@@ -494,7 +494,7 @@ function renderClaude() {
     </button>`;
   const fresh = newUrl ? `
     <div class="connection-hint mcp-new-key">
-      <b>כתובת החיבור שלך.</b> היא מוצגת עכשיו בלבד. מי שמחזיק בה יכול לקרוא ולרשום בג׳ימי שלך, אז לא משתפים אותה.
+      <b>כתובת החיבור שלך.</b> היא מוצגת עכשיו בלבד. מי שמחזיק בה יכול לקרוא ולרשום בג׳יני שלך, אז לא משתפים אותה.
       <span class="connection-code connection-code--wrap mcp-url" dir="ltr">${esc(newUrl)}</span>
     </div>
     <button type="button" class="btn btn-primary btn-block" data-mcp-copy>${icon('copy', { className: 'icon--sm' })} העתקת הכתובת</button>
@@ -508,7 +508,7 @@ function renderClaude() {
         <span class="connection-status">${claudeStatus()}</span>
       </span>
     </div>
-    <p class="text-muted connection-desc">הקלוד שלך קורא את הנתונים שלך בג׳ימי, ורושם בשבילך ארוחות, שקילה, שינה, צעדים וסימון הרגלים. הוא רואה רק את החשבון שלך ולא מוחק כלום.</p>
+    <p class="text-muted connection-desc">הקלוד שלך קורא את הנתונים שלך בג׳יני, ורושם בשבילך ארוחות, שקילה, שינה, צעדים וסימון הרגלים. הוא רואה רק את החשבון שלך ולא מוחק כלום.</p>
     ${fresh}
     ${mcpKeys?.length ? `<ul class="mcp-keys">${mcpKeys.map(keyRow).join('')}</ul>` : ''}
     ${newUrl ? '' : createBtn}
@@ -557,7 +557,7 @@ async function revokeClaudeKey(hash) {
   if (!k) return;
   const yes = await confirmDialog({
     title: 'לבטל את המפתח?',
-    message: `קלוד שמחובר עם <span dir="ltr">${esc(k.preview)}…</span> יפסיק לגשת לג׳ימי תוך דקה. הנתונים שלך נשארים כמו שהם.`,
+    message: `קלוד שמחובר עם <span dir="ltr">${esc(k.preview)}…</span> יפסיק לגשת לג׳יני תוך דקה. הנתונים שלך נשארים כמו שהם.`,
     confirmLabel: 'ביטול המפתח',
     cancelLabel: 'השארה',
     danger: true,
@@ -584,7 +584,7 @@ const CALENDAR_RESULTS = {
   ok: 'היומן מחובר',
   cancelled: 'החיבור בוטל',
   scope: 'כדי לחבר, צריך לסמן את ההרשאה ליומן במסך של גוגל',
-  account: 'צריך לבחור את אותו חשבון גוגל שאיתו נכנסת לג׳ימי',
+  account: 'צריך לבחור את אותו חשבון גוגל שאיתו נכנסת לג׳יני',
   failed: 'החיבור לא הצליח, אפשר לנסות שוב',
 };
 
@@ -651,7 +651,7 @@ function renderCalendar() {
       </span>
     </div>
     ${!connected && c?.needsReconnect ? '<p class="connection-hint">החיבור ליומן פג. חיבור מחדש לוקח רגע, והמשימות שלך לא נפגעו.</p>' : ''}
-    <p class="text-muted connection-desc">משימה עם יום או שעה נכנסת לבד ליומן שלך. כשמזיזים אותה האירוע זז, וכשמסיימים הוא מקבל ✓. ג׳ימי נוגע רק באירועים שהוא יצר.</p>
+    <p class="text-muted connection-desc">משימה עם יום או שעה נכנסת לבד ליומן שלך. כשמזיזים אותה האירוע זז, וכשמסיימים הוא מקבל ✓. ג׳יני נוגעת רק באירועים שהיא יצרה.</p>
     ${connected
       ? `<button type="button" class="btn btn-outline btn-block" data-cal-disconnect${calBusy ? ' disabled' : ''}>ניתוק היומן</button>`
       : `${connectBtn(c?.needsReconnect ? 'חיבור מחדש' : 'חיבור היומן')}
@@ -678,7 +678,7 @@ async function onCalendarClick(e) {
   } else if (e.target.closest('[data-cal-disconnect]')) {
     const yes = await confirmDialog({
       title: 'לנתק את היומן?',
-      message: 'ג׳ימי יפסיק לכתוב ליומן. האירועים שכבר שם נשארים, והמשימות שלך לא משתנות.',
+      message: 'ג׳יני תפסיק לכתוב ליומן. האירועים שכבר שם נשארים, והמשימות שלך לא משתנות.',
       confirmLabel: 'ניתוק',
       cancelLabel: 'השארה',
     });

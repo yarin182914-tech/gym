@@ -52,7 +52,7 @@ async function callback(req, res, origin) {
   // Google lets the user untick the calendar on the consent screen.
   if (!got.scope.split(' ').includes(SCOPE)) return drop('scope');
   if (!got.refreshToken) return drop('failed');
-  // The calendar must be the account the user signs in to ג׳ימי with, so
+  // The calendar must be the account the user signs in to ג׳יני with, so
   // a consent link passed to someone else can't tie their calendar to it.
   const user = await getAuth().getUser(state.uid);
   if (user.email && user.email.toLowerCase() !== got.email.toLowerCase()) return drop('account');
