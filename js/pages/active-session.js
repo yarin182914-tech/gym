@@ -1042,6 +1042,7 @@ async function addExerciseToSession(lib) {
   session.exercises.push(entry);
   picker = { open: false, query: '', category: null };
   render();
+  scrollToExercise(entry);
 
   const [prev, hist] = await Promise.all([
     getLastPerformance(lib.name, session?.editingWorkoutId),
@@ -1078,7 +1079,14 @@ function addSessionToWorkout(lib) {
   picker = { open: false, query: '', category: null };
   persistSession();
   render();
+  scrollToExercise(entry);
   loadSessionLookups(entry, session);
+}
+
+// A just-added exercise is brought to the middle of the screen, rather than
+// staying wherever the picker was (feedback 13.11).
+function scrollToExercise(entry) {
+  exerciseRefs.get(entry._uid)?.root?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 // The past sessions of the same type: the last one fills the form (quick
