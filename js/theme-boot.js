@@ -13,8 +13,8 @@
   // Each theme's --bg, for the phone's status bar (<meta name="theme-color">)
   // — set here directly because the stylesheets may not have loaded yet.
   var STATUS_BAR = {
-    dark: '#1b1a18',
-    bright: '#f5efe6',
+    dark: '#16130f',
+    bright: '#faf6ef',
     synthwave: '#140b2e',
     'acid-sunset': '#24091f',
     'pop-art': '#ffe94a',
