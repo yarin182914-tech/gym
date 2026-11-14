@@ -171,7 +171,7 @@ The first half of the visual pass (ירין 2026-11-13, its own PR since 2026-11
 - UI: 16px body and one type ramp, 44px buttons and fields, radius 26/16, warm elevation, motion tokens, the gold colours in DARK and BRIGHT, gradient primary button and + button, the nav's new active state, in every theme block. The colour theme switch moves from the top bar to the profile sheet (ירין 2026-11-14).
 - Done when: every screen lays out at 16px body and 390px in DARK, BRIGHT and the five RANDOM palettes, buttons are 44 high, the top bar holds only the title and the profile icon, and a 4-set exercise still fits one screen in a workout.
 
-## M4c2 ☐ The "זהב" look — Today — `feature/m4c2-gold-today`
+## M4c2 ◐ The "זהב" look — Today — `feature/m4c2-gold-today`
 The Today part of `docs/specs/gold-look.md`, the section "M4c2 — מה נכנס ל-PR של מסך היום". Split from M4c by ירין (2026-11-13) and first placed after M10; moved up by ירין on 2026-11-14, after seeing the base without the mockup's Today, to right after M4c and before M14. Built on `feature/m4c-gold-base`; it merges after PR #41.
 - Data: none. Today also reads the recent nutrition entries, for the food ring.
 - UI: the greeting and the date in the top bar, the gradient level card (points, progress, today's points, a streak of days with points), three rings (workout days this week, calories today, last night's sleep), the +points moment on the level card. The sleep card moves under "להיגמל".
