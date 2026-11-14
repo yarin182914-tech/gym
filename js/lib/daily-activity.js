@@ -36,6 +36,13 @@ export function totalOut(activity) {
   return (activity.baseKcal ?? BASE_KCAL) + stepsKcal(activity.steps) + (activity.workoutKcal || 0);
 }
 
+// A day's calorie target: its logged burn less the deficit, or the fixed
+// target while no burn is logged. goals: nutritionGoals() in rewards.js.
+export function calorieTargetOf(activity, goals) {
+  const out = totalOut(activity);
+  return out === null ? goals.calorieTarget : Math.max(0, out - goals.calorieDeficit);
+}
+
 // Averages over the 7 days ending on `key`, counting only days that have
 // both meals and an activity doc — a day with one side missing would skew
 // the balance. `kcalIn(dayKey)` returns that day's eaten total (0 = none).

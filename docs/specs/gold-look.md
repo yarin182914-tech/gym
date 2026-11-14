@@ -1,5 +1,7 @@
 # המראה ״זהב״ — בסיס עיצובי חדש + מסך היום
-Milestone: M4c (the base) · Branch: feature/m4c-gold-base · Status: built (the base, 2026-11-14; the Today part waits for M4c2)
+Milestone: M4c (the base) · Branch: feature/m4c-gold-base · Status: built (2026-11-14)
+Milestone: M4c2 (Today) · Branch: feature/m4c2-gold-today · Status: built (2026-11-14)
+Moved up by ירין on 2026-11-14, after seeing the base on the preview without the mockup's Today: "יכול להמשיך בעבודה על מסך היום החדש". M4c2 is now built right after the base and before the cleanup (M14), not after M10. What this PR holds is the section "M4c2 — מה נכנס ל-PR של מסך היום" below.
 Split by ירין on 2026-11-13: M4c builds the "בסיס לכל האפליקציה" part now, inside M14 (the UX/UI cleanup), after the new logo (M0a) and before the first screen (M0b); the "מסך היום" part and the +points moment move to M4c2 (`feature/m4c2-gold-today`), after M10. The app's new name is ג׳יני (Jini).
 Decided by ירין on 2026-11-14: the base is its own PR, before the cleanup (so the screens are tidied once, at the final sizes), and the colour theme switch moves from the top bar to the profile sheet in this PR. What this PR holds is the section "M4c — מה נכנס ל-PR של הבסיס" below.
 Requested by ירין on 2026-11-12: "שיפור המראה הכללי של האפליקציה … אני רוצה שהאפליקציה תיראה מקצועית ברמה של תאגיד ענק כמו גוגל או מייקרוסופט."
@@ -23,6 +25,20 @@ Chosen look: **זהב** out of four proposals (צלול, דופק, זהב, קל�
 - **תנועה:** רכה, 150–450 אלפיות, ונכבית כשבאייפון מופעל "הפחתת תנועה".
 - **מסך האימון:** טבלת הסטים נשארת צפופה יחסית, כדי שתרגיל של 4 סטים ייכנס במסך אחד.
 
+## M4c2 — מה נכנס ל-PR של מסך היום
+מסך "היום" נבנה מחדש מלמעלה, כמו בהדגמה. מה שמתחת (משימות, הרגלים, להיגמל, שינה) נשאר כמו שהוא ורק משנה מקום; הקיצור והקיפול שלו הם M14.
+- **סדר המסך:** ברכה ותאריך בסרגל העליון → כרטיס רמה → שלוש טבעות → "סיכום אתמול" (רק כשיש) → "הדבר הבא" → משימות → הרגלים → להיגמל → כרטיס השינה.
+- **ברכה:** לפי שעה: "בוקר טוב" (5–12), "צהריים טובים" (12–17), "ערב טוב" (17–22), "לילה טוב" (22–5), עם השם הפרטי מחשבון גוגל ("בוקר טוב, ירין"). בלי שם: רק הברכה. מתחתיה תאריך קצר: "יום שישי · 14 בנובמבר".
+- **כרטיס רמה** במילוי זהב → אלמוג: "רמה 2 · בתנועה", הנקודות בספרות גדולות ("740 / 1,500 נק׳"), פס התקדמות, "עוד 760 נקודות לרמה 3", "היום +35", ותג רצף עם להבה. לחיצה פותחת את מסך ההתקדמות, כמו היום.
+- **רצף:** ימים ברצף שבהם נצברו נקודות. מוצג מיומיים ומעלה. יום בלי נקודות לא מוצג כהפסד: התג פשוט לא מופיע.
+- **שלוש טבעות**, כל אחת בצבע קבוע ופותחת את הלשונית שלה:
+  - אימון: ימי אימון השבוע מתוך היעד השבועי ("2 / 3").
+  - תזונה: קלוריות היום מתוך היעד של היום ("1,450 / 2,000").
+  - שינה: שעות הלילה האחרון מתוך המינימום ("7:10 / 8:00").
+  - מעל היעד: טבעת מלאה, באותו צבע. בלי נתון: טבעת אפורה ו"עוד לא נרשם".
+- **רגע נקודות:** ברק עובר על כרטיס הרמה, תג "+10" זוהר עולה ונעלם, הפס מתמלא והמספר רץ. פחות משנייה וחצי; עם "הפחתת תנועה" רק המספר מתעדכן.
+- **כשמצב המינימום (M10) ייבנה:** טבעת של תחום כבוי תוסתר. עד אז מוצגות שלוש.
+
 ## איך זה נראה
 **בסיס לכל האפליקציה** (משפיע על כל המסכים דרך הרכיבים המשותפים):
 - טקסט גוף 16 (היום 14.4), סולם טקסט: 12 · 14 · 16 · 18 · 22 · 28 · 36.
@@ -36,7 +52,7 @@ Chosen look: **זהב** out of four proposals (צלול, דופק, זהב, קל�
 2. כרטיס רמה בולט במילוי מדורג: שם הרמה, נקודות ״X / Y נק׳״ בספרות Oswald גדולות, פס התקדמות, ״עוד N נקודות לרמה הבאה״, תג רצף עם להבה. לחיצה פותחת את מסך ההתקדמות (כמו היום).
 3. שלוש טבעות: אימון (בוצע היום / יעד שבועי), תזונה (קלוריות מול יעד), שינה (שעות מול יעד). צבע קבוע לכל תחום בכל מסך. לחיצה פותחת את הלשונית שלו.
 4. כרטיס ״הדבר הבא״ (כמו היום), ואז משימות, הרגלים, להיגמל וכרטיס השינה, בעיצוב החדש.
-- מצבים: טעינה (שלד אפור באותו גודל), ריק (טבעת ריקה אפורה + ״עוד לא נרשם היום״), אופליין (כמו היום, מהמטמון), יום שהוחמץ = אפור מקווקו, אף פעם לא אדום.
+- מצבים: טעינה (השלד האפור הקיים), ריק (טבעת ריקה אפורה + ״עוד לא נרשם היום״), אופליין (כמו היום, מהמטמון), יום שהוחמץ = אפור מקווקו, אף פעם לא אדום.
 - 390px, RTL, בכל הערכות: DARK, BRIGHT וחמש האקראיות (כלל 12).
 
 **רגע נקודות** (רק המראה; מתי ושווה כמה נשאר ב־M4b): ברק זהב עובר על כרטיס הרמה, תג ״+10״ זוהר עולה ונעלם, הפס מתמלא, המספר רץ. פחות משנייה וחצי.
@@ -46,6 +62,7 @@ Chosen look: **זהב** out of four proposals (צלול, דופק, זהב, קל�
 
 ## חוקים ומספרים
 - אין מספרים חדשים של משחק. יעדי הטבעות נלקחים ממה שכבר קיים: יעד קלוריות, יעד שינה, ויעד אימונים שבועי (`user.weeklyWorkoutGoal ?? REWARDS.weeklyWorkoutGoal`, כבר בשימוש ב־`js/pages/library.js`).
+- חדש ב־`js/lib/rules.js` (M4c2): שעות הברכה (5 · 12 · 17 · 22), וממתי מוצג תג הרצף (2 ימים).
 - משכי האנימציה הם עיצוב, לא חוקי משחק: טוקנים ב־`css/01-tokens.css` (`--motion-fast/-base/-slow`, `--ease-out`).
 
 ## Data (Firestore)
@@ -70,10 +87,22 @@ None. The rings and the level card read data that already exists (workouts, meal
 - `prefers-reduced-motion`: the global rule in `02-base.css` already turns every animation and transition off, the new ones included.
 - Screenshots: `docs/screenshots/m4c/`.
 
-## Technical notes — M4c2 (Today, later)
-- New colour tokens in every theme block: `--ring-train`, `--ring-food`, `--ring-sleep`, `--missed` (the empty ring's grey), `--reward`, `--reward-text`, `--reward-glow`, `--shine`.
-- `js/pages/today.js`: new header (greeting), level hero, rings row; existing sections keep their logic. Ring maths as a pure helper in `js/lib/` (e.g. `today-rings.js`: inputs → `{ train, food, sleep }` fractions + labels) with `tools/test-today-rings.mjs`.
-- `js/ui/reward-moments.js`: add the gold shine + glow toast as the visual for the existing +points moment; trigger logic untouched (M4b).
+## Technical notes — M4c2 (Today, this PR)
+- Branch `feature/m4c2-gold-today`, cut from `feature/m4c-gold-base` while PR #41 is open; it merges after #41.
+- New colour tokens in every theme block (values: `LOOKS.gold` and `RANDOM` in the comparison page): `--ring-train`, `--ring-food`, `--ring-sleep`, `--missed` (the empty ring's grey), `--reward`, `--reward-text`, `--reward-glow`, `--shine`. `tools/test-theme-tokens.mjs` gets the new pairs (each ring colour on a card at 3:1, `--reward-text` on `--reward` at 4.5:1).
+- New `js/lib/today-rings.js` (pure, no DOM) with `tools/test-today-rings.mjs`:
+  - `todayRings({ today, workouts, workoutGoal, meals, calorieTarget, night, sleepMinHours })` → `{ train, food, sleep }`, each `{ fraction 0–1, value, target, empty }`. The week is `weekStart()` from `js/lib/habits.js` (`HABITS.weekStartsOn`), the same week the weekly workout bonus counts. The calorie target is the day's own (the fixed target, or burn minus deficit once the burn is logged), the same rule the nutrition screen and the scoring use.
+  - `pointsStreak(byDay, today)` → days in a row with points, ending today, or yesterday while today has none yet.
+  - `greeting(hour)` → the greeting for the hour, from `TODAY.greetingHours` in `js/lib/rules.js`.
+- `js/pages/today.js`: the top becomes the level hero and the rings row; the day summary and the next-step card follow; the sleep card moves under "להיגמל". Today also loads the recent nutrition entries (`listNutritionEntries`), for the food ring. Every existing section keeps its logic.
+- `js/ui/app-bar.js`: on Today the title is the greeting, with the short date under it; the first name is the first word of `users/{uid}.displayName` when it is set, else of the signed-in Google account's name. No new field.
+- `js/ui/reward-moments.js`: the +points moment's look only: the shine on the hero, the glowing "+N" tag, the number counting up. When and how much is untouched (M4b). `prefers-reduced-motion`: none of the three.
+- `css/03-components.css`: the hero, the rings, the app bar's second line, the shine and the tag; the old `.today-level` / `.today-ring` rules go (`.today-level-bar` stays, the progress screen uses it). Loading: the app's shared skeleton (`js/core/page.js`), unchanged.
+- `js/lib/daily-activity.js`: `calorieTargetOf(activity, goals)`, the one rule for a day's calorie target; the nutrition screen and the scoring (`js/lib/rewards.js`) now call it instead of each repeating it.
+- `js/dev/seed.js`: two workouts this week and two meals today, and no night, so the `?dev` sandbox shows a ring in each state. The sandbox user is now called "אורח".
+- `sw.js`: `CACHE_NAME` is `gym-site-v8`.
+- Screenshots: `docs/screenshots/m4c2/`.
+- Defaults chosen by Claude that ירין can change: what the streak counts (days with points), and the workout ring counting the week rather than the day.
 
 ## Server / outside the app
 None. `firestore.rules` unchanged.

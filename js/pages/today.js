@@ -1,13 +1,15 @@
-// "היום" — the home screen, top to bottom: the level bar (points and level,
-// js/lib/rewards-sync.js), the next step, last night's sleep, and today's
-// habits, marked right here.
+// "היום" — the home screen, top to bottom: the level card (points, level
+// and streak, js/lib/rewards-sync.js), the day's three rings (workout,
+// food, sleep — js/lib/today-rings.js), the next step, today's tasks and
+// habits, marked right here, and last night's sleep. The greeting above it
+// all is the app bar's (js/ui/app-bar.js).
 //
 // Marks show at once and are written in the background (see the habits
 // section of js/lib/firestore.js) — offline, Firestore keeps them in its
 // local cache and syncs when the connection is back.
 
 import {
-  getUserSettings, updateUserSettings, listSleep, listDailyActivity, listWorkouts,
+  getUserSettings, updateUserSettings, listSleep, listDailyActivity, listWorkouts, listNutritionEntries,
   listHabits, listHabitLogs, newHabitId, setHabit, deleteHabit, setHabitMark,
 } from '../lib/firestore.js';
 import {
@@ -15,8 +17,10 @@ import {
   weekCount, habitStreak, levelFor, isGood, isBad, badMark, badDayLevel, slipsOf, routineLevel,
   partsMark, AUTO_STRENGTH,
 } from '../lib/habits.js';
-import { dateKey, shiftDays, parseKey } from '../lib/sleep.js';
-import { HABITS, REWARDS, BAD_HABITS } from '../lib/rules.js';
+import { dateKey, shiftDays, parseKey, sleepSettings, nightRules, formatDuration } from '../lib/sleep.js';
+import { HABITS, BAD_HABITS, TODAY } from '../lib/rules.js';
+import { nutritionGoals, weeklyWorkoutGoal } from '../lib/rewards.js';
+import { todayRings, pointsStreak } from '../lib/today-rings.js';
 import { badHabitCardHtml, slipClock } from '../ui/bad-habit-card.js';
 import { rewardsState, rewardsLedger, rewardsUserDoc, markSeen } from '../lib/rewards-sync.js';
 import { daySummaryHtml } from '../ui/day-summary-card.js';
@@ -41,7 +45,10 @@ let tasksHost = null; // "משימות להיום" (M6), the same
 let habits = []; // normalized, active and paused, in order
 let logs = []; // habitLogs docs
 let activities = []; // dailyActivity docs, for auto-counted steps
-let workouts = []; // for habits counted from strength workouts
+let workouts = []; // for habits counted from strength workouts, and the workout ring
+let meals = []; // recent nutritionEntries, for the food ring
+let nights = []; // sleep docs, for the sleep ring
+let userDoc = {}; // users/{uid}: the rings' targets
 let ctx = habitContext();
 let sleepLoggedToday = false;
 let openId = null; // the habit whose buttons are showing
@@ -75,7 +82,7 @@ export async function mountToday(rootEl) {
     console.error(`[today] ${what} load failed`, err);
     return fallback;
   };
-  const [settings, nights, loadedHabits, loadedLogs, acts, loadedWorkouts] = await Promise.all([
+  const [settings, loadedNights, loadedHabits, loadedLogs, acts, loadedWorkouts, loadedMeals] = await Promise.all([
     getUserSettings().catch(loadFailed('settings', {})),
     listSleep(60).catch(loadFailed('sleep', [])),
     // null, not [] — a failed load must never look like "no habits yet"
@@ -84,6 +91,8 @@ export async function mountToday(rootEl) {
     listHabitLogs(HABITS.logDaysToLoad).catch(loadFailed('habit logs', [])),
     listDailyActivity(HABITS.logDaysToLoad).catch(loadFailed('activity', [])),
     listWorkouts(200).catch(loadFailed('workouts', [])),
+    // Today's meals are among the newest entries.
+    listNutritionEntries(40).catch(loadFailed('meals', [])),
   ]);
   if (isStale(token)) return;
 
@@ -91,6 +100,9 @@ export async function mountToday(rootEl) {
   logs = loadedLogs;
   activities = acts;
   workouts = loadedWorkouts;
+  meals = loadedMeals;
+  nights = loadedNights;
+  userDoc = settings || {};
   ctx = habitContext(logs, activities, workouts);
   if (loadedHabits && !settings.habitsSeeded) {
     if (!loadedHabits.length) seedExamples();
@@ -103,6 +115,7 @@ export async function mountToday(rootEl) {
   sleepLoggedToday = nights.some((n) => n.date === todayKey());
   sleepCard = createSleepCard(nights, settings, {
     onChange(list) {
+      nights = list;
       sleepLoggedToday = list.some((n) => n.date === todayKey());
       renderTop();
     },
@@ -136,6 +149,9 @@ export function unmountToday() {
   logs = [];
   activities = [];
   workouts = [];
+  meals = [];
+  nights = [];
+  userDoc = {};
   ctx = habitContext();
   openId = null;
   pressTimer = null;
@@ -158,10 +174,10 @@ function render() {
   if (!container) return;
   container.innerHTML = `
     <div data-today-top></div>
-    <div id="sleep-slot"></div>
     <div id="tasks-slot"></div>
     <section class="today-habits" data-today-habits aria-label="הרגלים"></section>
-    <section class="today-habits today-bad" data-today-bad aria-label="להיגמל"></section>`;
+    <section class="today-habits today-bad" data-today-bad aria-label="להיגמל"></section>
+    <div id="sleep-slot"></div>`;
   container.querySelector('#sleep-slot').replaceWith(sleepCard);
   container.querySelector('#tasks-slot').replaceWith(tasksHost);
   const section = container.querySelector('[data-today-habits]');
@@ -178,22 +194,18 @@ function rerender() {
   renderBad();
 }
 
-// ---------- level bar + next step ----------
+// ---------- level card, rings, next step ----------
 
 function renderTop() {
   const host = container?.querySelector('[data-today-top]');
   if (!host) return;
   const key = todayKey();
-  // Today's items: last night, and every habit that's due — minus an
-  // N-per-week habit whose week is already met and wasn't done today.
-  const items = activeHabits().filter((h) => isDue(h, key) && (isDone(entryFor(h, key, ctx)) || isOpenToday(h, key, ctx)));
-  const total = items.length + 1;
-  const done = items.filter((h) => isDone(entryFor(h, key, ctx))).length + (sleepLoggedToday ? 1 : 0);
   // Yesterday's points, once, after the day closed.
   const yesterday = shiftDays(key, -1);
   const showSummary = rewardsState() && rewardsUserDoc().rewardsSeen?.daySummary !== yesterday;
-  host.innerHTML = levelBar(done, total) + (showSummary ? daySummaryHtml(rewardsLedger(), yesterday) : '') + nextStep(key);
+  host.innerHTML = levelCard(key) + ringsRow(key) + (showSummary ? daySummaryHtml(rewardsLedger(), yesterday) : '') + nextStep(key);
   host.querySelector('[data-level]').addEventListener('click', () => navigate('dashboard'));
+  host.querySelectorAll('[data-ring]').forEach((el) => el.addEventListener('click', () => navigate(el.dataset.ring)));
   host.querySelector('[data-day-summary-close]')?.addEventListener('click', () => {
     markSeen({ daySummary: yesterday });
     renderTop();
@@ -204,41 +216,97 @@ function renderTop() {
   });
 }
 
-// The ring is today's points against the daily cap; the bar, the way to
-// the next level (js/lib/rewards-sync.js). Before the first scoring pass
-// has answered, the ring shows today's items instead. The whole bar is a
+// The level card: the level, the points on the way to the next one, the
+// streak (days in a row with points) and what today has added so far —
+// all from the ledger (js/lib/rewards-sync.js). Before the first scoring
+// pass has answered it shows level 1 and a dash. The whole card is a
 // button to the progress screen (spans, not divs, inside it).
-function levelBar(done, total) {
+// js/ui/reward-moments.js plays the points moment on it, and counts
+// [data-hero-total] up from the old total.
+function levelCard(key) {
   const state = rewardsState();
-  const r = 20;
-  const c = 2 * Math.PI * r;
-  const fill = state ? Math.min(1, state.today / REWARDS.dailyCap) : done / total;
   const level = state?.level;
   const fmt = (n) => n.toLocaleString('he-IL');
-  let sub = 'סופרים נקודות…';
-  if (state && state.total === 0) sub = 'ההרפתקה מתחילה — כל סימון שווה נקודות';
-  else if (state && level.next) sub = `${fmt(state.total)} נק׳ · עוד ${fmt(level.toNext)} לרמה ${level.next.level}`;
-  else if (state) sub = `${fmt(state.total)} נק׳ · הרמה הגבוהה ביותר`;
-  const ringText = state ? fmt(state.today) : `${done}/${total}`;
+  const streak = state ? pointsStreak(state.byDay, key) : 0;
+  const showStreak = streak >= TODAY.streakMinDays;
+  let foot = 'סופרים נקודות…';
+  if (state && state.total === 0) foot = 'ההרפתקה מתחילה — כל סימון שווה נקודות';
+  else if (state && level.next) foot = `עוד ${fmt(level.toNext)} נקודות לרמה ${level.next.level}`;
+  else if (state) foot = 'הרמה הגבוהה ביותר';
   const label = state
-    ? `רמה ${level.level}, ${level.name} · ${state.today} נקודות היום · ${sub} · התקדמות`
-    : `${done} מתוך ${total} סומנו היום · התקדמות`;
+    ? `רמה ${level.level}, ${level.name} · ${fmt(state.total)} נקודות · ${foot}${showStreak ? ` · רצף של ${streak} ימים` : ''} · ${state.today} נקודות היום · התקדמות`
+    : 'רמה ונקודות · התקדמות';
   return `
-    <button type="button" class="card today-level" data-level aria-label="${esc(label)}">
-      <span class="today-ring" aria-hidden="true">
-        <svg viewBox="0 0 48 48">
-          <circle class="today-ring-track" cx="24" cy="24" r="${r}"></circle>
-          <circle class="today-ring-fill" cx="24" cy="24" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - fill)}"></circle>
-        </svg>
-        <span class="today-ring-text num">${ringText}</span>
+    <button type="button" class="today-hero" data-level aria-label="${esc(label)}">
+      <span class="today-hero-head" aria-hidden="true">
+        <span class="today-hero-level">רמה ${level?.level ?? 1}${level ? ` · ${esc(level.name)}` : ''}</span>
+        ${showStreak ? `<span class="today-hero-streak">${icon('flame', { className: 'icon--sm' })}<span class="num">${streak}</span> ימים</span>` : ''}
+        ${icon('chevron-left', { className: 'icon--sm' })}
       </span>
-      <span class="today-level-text" aria-hidden="true">
-        <span class="today-level-name">רמה ${level?.level ?? 1}${level ? ` · ${esc(level.name)}` : ''}</span>
-        <span class="today-level-bar"><span style="width:${Math.round((level?.progress ?? 0) * 100)}%"></span></span>
-        <span class="today-level-sub">${esc(sub)}</span>
+      <span class="today-hero-points" aria-hidden="true">
+        <span class="today-hero-pair num" dir="ltr"><span class="today-hero-total" data-hero-total="${state?.total ?? 0}">${state ? fmt(state.total) : '—'}</span>${level?.next ? ` / ${fmt(level.next.min)}` : ''}</span>
+        <span class="today-hero-of">נק׳</span>
       </span>
-      ${icon('chevron-left', { className: 'icon--sm' })}
+      <span class="today-hero-bar" aria-hidden="true"><span style="width:${Math.round((level?.progress ?? 0) * 100)}%"></span></span>
+      <span class="today-hero-foot" aria-hidden="true">
+        <span>${esc(foot)}</span>
+        ${state?.today > 0 ? `<span class="today-hero-today">היום <span class="num" dir="ltr">+${fmt(state.today)}</span></span>` : ''}
+      </span>
     </button>`;
+}
+
+// The day's three rings, each in its own colour in every theme and a
+// button to its tab. A ring with nothing logged yet is grey — never a miss.
+const RINGS = [
+  { id: 'train', route: 'session', icon: 'dumbbell', name: 'אימון' },
+  { id: 'food', route: 'nutrition', icon: 'utensils', name: 'תזונה' },
+  { id: 'sleep', route: 'sleep', icon: 'moon', name: 'שינה' },
+];
+
+function ringsRow(key) {
+  const rings = todayRings({
+    today: key,
+    workouts,
+    workoutGoal: weeklyWorkoutGoal(userDoc),
+    meals,
+    activity: activities.find((a) => a.date === key) || null,
+    goals: nutritionGoals(userDoc),
+    night: nights.find((n) => n.date === key) || null,
+    sleepTargetMin: nightRules(key, sleepSettings(userDoc)).minMin,
+  });
+  const fmt = (n) => n.toLocaleString('he-IL');
+  const pair = (a, b) => `<span class="num" dir="ltr">${a} / ${b}</span>`;
+  const NOT_YET = 'עוד לא נרשם';
+  const text = {
+    train: pair(rings.train.value, rings.train.target),
+    food: rings.food.empty ? NOT_YET : pair(fmt(rings.food.value), fmt(rings.food.target)),
+    sleep: rings.sleep.empty ? NOT_YET : pair(formatDuration(rings.sleep.value), formatDuration(rings.sleep.target)),
+  };
+  const spoken = {
+    train: `${rings.train.value} מתוך ${rings.train.target} ימי אימון השבוע`,
+    food: rings.food.empty ? NOT_YET : `${fmt(rings.food.value)} מתוך ${fmt(rings.food.target)} קלוריות היום`,
+    sleep: rings.sleep.empty ? NOT_YET : `${formatDuration(rings.sleep.value)} מתוך ${formatDuration(rings.sleep.target)} שעות בלילה האחרון`,
+  };
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  return `
+    <div class="card day-rings">
+      ${RINGS.map((def) => {
+        const ring = rings[def.id];
+        return `
+      <button type="button" class="day-ring day-ring--${def.id}${ring.empty ? ' day-ring--empty' : ''}" data-ring="${def.route}" aria-label="${def.name}: ${esc(spoken[def.id])}">
+        <span class="day-ring-dial" aria-hidden="true">
+          <svg viewBox="0 0 64 64">
+            <circle class="day-ring-track" cx="32" cy="32" r="${r}"></circle>
+            ${ring.fraction > 0 ? `<circle class="day-ring-fill" cx="32" cy="32" r="${r}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - ring.fraction)}"></circle>` : ''}
+          </svg>
+          ${icon(def.icon)}
+        </span>
+        <span class="day-ring-name" aria-hidden="true">${def.name}</span>
+        <span class="day-ring-value" aria-hidden="true">${text[def.id]}</span>
+      </button>`;
+      }).join('')}
+    </div>`;
 }
 
 const onRewards = () => renderTop();

@@ -160,6 +160,32 @@ button {
   text-overflow: ellipsis;
 }
 
+/* "היום": the greeting, with the date as a second, quieter line. */
+.app-bar-titles {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.app-bar-sub {
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-bar-sub[hidden] {
+  display: none;
+}
+
+.app-bar-titles:has(.app-bar-sub:not([hidden])) .app-bar-title {
+  font-size: var(--text-lg);
+  line-height: 1.25;
+}
+
 .app-bar-actions {
   display: flex;
   align-items: center;

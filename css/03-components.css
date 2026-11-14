@@ -2883,60 +2883,224 @@ th {
 }
 
 /* ===== "היום" screen — see js/pages/today.js ===== */
-.today-level {
+/* The level card (js/pages/today.js levelCard): the theme's gradient, with
+   the level, the points, the way to the next level and the streak. */
+.today-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  margin-bottom: var(--space-3);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2-fill));
+  color: var(--gold-text);
+  box-shadow: var(--elev-2);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  overflow: hidden; /* clips the shine */
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.today-hero:active {
+  transform: scale(0.98);
+}
+
+.today-hero-head {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-2);
 }
 
-.today-ring {
-  position: relative;
-  width: 52px;
-  height: 52px;
+.today-hero-level {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
+  font-size: var(--text-lg);
+}
+
+.today-hero-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--gold-text) 14%, transparent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.today-hero-points {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+/* "740 / 1,500": one left-to-right pair, the total in the big size. */
+.today-hero-pair {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.today-hero-total {
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  letter-spacing: var(--tracking-tight);
+}
+
+.today-hero-of {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+}
+
+.today-hero-bar {
+  display: block;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--gold-text) 20%, transparent);
+  overflow: hidden;
+}
+
+.today-hero-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--gold-text);
+  /* The page is RTL: the fill starts at the right. */
+  transform-origin: 100% 50%;
+}
+
+.today-hero-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.today-hero-today {
   flex: none;
+  font-weight: var(--weight-bold);
 }
 
-.today-ring svg {
+/* A points moment (js/ui/reward-moments.js adds .today-hero--moment): a
+   shine crosses the card and the bar fills. */
+.today-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, var(--shine) 50%, transparent 65%);
+  transform: translateX(110%);
+  pointer-events: none;
+}
+
+.today-hero--moment::after {
+  animation: hero-shine 0.9s var(--ease-out);
+}
+
+.today-hero--moment .today-hero-bar span {
+  animation: hero-bar-fill var(--motion-slow) var(--ease-out);
+}
+
+@keyframes hero-shine {
+  from { transform: translateX(110%); }
+  to { transform: translateX(-110%); }
+}
+
+@keyframes hero-bar-fill {
+  from { transform: scaleX(0.8); }
+  to { transform: scaleX(1); }
+}
+
+/* The day's three rings (js/pages/today.js ringsRow). One colour per ring
+   in every screen: --ring-train, --ring-food, --ring-sleep. */
+.day-rings {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-2);
+}
+
+.day-ring {
+  --ring: var(--ring-train);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.day-ring--food { --ring: var(--ring-food); }
+.day-ring--sleep { --ring: var(--ring-sleep); }
+
+.day-ring-dial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 4px;
+  color: var(--ring);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.day-ring:active .day-ring-dial {
+  transform: scale(0.95);
+}
+
+.day-ring-dial > svg:first-child {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   transform: rotate(-90deg);
 }
 
-.today-ring-track {
+.day-ring-track {
   fill: none;
   stroke: var(--surface-raised);
-  stroke-width: 5;
+  stroke-width: 7;
 }
 
-.today-ring-fill {
+.day-ring-fill {
   fill: none;
-  stroke: var(--accent);
-  stroke-width: 5;
+  stroke: var(--ring);
+  stroke-width: 7;
   stroke-linecap: round;
-  transition: stroke-dashoffset 0.4s ease;
 }
 
-.today-ring-text {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
+/* Nothing logged yet: grey and dashed, never red. */
+.day-ring--empty .day-ring-dial {
+  color: var(--text-muted);
+}
+
+.day-ring--empty .day-ring-track {
+  stroke: var(--missed);
+  stroke-dasharray: 3 5;
+}
+
+.day-ring-name {
   font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  color: var(--text);
+  font-weight: var(--weight-semibold);
 }
 
-.today-level-text {
-  flex: 1;
-  min-width: 0;
+.day-ring-value {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
-.today-level-name {
-  font-family: var(--font-display);
-  font-weight: var(--weight-display);
-  color: var(--text);
-}
-
+/* The progress screen's level bar (js/ui/progress-summary.js). */
 .today-level-bar {
   height: 6px;
   margin: 6px 0 4px;
@@ -2949,11 +3113,6 @@ th {
   display: block;
   height: 100%;
   background: var(--accent);
-}
-
-.today-level-sub {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
 }
 
 .today-next {
@@ -3432,25 +3591,6 @@ th {
    lines up with the page edge. */
 .app-bar-lead [data-back] {
   margin-inline-start: -12px;
-}
-
-/* The level bar on היום opens the progress screen. */
-button.today-level {
-  width: 100%;
-  color: var(--text);
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
-}
-
-button.today-level .today-ring,
-button.today-level .today-level-text > span {
-  display: block;
-}
-
-button.today-level > .icon {
-  flex: none;
-  color: var(--text-muted);
 }
 
 /* ----- sleep screen: the last 30 nights ----- */
@@ -4124,16 +4264,20 @@ body.keyboard-open .fab,
 
 /* ---------- reward moments (js/ui/reward-moments.js) ---------- */
 
+/* "+10": a glowing tag that rises from the tap and fades. */
 .reward-float {
   position: fixed;
   z-index: 1200;
   transform: translate(-50%, -50%);
   pointer-events: none;
+  padding: 2px 12px;
+  border-radius: var(--radius-full);
+  background: var(--reward);
+  color: var(--reward-text);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--reward) 30%, transparent), 0 0 22px var(--reward-glow);
   font-family: var(--font-display);
   font-weight: var(--weight-bold);
-  font-size: var(--text-xl);
-  color: var(--accent);
-  text-shadow: 0 1px 2px var(--bg);
+  font-size: var(--text-lg);
   animation: reward-float 1s ease-out forwards;
 }
 
@@ -4141,14 +4285,6 @@ body.keyboard-open .fab,
   0% { opacity: 0; transform: translate(-50%, -30%) scale(0.8); }
   20% { opacity: 1; transform: translate(-50%, -80%) scale(1.1); }
   100% { opacity: 0; transform: translate(-50%, -260%) scale(1); }
-}
-
-.today-ring--pop {
-  animation: reward-ring-pop var(--motion-slow) ease;
-}
-
-@keyframes reward-ring-pop {
-  50% { transform: scale(1.12); }
 }
 
 .reward-confetti {
@@ -4230,7 +4366,7 @@ body.keyboard-open .fab,
 
 @media (prefers-reduced-motion: reduce) {
   .reward-float { animation-duration: 0.01s; }
-  .today-ring--pop { animation: none; }
+  .today-hero--moment::after, .today-hero--moment .today-hero-bar span { animation: none; }
   .reward-levelup, .reward-levelup-card { transition: none; }
 }
 

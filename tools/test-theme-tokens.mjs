@@ -105,6 +105,10 @@ const PAIRS = [
   ['--accent-contrast', '--accent-2-fill', 3, 'the + button icon (gradient end)'],
   ['--rust', '--surface', 3, 'set index numbers on a card'],
   ['--danger', '--surface', 3, 'the delete icon on a card'],
+  ['--ring-train', '--surface', 3, 'the workout ring on a card'],
+  ['--ring-food', '--surface', 3, 'the food ring on a card'],
+  ['--ring-sleep', '--surface', 3, 'the sleep ring on a card'],
+  ['--reward-text', '--reward', 4.5, 'the +points tag'],
 ];
 
 const allThemes = ['', ...themes];

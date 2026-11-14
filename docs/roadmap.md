@@ -4,7 +4,7 @@ Each milestone = one branch + one PR. Build them in order; each one must leave t
 Section names in quotes refer to headings in `docs/upgrade-plan.md` (Hebrew).
 Defaults for every number come from the plan and live in one config module (`js/lib/rules.js`).
 
-**Build order now (ירין 2026-11-13, combining the 2026-11-12 order with the growth review):** 1. M0a logo → 2. the M4c "זהב" base, then the M14 UX/UI cleanup (one visual pass, two PRs, ירין 2026-11-14) → 3. M0b name and first screen → 4. M15 polish the existing screens (the feedback page first) → 5. M16 open the app to Maya → 6. the rest of "עכשיו" (M9s, M10, M10b, M10c, M10d) → the pilot. Only then new features. Details under "עכשיו" below.
+**Build order now (ירין 2026-11-13, combining the 2026-11-12 order with the growth review):** 1. M0a logo → 2. the M4c "זהב" base, then M4c2 the new Today (moved up by ירין 2026-11-14), then the M14 UX/UI cleanup (one visual pass, three PRs) → 3. M0b name and first screen → 4. M15 polish the existing screens (the feedback page first) → 5. M16 open the app to Maya → 6. the rest of "עכשיו" (M9s, M10, M10b, M10c, M10d) → the pilot. Only then new features. Details under "עכשיו" below.
 
 Status legend: ☐ not started · ◐ in progress (branch or PR open) · ☑ merged · ✕ dropped
 
@@ -171,6 +171,14 @@ The first half of the visual pass (ירין 2026-11-13, its own PR since 2026-11
 - UI: 16px body and one type ramp, 44px buttons and fields, radius 26/16, warm elevation, motion tokens, the gold colours in DARK and BRIGHT, gradient primary button and + button, the nav's new active state, in every theme block. The colour theme switch moves from the top bar to the profile sheet (ירין 2026-11-14).
 - Done when: every screen lays out at 16px body and 390px in DARK, BRIGHT and the five RANDOM palettes, buttons are 44 high, the top bar holds only the title and the profile icon, and a 4-set exercise still fits one screen in a workout.
 
+## M4c2 ◐ The "זהב" look — Today — `feature/m4c2-gold-today`
+The Today part of `docs/specs/gold-look.md`, the section "M4c2 — מה נכנס ל-PR של מסך היום". Split from M4c by ירין (2026-11-13) and first placed after M10; moved up by ירין on 2026-11-14, after seeing the base without the mockup's Today, to right after M4c and before M14. Built on `feature/m4c-gold-base`; it merges after PR #41.
+- Data: none. Today also reads the recent nutrition entries, for the food ring.
+- UI: the greeting and the date in the top bar, the gradient level card (points, progress, today's points, a streak of days with points), three rings (workout days this week, calories today, last night's sleep), the +points moment on the level card. The sleep card moves under "להיגמל".
+- Rules: greeting hours and the streak's first shown day in `js/lib/rules.js`. Ring maths in `js/lib/today-rings.js`, with a test.
+- Done when: Today matches the mockup's top (greeting, level card, three rings) with real data, also offline; a ring with no data is grey, never red; a mark that gives points shows the shine and the "+N" tag, and nothing moves under "reduce motion"; all of it in DARK, BRIGHT and the five RANDOM palettes.
+- Later: M10's minimal mode hides the ring of a domain that is switched off; M14 shortens what sits under the rings.
+
 ## M0b ☐ Name and first screen — `feature/m0b-first-screen`
 Growth review, phase "עכשיו". Spec: `docs/specs/first-screen.md`. After M0a and M14 (with the M4c base).
 - Data: new user docs no longer get `weddingDate` (old ones keep it). No rules change.
@@ -203,9 +211,6 @@ Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). **Moved int
 - Email + password sign-in for friends without a Google account, any email provider (ירין 2026-11-11, again 2026-11-13: "עם כל סוגי המיילים"): already written in August as `signInWithEmail` / `signUpWithEmail` / `resetPassword` in `js/auth.js` on branch `phase-0-backup` (with its sign-in screen). Reuse it here instead of rewriting. The same branch has a CSV export (`js/lib/csv.js`, BOM for Hebrew in Excel) — a candidate for M10b.
 - Sign in with Apple: not in the pilot (ירין 2026-11-13). It needs an Apple Developer membership ($99 a year), which an App Store app would need anyway; add it when that is decided.
 - Done when: a new account answers the questionnaire in about 3 minutes, gets its own burn and targets, and Today shows only the areas it chose.
-
-## M4c2 ☐ The "זהב" look — Today — `feature/m4c2-gold-today`
-The Today part of `docs/specs/gold-look.md` (greeting, gradient level card with streak, three rings, the +points moment), split from M4c by ירין (2026-11-13). After M10, because minimal mode decides what Today shows.
 
 ## M10b ☐ Account and privacy — `feature/m10b-account`
 Growth review, phase "עכשיו". Health data is "especially sensitive" under Israel's privacy law (Amendment 13, in force since 2025-08-14).
