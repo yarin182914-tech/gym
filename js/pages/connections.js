@@ -8,6 +8,11 @@
 //
 // How-tos name the iPhone's own buttons, so each has a switch for the
 // phone's language (labels in js/lib/ios-labels.js); the rest stays Hebrew.
+//
+// Every card is a closed row until it's tapped (M14b, js/ui/connection-fold.js):
+// a connected one shows its name and one status line, one that isn't shows
+// one sentence and "לחבר". What needs attention (no steps for two days, an
+// expired calendar consent) shows on the closed row too.
 
 import { listDailyActivity, listApiKeys, addApiKey, deleteApiKey, listTasks } from '../lib/firestore.js';
 import { calendarStatus, startCalendarConnect, disconnectCalendar, queueCalendarSync } from '../lib/calendar-sync.js';
@@ -29,7 +34,7 @@ import { beginMount, isStale } from '../core/page.js';
 import { esc } from '../core/dom.js';
 import { icon } from '../ui/icon.js';
 import { mountUsageCard } from '../ui/usage-card.js';
-import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
+import { foldHead, iosLangSwitch, syncIosLangSwitches } from '../ui/connection-fold.js';
 
 const LANG_KEY = 'gymi.iosLang';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -54,6 +59,9 @@ let mcpBusy = false;
 let usageCard = null; // "אינסטגרם מהאייפון" (js/ui/usage-card.js)
 let cal = null; // { configured, calendar, demo? } from the server, or null while loading
 let calBusy = false;
+// The cards that are open: 'steps' | 'claude' | 'calendar' (the app-time
+// card keeps its own). All closed again on every visit.
+let openCards = new Set();
 
 function savedLang() {
   try {
@@ -72,6 +80,7 @@ export async function mountConnections(rootEl) {
   newUrl = null;
   cal = null;
   calBusy = false;
+  openCards = new Set();
   render();
   loadCalendar(token);
   listMcpKeys().catch((err) => {
@@ -97,8 +106,7 @@ export async function mountConnections(rootEl) {
   const times = acts.filter((a) => a.source === 'shortcut' && a.loggedAt).map((a) => toDate(a.loggedAt).getTime());
   lastImport = times.length ? new Date(Math.max(...times)) : null;
   loaded = true;
-  renderStatus();
-  renderSilent();
+  renderSteps();
 }
 
 export function unmountConnections() {
@@ -111,72 +119,107 @@ export function unmountConnections() {
   installing = false;
   usageCard = null;
   cal = null;
+  openCards = new Set();
 }
 
 function render() {
   container.innerHTML = `
     <p class="text-muted connections-intro">מקורות שמעדכנים את ג׳יני לבד, בלי רישום ידני.</p>
-    ${stepsCard()}
+    <section class="card connection-main" aria-labelledby="conn-steps-title" data-steps></section>
     <section class="card connection-main" aria-labelledby="conn-claude-title" data-claude></section>
     <section class="card connection-main" aria-labelledby="conn-calendar-title" data-calendar hidden></section>
     <div data-usage></div>
     <h2 class="connections-soon-title">בקרוב</h2>
     <div class="connections-soon" data-soon></div>`;
 
-  const group = container.querySelector('[data-lang-group]');
-  group.classList.add('toggle-group--live', 'ios-lang-switch');
-  requestAnimationFrame(() => patchToggleGroup(group, lang));
-  group.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-ioslang]');
-    if (!btn || btn.dataset.ioslang === lang) return;
-    lang = btn.dataset.ioslang;
-    try {
-      localStorage.setItem(LANG_KEY, lang);
-    } catch { /* the choice just won't be remembered */ }
-    patchToggleGroup(group, lang);
-    container.querySelector('[data-howto]').innerHTML = howTo();
-    container.querySelector('[data-build]').innerHTML = buildSteps();
-    renderSilent();
-    usageCard?.render();
-  });
   usageCard = mountUsageCard(container.querySelector('[data-usage]'), () => lang);
+  container.addEventListener('click', onToggle);
+  container.addEventListener('click', onLangClick);
   container.addEventListener('click', onCopy);
   container.addEventListener('click', onKeyAction);
   container.addEventListener('click', onClaudeClick);
   container.addEventListener('click', onCalendarClick);
   renderCalendar();
-  renderStatus();
-  renderSilent();
+  renderSteps();
   renderClaude();
 }
 
-function stepsCard() {
+const CARD_RENDER = { steps: () => renderSteps(), claude: () => renderClaude(), calendar: () => renderCalendar() };
+
+// A tap on a card's top row opens or closes it.
+function onToggle(e) {
+  const btn = container && e.target.closest('[data-conn-toggle]');
+  const id = btn?.dataset.connToggle;
+  if (!CARD_RENDER[id]) return;
+  if (openCards.has(id)) openCards.delete(id); else openCards.add(id);
+  CARD_RENDER[id]();
+  container.querySelector(`[data-conn-toggle="${id}"]`)?.focus({ preventScroll: true });
+}
+
+// The iPhone's language, from the switch inside any open card.
+function onLangClick(e) {
+  const btn = container && e.target.closest('[data-ioslang]');
+  if (!btn || btn.dataset.ioslang === lang) return;
+  lang = btn.dataset.ioslang;
+  try {
+    localStorage.setItem(LANG_KEY, lang);
+  } catch { /* the choice just won't be remembered */ }
+  syncIosLangSwitches(container, lang);
+  const howToEl = container.querySelector('[data-howto]');
+  if (howToEl) howToEl.innerHTML = howTo();
+  const buildEl = container.querySelector('[data-build]');
+  if (buildEl) buildEl.innerHTML = buildSteps();
+  renderSilent();
+  usageCard?.render();
+}
+
+function stepsStatusLine() {
+  if (!loaded) return '<span class="text-muted">בודק…</span>';
+  if (!lastImport) return '<span class="status-dot"></span>לא מחובר';
+  const day = israelDateKey(lastImport);
+  const when = day === israelDateKey() ? 'היום'
+    : day === israelDateKey(new Date(Date.now() - DAY_MS)) ? 'אתמול'
+      : formatDayMonthHe(lastImport);
+  return `<span class="status-dot status-dot--on"></span>מחובר · עודכן ${when} ב-${formatTimeHe(lastImport)}`;
+}
+
+// Nothing has arrived for a while: said on the closed row too.
+function stepsStaleHint() {
+  const n = STEPS_IMPORT.staleAfterDays;
+  if (!lastImport || Date.now() - lastImport.getTime() < n * DAY_MS) return '';
+  return `<p class="connection-hint">לא הגיעו צעדים כבר ${n === 2 ? 'יומיים' : `${n} ימים`}. כדאי לבדוק שהאוטומציה פעילה, או להריץ את הקיצור ידנית.</p>`;
+}
+
+function renderSteps() {
+  const el = container?.querySelector('[data-steps]');
+  if (!el) return;
+  const open = openCards.has('steps');
+  el.innerHTML = `
+    ${foldHead({
+      id: 'steps',
+      iconName: 'smartphone',
+      title: 'צעדים מהאייפון',
+      status: stepsStatusLine(),
+      pitch: 'הצעדים של היום נכנסים לבד, בלי להקליד.',
+      connected: !loaded || !!lastImport,
+      open,
+    })}
+    ${stepsStaleHint()}
+    ${open ? stepsBody() : ''}`;
+  if (!open) return;
+  syncIosLangSwitches(el, lang);
+  renderSilent();
+}
+
+function stepsBody() {
   const url = STEPS_IMPORT.shortcutUrl;
   const action = url
     ? `<a class="btn btn-primary btn-block" href="${esc(url)}" target="_blank" rel="noopener">${icon('download', { className: 'icon--sm' })} הוספת הקיצור</a>`
     : `<button type="button" class="btn btn-primary btn-block" disabled>${icon('download', { className: 'icon--sm' })} הוספת הקיצור</button>
        <p class="text-muted connection-note">הקישור לקיצור יתווסף בקרוב.</p>`;
   return `
-    <section class="card connection-main" aria-labelledby="conn-steps-title">
-      <div class="connection-head">
-        <span class="connection-icon">${icon('smartphone')}</span>
-        <span class="connection-text">
-          <b id="conn-steps-title">צעדים מהאייפון</b>
-          <span class="connection-status" data-status></span>
-        </span>
-      </div>
-      <p class="connection-hint" data-stale hidden></p>
       <p class="text-muted connection-desc">קיצור באייפון קורא את הצעדים של היום מאפליקציית הבריאות ושולח אותם לג׳יני. הרגל הצעדים והשריפה היומית מתעדכנים לבד.</p>
-      ${toggleGroup({
-        name: 'ioslang',
-        active: lang,
-        label: 'שפת האייפון',
-        groupAttrs: 'data-lang-group',
-        options: [
-          { value: 'he', label: 'האייפון שלי בעברית' },
-          { value: 'en', label: '<span dir="ltr">My iPhone is in English</span>' },
-        ],
-      })}
+      ${iosLangSwitch(lang)}
       <div class="connection-silent" data-silent></div>
       ${STEPS_IMPORT.silentShortcutUrl ? '<div data-build hidden></div>' : `
       <p class="text-muted connection-note connection-or">או בדרך הפשוטה, שפותחת את Safari לרגע:</p>
@@ -185,8 +228,7 @@ function stepsCard() {
         <summary>${icon('pencil', { className: 'icon--sm' })} בניית הקיצור, צעד אחר צעד</summary>
         <div data-build>${buildSteps()}</div>
       </details>`}
-      <div data-howto>${howTo()}</div>
-    </section>`;
+      <div data-howto>${howTo()}</div>`;
 }
 
 // The iPhone's own label, shown as it appears on the phone.
@@ -269,29 +311,6 @@ function howTo() {
       ${STEPS_IMPORT.silentShortcutUrl ? '' : '<li>האוטומציה פותחת את Safari לרגע ושומרת. בפעם הראשונה צריך להתחבר עם גוגל גם ב-Safari.</li>'}
       <li>אם הטלפון נעול בשעה הזאת, האוטומציה עלולה לא לרוץ. אפשר תמיד להריץ את הקיצור ידנית: לחיצה עליו ב${chip(L.shortcutsApp)}, או מהווידג׳ט במסך הבית.</li>
     </ul>`;
-}
-
-function renderStatus() {
-  const el = container?.querySelector('[data-status]');
-  if (!el) return;
-  const staleEl = container.querySelector('[data-stale]');
-  if (!loaded) {
-    el.innerHTML = '<span class="text-muted">בודק…</span>';
-    return;
-  }
-  if (!lastImport) {
-    el.innerHTML = '<span class="status-dot"></span>לא מחובר';
-    staleEl.hidden = true;
-    return;
-  }
-  const day = israelDateKey(lastImport);
-  const when = day === israelDateKey() ? 'היום'
-    : day === israelDateKey(new Date(Date.now() - DAY_MS)) ? 'אתמול'
-      : formatDayMonthHe(lastImport);
-  el.innerHTML = `<span class="status-dot status-dot--on"></span>מחובר · עודכן ${when} ב-${formatTimeHe(lastImport)}`;
-  const n = STEPS_IMPORT.staleAfterDays;
-  staleEl.hidden = Date.now() - lastImport.getTime() < n * DAY_MS;
-  staleEl.textContent = `לא הגיעו צעדים כבר ${n === 2 ? 'יומיים' : `${n} ימים`}. כדאי לבדוק שהאוטומציה פעילה, או להריץ את הקיצור ידנית.`;
 }
 
 // ---------- the silent way: the shortcut posts to /api/steps ----------
@@ -500,19 +519,23 @@ function renderClaude() {
     <button type="button" class="btn btn-primary btn-block" data-mcp-copy>${icon('copy', { className: 'icon--sm' })} העתקת הכתובת</button>
     ${claudeSteps()}
     <button type="button" class="btn btn-secondary btn-block" data-mcp-done>${icon('check', { className: 'icon--sm' })} הדבקתי, אפשר להסתיר</button>` : '';
+  const open = openCards.has('claude');
   el.innerHTML = `
-    <div class="connection-head">
-      <span class="connection-icon">${icon('sparkles')}</span>
-      <span class="connection-text">
-        <b id="conn-claude-title">קלוד</b>
-        <span class="connection-status">${claudeStatus()}</span>
-      </span>
-    </div>
+    ${foldHead({
+      id: 'claude',
+      iconName: 'sparkles',
+      title: 'קלוד',
+      status: claudeStatus(),
+      pitch: 'הקלוד שלך קורא את הנתונים ורושם בשבילך.',
+      connected: mcpKeys === null || mcpKeys.length > 0,
+      open,
+    })}
+    ${open ? `
     <p class="text-muted connection-desc">הקלוד שלך קורא את הנתונים שלך בג׳יני, ורושם בשבילך ארוחות, שקילה, שינה, צעדים וסימון הרגלים. הוא רואה רק את החשבון שלך ולא מוחק כלום.</p>
     ${fresh}
     ${mcpKeys?.length ? `<ul class="mcp-keys">${mcpKeys.map(keyRow).join('')}</ul>` : ''}
     ${newUrl ? '' : createBtn}
-    ${mcpKeys !== null && first && !newUrl ? '<p class="text-muted connection-note">לוחצים, מעתיקים את הכתובת ומדביקים אותה ב-Claude. דקה אחת.</p>' : ''}`;
+    ${mcpKeys !== null && first && !newUrl ? '<p class="text-muted connection-note">לוחצים, מעתיקים את הכתובת ומדביקים אותה ב-Claude. דקה אחת.</p>' : ''}` : ''}`;
 }
 
 async function onClaudeClick(e) {
@@ -594,6 +617,8 @@ async function loadCalendar(token) {
     // Shown once: the address goes back to plain #/connections.
     history.replaceState(null, '', '#/connections');
     showToast(`${result === 'ok' ? `${icon('check', { className: 'icon--sm' })} ` : ''}${CALENDAR_RESULTS[result] || CALENDAR_RESULTS.failed}`);
+    // Back from Google: the card it was started from is open again.
+    openCards.add('calendar');
   }
   try {
     cal = await calendarStatus();
@@ -642,20 +667,24 @@ function renderCalendar() {
     <button type="button" class="btn btn-primary btn-block" data-cal-connect${calBusy ? ' disabled' : ''}>
       ${icon('calendar-days', { className: 'icon--sm' })} ${calBusy ? 'פותח את גוגל…' : label}
     </button>`;
+  const open = openCards.has('calendar');
   card.innerHTML = `
-    <div class="connection-head">
-      <span class="connection-icon">${icon('calendar-days')}</span>
-      <span class="connection-text">
-        <b id="conn-calendar-title">יומן גוגל</b>
-        <span class="connection-status">${calendarStatusLine()}</span>
-      </span>
-    </div>
+    ${foldHead({
+      id: 'calendar',
+      iconName: 'calendar-days',
+      title: 'יומן גוגל',
+      status: calendarStatusLine(),
+      pitch: 'משימות עם יום או שעה נכנסות ליומן.',
+      connected,
+      open,
+    })}
     ${!connected && c?.needsReconnect ? '<p class="connection-hint">החיבור ליומן פג. חיבור מחדש לוקח רגע, והמשימות שלך לא נפגעו.</p>' : ''}
+    ${open ? `
     <p class="text-muted connection-desc">משימה עם יום או שעה נכנסת לבד ליומן שלך. כשמזיזים אותה האירוע זז, וכשמסיימים הוא מקבל ✓. ג׳יני נוגעת רק באירועים שהיא יצרה.</p>
     ${connected
       ? `<button type="button" class="btn btn-outline btn-block" data-cal-disconnect${calBusy ? ' disabled' : ''}>ניתוק היומן</button>`
       : `${connectBtn(c?.needsReconnect ? 'חיבור מחדש' : 'חיבור היומן')}
-         <p class="text-muted connection-note">מאשרים פעם אחת במסך של גוגל, וזה נשאר מחובר.</p>`}`;
+         <p class="text-muted connection-note">מאשרים פעם אחת במסך של גוגל, וזה נשאר מחובר.</p>`}` : ''}`;
 }
 
 async function onCalendarClick(e) {

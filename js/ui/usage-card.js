@@ -17,6 +17,7 @@ import { formatDayMonthHe, formatTimeHe, toDate } from '../lib/format.js';
 import { esc } from '../core/dom.js';
 import { icon } from './icon.js';
 import { showToast } from './toast.js';
+import { foldHead, iosLangSwitch, syncIosLangSwitches } from './connection-fold.js';
 
 const SCOPE = 'usage';
 const OPEN_WORD = 'נפתח';
@@ -40,6 +41,7 @@ export function mountUsageCard(host, getLang) {
   let habits = [];
   let apps = []; // the user's chosen apps, metas from appMeta
   let adding = false; // the "other app" field is open
+  let open = false; // the card is open; closed again on every visit
   const url = USAGE.shortcut.url;
   const shortcutName = USAGE.shortcut.name;
 
@@ -170,19 +172,25 @@ export function mountUsageCard(host, getLang) {
       ${automationsStep(L)}`;
   }
 
+  // A closed row until it's tapped, like every card on the page (M14b).
   function render() {
     host.innerHTML = `
       <section class="card connection-main" aria-labelledby="conn-usage-title">
-        <div class="connection-head">
-          <span class="connection-icon">${icon('smartphone')}</span>
-          <span class="connection-text">
-            <b id="conn-usage-title">זמן באפליקציות</b>
-            <span class="connection-status">${statusLine()}</span>
-          </span>
-        </div>
+        ${foldHead({
+          id: 'usage',
+          iconName: 'smartphone',
+          title: 'זמן באפליקציות',
+          status: statusLine(),
+          pitch: 'כמה דקות היית באינסטגרם או בטיקטוק, בלי להקליד.',
+          connected: !loaded || !!key || today.length > 0,
+          open,
+        })}
+        ${open ? `
         <p class="text-muted connection-desc">האייפון לא נותן לאף אפליקציה לקרוא את זמן המסך. במקום זה, האייפון מודיע לג׳יני כשאפליקציה נפתחת וכשהיא נסגרת, וג׳יני סופרת את הדקות. אינסטגרם, טיקטוק, או כל אפליקציה אחרת.</p>
-        <div class="connection-silent">${body()}</div>
+        ${iosLangSwitch(getLang())}
+        <div class="connection-silent">${body()}</div>` : ''}
       </section>`;
+    if (open) syncIosLangSwitches(host, getLang());
     if (adding) host.querySelector('[data-usage-other-form] input')?.focus();
   }
 
@@ -244,6 +252,11 @@ export function mountUsageCard(host, getLang) {
   }
 
   host.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-conn-toggle]')) {
+      open = !open;
+      render();
+      return host.querySelector('[data-conn-toggle]')?.focus({ preventScroll: true });
+    }
     if (e.target.closest('[data-usage-install]')) return install();
     const appBtn = e.target.closest('[data-usage-app]');
     if (appBtn) return toggleApp(appBtn.dataset.usageApp, appBtn.dataset.name);

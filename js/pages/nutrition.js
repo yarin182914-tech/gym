@@ -23,6 +23,7 @@ import { showToast } from '../ui/toast.js';
 import { handleQuickActions } from '../ui/quick-add.js';
 import { NUTRITION } from '../lib/rules.js';
 import { nutritionGoals } from '../lib/rewards.js';
+import { countHe } from '../lib/plural.js';
 
 // The daily goals, all editable in the "יעדים" sheet and kept on the user
 // doc (users/{uid}) under these same names; defaults in NUTRITION
@@ -75,6 +76,7 @@ let goals = { ...DEFAULT_GOALS };
 // Today on every visit; the day bar steps back through earlier ones.
 let selectedDay = todayKey();
 let trend = null; // the "מגמה" card's controller — its chart is destroyed on every re-render
+let moreOpen = false; // "עוד על היום" is open; closed again on every visit
 
 // The trend card's canvas chart doesn't follow CSS colour changes on its
 // own — redraw the screen when the theme switch flips while it's showing.
@@ -84,6 +86,8 @@ window.addEventListener('gym-theme-change', () => {
 });
 
 const dayOf = (d) => dateInputValue(toDate(d));
+// The weigh-in card keeps this same list up to date as it saves.
+const weighedToday = () => weightsForTrend.some((w) => w.date === todayKey());
 const activityOn = (day) => activities.find((a) => a.date === day);
 // The calorie target for a day: its logged burn less the deficit, else the
 // default.
@@ -119,9 +123,20 @@ export async function mountNutrition(rootEl) {
   entries = loaded;
   activities = acts;
   goals = goalsFrom(settings);
-  bodyWeightCard = createBodyWeightCard(weights, { onSaved: () => weightTrend?.redraw() });
-  weightTrendEl = document.createElement('div');
   weightsForTrend = weights;
+  let wasWeighed = weighedToday();
+  bodyWeightCard = createBodyWeightCard(weights, {
+    onSaved: () => {
+      weightTrend?.redraw();
+      if (!container || weighedToday() === wasWeighed) return;
+      // Today's weigh-in is in: its line moves down by the weight chart, so
+      // say it was saved before it leaves the top of the screen.
+      wasWeighed = true;
+      showToast(`${icon('check', { className: 'icon--sm' })} המשקל נשמר`);
+      render();
+    },
+  });
+  weightTrendEl = document.createElement('div');
   render();
   stopQuickActions = handleQuickActions('nutrition', onQuickAction);
 }
@@ -145,6 +160,7 @@ export function unmountNutrition() {
   selectedDay = todayKey();
   trend?.destroy();
   trend = null;
+  moreOpen = false;
 }
 
 // The selected day's meals, earliest first.
@@ -215,9 +231,9 @@ function energyCard(kcalIn, mealCount) {
         <div style="flex:1;"><div class="text-muted" style="font-size:0.75rem;">${balance === null ? 'מאזן' : balance > 0 ? 'עודף' : 'גירעון'}</div><div class="num" style="font-weight:var(--weight-bold); color:${balance === null ? 'inherit' : balanceColor(balance)};">${balance === null ? '—' : signed(balance)}</div></div>
       </div>
       ${parts ? `<div class="text-muted" style="font-size:0.75rem; margin-top:8px; text-align:center;">${esc(parts)}</div>` : ''}
-      ${mealCount ? `<div style="font-size:0.8rem; margin-top:8px; text-align:center;">${mealCountMark(mealCount)}${mealCount === 1 ? 'ארוחה אחת' : `${mealCount} ארוחות`}<span class="text-muted"> · יעד: צהריים וערב בלבד</span></div>` : ''}
+      ${mealCount ? `<div style="font-size:0.8rem; margin-top:8px; text-align:center;">${mealCountMark(mealCount)}${countHe(mealCount, 'ארוחה', 'ארוחות', { feminine: true })}<span class="text-muted"> · יעד: צהריים וערב בלבד</span></div>` : ''}
       ${week ? `<div class="text-muted" style="font-size:0.8rem; margin-top:10px; padding-top:8px; border-top:1px solid var(--border); text-align:center;">
-        ממוצע ${week.days === 7 ? 'שבועי' : `${week.days} ימים אחרונים`}: נכנס <span class="num">${fmt(week.in)}</span> · יוצא <span class="num">${fmt(week.out)}</span> · מאזן <span class="num" style="color:${balanceColor(week.balance)};">${signed(week.balance)}</span>
+        ${week.days === 7 ? 'ממוצע שבועי' : week.days === 1 ? 'יום אחד עם נתונים' : `ממוצע ${week.days} ימים אחרונים`}: נכנס <span class="num">${fmt(week.in)}</span> · יוצא <span class="num">${fmt(week.out)}</span> · מאזן <span class="num" style="color:${balanceColor(week.balance)};">${signed(week.balance)}</span>
       </div>` : ''}
     </div>`;
 }
@@ -352,8 +368,13 @@ function render() {
   const isToday = selectedDay === todayKey();
   trend?.destroy();
 
+  // The order (M14b): the morning weigh-in leads only until it's done, then
+  // the ring with the protein line, "הוספת ארוחה" and the day's meals. The
+  // other macros and "נכנס מול יוצא" wait behind "עוד על היום"; once weighed,
+  // the weigh-in's one line sits by the weight chart at the bottom.
+  const weighUp = !weighedToday();
   container.innerHTML = `
-    <div id="body-weight-slot"></div>
+    <div data-bw-slot="top"></div>
 
     <div class="nut-day-bar">
       <button type="button" class="cal-nav" data-day-step="-1" aria-label="היום הקודם">${icon('chevron-right', { className: 'icon--sm' })}</button>
@@ -361,20 +382,13 @@ function render() {
       <button type="button" class="cal-nav" data-day-step="1" aria-label="היום הבא"${isToday ? ' disabled' : ''}>${icon('chevron-left', { className: 'icon--sm' })}</button>
     </div>
 
-    <div class="card" style="text-align:center;">
-      <div id="calorie-ring" style="margin-bottom:8px;"></div>
+    <div class="card nut-ring-card">
+      <div id="calorie-ring"></div>
+      <div class="nut-ring-protein">${macroBar('חלבון', totals.proteinG, goals.proteinTarget)}</div>
       <button type="button" class="bw-edit" data-target-edit>${activityOn(selectedDay)
         ? `יעד: ${goals.calorieDeficit ? `השריפה פחות ${fmt(goals.calorieDeficit)}` : 'לפי השריפה'} · יעדים`
         : `יעד קבוע · ${fmt(goals.calorieTarget)} · יעדים`}</button>
     </div>
-
-    <div class="card">
-      ${macroBar('חלבון', totals.proteinG, goals.proteinTarget)}
-      ${macroBar('פחמימות', totals.carbsG, goals.carbsTarget)}
-      ${macroBar('שומן', totals.fatG, goals.fatTarget)}
-    </div>
-
-    ${energyCard(totals.calories, meals.length)}
 
     ${formOpen ? renderForm() : `<button class="btn btn-primary btn-block" id="open-form-btn">+ הוספת ארוחה</button>`}
 
@@ -392,11 +406,24 @@ function render() {
           </button>`).join('')}
     </div>
 
+    <button type="button" class="today-more nut-more" data-day-more aria-expanded="${moreOpen}">
+      <span>עוד על היום · פחמימות, שומן ושריפה</span>
+      ${icon('chevron-down', { className: 'icon--sm' })}
+    </button>
+    ${moreOpen ? `
+    <div class="card">
+      ${macroBar('פחמימות', totals.carbsG, goals.carbsTarget)}
+      ${macroBar('שומן', totals.fatG, goals.fatTarget)}
+    </div>
+    ${energyCard(totals.calories, meals.length)}` : ''}
+
     <div data-nut-trend></div>
+    <div data-bw-slot="bottom"></div>
     <div id="weight-trend-slot"></div>
   `;
 
-  container.querySelector('#body-weight-slot').replaceWith(bodyWeightCard);
+  container.querySelector(`[data-bw-slot="${weighUp ? 'top' : 'bottom'}"]`).replaceWith(bodyWeightCard);
+  container.querySelector('[data-bw-slot]').remove();
   container.querySelector('#weight-trend-slot').replaceWith(weightTrendEl);
   // Mounted once it's on the page, so its toggle can measure itself.
   if (!weightTrend) weightTrend = mountBodyWeightTrend(weightTrendEl, weightsForTrend);
@@ -427,8 +454,13 @@ function render() {
       container.querySelector('.nut-day-bar').scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
   });
-  container.querySelector('[data-energy-edit]').addEventListener('click', openActivitySheet);
+  container.querySelector('[data-energy-edit]')?.addEventListener('click', openActivitySheet);
   container.querySelector('[data-target-edit]').addEventListener('click', openTargetSheet);
+  container.querySelector('[data-day-more]').addEventListener('click', () => {
+    moreOpen = !moreOpen;
+    render();
+    container.querySelector('[data-day-more]').focus({ preventScroll: true });
+  });
   container.querySelectorAll('[data-meal-id]').forEach((row) => {
     row.addEventListener('click', () => openMealSheet(entries.find((e) => e.id === row.dataset.mealId)));
   });

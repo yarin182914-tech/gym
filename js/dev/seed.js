@@ -5,6 +5,8 @@
 import {
   listWorkouts, createWorkout, addExerciseToLibrary, seedExerciseLibraryIfEmpty, addNutritionEntry,
 } from '../lib/firestore.js';
+import { EXAMPLE_HABITS } from '../lib/habits.js';
+import { todayKey, shiftKey } from '../lib/body-weight.js';
 
 function sets(rows, weightMode, weightUnit) {
   return rows.map(([type, weight, reps], i) => ({
@@ -120,6 +122,28 @@ export async function seedDevStoreIfEmpty() {
     reason: 'חוסך חצי שעה ביום', feeling: 'happy', status: 'decided',
     startedAt: daysAgo(31), decidedAt: daysAgo(31), createdAt: daysAgo(31), updatedAt: daysAgo(31), source: 'manual',
   }];
+  // Habits (M14b), so "היום" shows its closed "עוד … הרגלים" row and its
+  // "אתמול" line: the three examples, one that isn't for today, one paused,
+  // and two of them marked yesterday. Points count from yesterday, so the
+  // first scoring pass gives that day its points.
+  const yesterday = shiftKey(todayKey(), -1);
+  const notToday = [(new Date().getDay() + 2) % 7, (new Date().getDay() + 4) % 7];
+  const HABITS = [
+    ...EXAMPLE_HABITS.map((h) => ({ ...h, source: 'example' })),
+    { name: 'יוגה', icon: 'activity', area: 'body', schedule: { type: 'days', days: notToday }, measure: 'yesno', unit: '', full: null, short: null, autoSource: null, source: 'manual' },
+    { name: 'מדיטציה', icon: 'sparkles', area: 'personal', schedule: { type: 'daily' }, measure: 'yesno', unit: '', full: null, short: null, autoSource: null, source: 'manual', active: false },
+  ];
+  state.habits = HABITS.map((h, i) => ({ active: true, ...h, id: `habit${i + 1}`, order: i, createdAt: daysAgo(10), updatedAt: daysAgo(10) }));
+  state.habitLogs = [{
+    id: yesterday,
+    date: yesterday,
+    habits: {
+      habit1: { level: 'full', value: 10, source: 'manual' },
+      habit3: { level: 'full', value: null, source: 'manual' },
+    },
+    updatedAt: daysAgo(1),
+  }];
+  state.user = { ...state.user, habitsSeeded: true, rewardsStartDate: yesterday };
   localStorage.setItem('gym-dev-store', JSON.stringify(state));
   console.info('[dev] seeded sandbox with', WORKOUTS.length, 'workouts');
 }
