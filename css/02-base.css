@@ -124,8 +124,8 @@ button {
   padding: 16px 16px calc(24px);
 }
 
-/* Top app bar (js/ui/app-bar.js): screen title, the DARK · RANDOM ·
-   BRIGHT switch and ⚙. Sticky under the status bar — in the installed app
+/* Top app bar (js/ui/app-bar.js): the screen title and the profile
+   button, nothing else. Sticky under the status bar — in the installed app
    the page runs edge to edge (black-translucent), so it pads itself by the
    notch's safe-area inset rather than hiding behind it. Translucent and
    blurred so content scrolling under it stays faintly visible, the way a
@@ -154,7 +154,7 @@ button {
 
 .app-bar-title {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: var(--text-xl);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -168,11 +168,11 @@ button {
 }
 
 .app-bar-btn {
-  width: 40px;
-  height: 40px;
+  width: var(--control-h);
+  height: var(--control-h);
   display: grid;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   color: var(--text-muted);
 }
 
@@ -181,10 +181,10 @@ button {
   color: var(--text);
 }
 
-.theme-bar .toggle-group button {
-  letter-spacing: var(--tracking-wide);
-  font-size: var(--text-xs);
-  padding: 0 9px;
+/* The profile button sits in the bar's padding too, so its icon lines up
+   with the page edge like the back arrow on the other side. */
+.app-bar-actions .app-bar-btn {
+  margin-inline-end: -10px;
 }
 
 /* ===== Auth screen ===== */
