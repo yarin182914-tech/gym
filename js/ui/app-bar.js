@@ -1,4 +1,5 @@
-// The top app bar: the current screen's title and the profile button.
+// The top app bar: the current screen's title (on "היום", a greeting by the
+// hour with the date under it) and the profile button.
 // Sticky, under the phone's status bar (safe-area inset), and outside #app,
 // so a route change only swaps its title.
 //
@@ -14,7 +15,12 @@ import { openBottomSheet } from './bottom-sheet.js';
 import { openFeedbackSheet } from './feedback-sheet.js';
 import { isStandalone, installApp } from './install-banner.js';
 import { navigate, onRouteChange } from '../lib/router.js';
+import { getUserSettings } from '../lib/firestore.js';
+import { greeting, firstName, shortDate } from '../lib/today-rings.js';
+import { auth } from '../firebase-config.js';
 
+// "היום" has no title of its own: its bar greets by the hour, with the
+// date under it (todayTitle below).
 const TITLES = {
   tasks: 'משימות',
   session: 'אימון',
@@ -35,6 +41,26 @@ const NO_TAB = new Set(['dashboard', 'plan', 'feedback', 'connections', 'library
 
 let mounted = false;
 let cameFromApp = false; // a screen was showing before this one
+let userName = null; // the first name in Today's greeting; null until asked for
+
+// "בוקר טוב, ירין" — or just the greeting while there is no name.
+function todayTitle() {
+  const hello = greeting(new Date().getHours());
+  return userName ? `${hello}, ${userName}` : hello;
+}
+
+// The name: users/{uid}.displayName when it is set, else the Google
+// account's. Asked for once; `then` runs when the user doc has answered.
+function loadUserName(then) {
+  if (userName !== null) return;
+  userName = firstName(auth?.currentUser?.displayName);
+  getUserSettings()
+    .then((doc) => {
+      userName = firstName(doc?.displayName) || userName;
+      then();
+    })
+    .catch(() => { /* the plain greeting stays */ });
+}
 
 export function mountAppBar(beforeEl) {
   if (mounted) return;
@@ -46,7 +72,10 @@ export function mountAppBar(beforeEl) {
     <div class="app-bar-inner">
       <div class="app-bar-lead">
         <button type="button" class="app-bar-btn" data-back aria-label="חזרה" hidden>${icon('chevron-right')}</button>
-        <h1 class="app-bar-title" data-app-title></h1>
+        <div class="app-bar-titles">
+          <h1 class="app-bar-title" data-app-title></h1>
+          <span class="app-bar-sub" data-app-sub hidden></span>
+        </div>
       </div>
       <div class="app-bar-actions">
         <button type="button" class="app-bar-btn" data-profile aria-label="פרופיל והגדרות">${icon('circle-user')}</button>
@@ -55,12 +84,20 @@ export function mountAppBar(beforeEl) {
   beforeEl.before(bar);
 
   const titleEl = bar.querySelector('[data-app-title]');
+  const subEl = bar.querySelector('[data-app-sub]');
   const backBtn = bar.querySelector('[data-back]');
   let shown = null;
+  const showTitle = () => {
+    const isToday = shown === 'today';
+    titleEl.textContent = isToday ? todayTitle() : TITLES[shown] || '';
+    subEl.textContent = isToday ? shortDate(new Date()) : '';
+    subEl.hidden = !isToday;
+  };
   onRouteChange((name) => {
     if (shown) cameFromApp = true;
     shown = name;
-    titleEl.textContent = TITLES[name] || '';
+    if (name === 'today') loadUserName(showTitle);
+    showTitle();
     document.title = TITLES[name] ? `${TITLES[name]} · ג׳יני` : 'ג׳יני';
     backBtn.hidden = !NO_TAB.has(name);
   });
