@@ -122,6 +122,17 @@
      palettes), --elev-2 under the primary button and the + button. */
   --elev-1: 0 10px 30px rgba(242, 182, 90, 0.08);
   --elev-2: 0 8px 22px rgba(242, 182, 90, 0.22);
+  /* "היום" (M4c2): one fixed colour per ring in every screen, the grey of
+     a ring with nothing logged (never red), the "+N" tag of a points
+     moment and its glow, and the shine that crosses the level card. */
+  --ring-train: #f2b65a;
+  --ring-food: #6ccb8f;
+  --ring-sleep: #b79ae6;
+  --missed: #3e362c;
+  --reward: #f2b65a;
+  --reward-text: #241503;
+  --reward-glow: rgba(242, 182, 90, 0.55);
+  --shine: rgba(255, 255, 255, 0.45);
 
   /* ---- Icon sizing (emoji used directly as inline icons) ---- */
   --icon-sm: 1rem;
@@ -198,6 +209,14 @@
   --shadow-lg: 0 12px 32px rgba(80, 50, 20, 0.16);
   --elev-1: 0 2px 6px rgba(80, 50, 20, 0.06), 0 10px 28px rgba(184, 111, 20, 0.1);
   --elev-2: 0 8px 20px rgba(184, 111, 20, 0.28);
+  --ring-train: #b86f14;
+  --ring-food: #2f8a55;
+  --ring-sleep: #7a5ab0;
+  --missed: #d8cfc2;
+  --reward: #e0a030;
+  --reward-text: #2a1b00;
+  --reward-glow: rgba(224, 160, 48, 0.55);
+  --shine: rgba(255, 255, 255, 0.55);
   color-scheme: light;
 }
 
@@ -236,6 +255,14 @@
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
   --elev-1: none;
   --elev-2: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --ring-train: #ff2fa8;
+  --ring-food: #3dffb0;
+  --ring-sleep: #b388ff;
+  --missed: #4a3d72;
+  --reward: #2de2e6;
+  --reward-text: #1a0520;
+  --reward-glow: rgba(45, 226, 230, 0.55);
+  --shine: rgba(255, 255, 255, 0.45);
 }
 
 /* Acid sunset: dark plum, orange, pink, yellow. */
@@ -271,6 +298,14 @@
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
   --elev-1: none;
   --elev-2: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --ring-train: #ff6a1a;
+  --ring-food: #b8ff4a;
+  --ring-sleep: #ff7fae;
+  --missed: #5a3050;
+  --reward: #ffcf3f;
+  --reward-text: #2a0a00;
+  --reward-glow: rgba(255, 207, 63, 0.55);
+  --shine: rgba(255, 255, 255, 0.45);
 }
 
 /* Pop art: bright yellow, black, pink, blue — the one light RANDOM palette. */
@@ -306,6 +341,14 @@
   --accent-2-fill: #d1005e;
   --elev-1: none;
   --elev-2: 0 6px 18px rgba(17, 17, 17, 0.22);
+  --ring-train: #1f4dff;
+  --ring-food: #00873f;
+  --ring-sleep: #d1005e;
+  --missed: #bdb488;
+  --reward: #d1005e;
+  --reward-text: #ffffff;
+  --reward-glow: rgba(209, 0, 94, 0.45);
+  --shine: rgba(255, 255, 255, 0.45);
   color-scheme: light;
 }
 
@@ -342,6 +385,14 @@
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
   --elev-1: none;
   --elev-2: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --ring-train: #c6ff00;
+  --ring-food: #00f5c4;
+  --ring-sleep: #c9a9ff;
+  --missed: #2a5248;
+  --reward: #c9a9ff;
+  --reward-text: #0a1f00;
+  --reward-glow: rgba(201, 169, 255, 0.55);
+  --shine: rgba(255, 255, 255, 0.45);
 }
 
 /* '70s groove: brown, mustard, orange, turquoise. */
@@ -377,4 +428,12 @@
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
   --elev-1: none;
   --elev-2: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --ring-train: #ff6b35;
+  --ring-food: #2bb3a3;
+  --ring-sleep: #f2b134;
+  --missed: #5e4630;
+  --reward: #5fd6c8;
+  --reward-text: #2a1000;
+  --reward-glow: rgba(95, 214, 200, 0.55);
+  --shine: rgba(255, 255, 255, 0.45);
 }
