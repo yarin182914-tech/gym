@@ -144,7 +144,7 @@
   border-style: solid;
   border-color: var(--accent);
   background: var(--accent-dim);
-  color: var(--gold);
+  color: var(--text);
 }
 
 /* ===== Stepper (weight / reps input) ===== */
