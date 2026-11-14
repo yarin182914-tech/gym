@@ -1,7 +1,8 @@
 // Reward moments (M4, plan: "רגעי תגמול על המסך"), on every screen. After
 // each scoring pass (js/lib/rewards-sync.js fires 'gym-rewards'):
-//   - new points: a "+10" that rises from where you just tapped (or the top
-//     of the screen when it came from elsewhere) and fades;
+//   - new points: a glowing "+10" tag that rises from where you just tapped
+//     (or the top of the screen when it came from elsewhere) and fades;
+//     on "היום" the level card shines and counts up to its new total;
 //   - a perfect day: confetti and a double buzz;
 //   - a new badge: a toast with the badge;
 //   - a new level: a full screen with what it opens and the way to the
@@ -17,7 +18,7 @@
 import { esc } from '../core/dom.js';
 import { icon } from './icon.js';
 import { showToast } from './toast.js';
-import { REWARDS, BAD_HABITS } from '../lib/rules.js';
+import { REWARDS, BAD_HABITS, TODAY } from '../lib/rules.js';
 import { rewardsUserDoc, markSeen } from '../lib/rewards-sync.js';
 
 let lastTap = { x: 0, y: 0, t: 0 };
@@ -93,9 +94,35 @@ function floatPoints(n) {
   el.style.left = `${recent ? lastTap.x : window.innerWidth / 2}px`;
   el.style.top = `${recent ? lastTap.y : 90}px`;
   document.body.appendChild(el);
-  // The Today ring fills with a short pulse once it has redrawn.
-  requestAnimationFrame(() => document.querySelector('.today-ring')?.classList.add('today-ring--pop'));
+  // "היום" redraws its level card on this same event; once it has, the
+  // card gets its moment.
+  requestAnimationFrame(() => levelCardMoment(n));
   setTimeout(() => el.remove(), 1100);
+}
+
+// On Today's level card (js/pages/today.js): a shine crosses it, its bar
+// fills, and its number counts up from the old total. Nothing moves under
+// "reduce motion" — the card already shows the new number.
+function levelCardMoment(gained) {
+  const card = document.querySelector('.today-hero');
+  if (!card || reducedMotion()) return;
+  card.classList.remove('today-hero--moment');
+  void card.offsetWidth; // lets the animation start over
+  card.classList.add('today-hero--moment');
+
+  const totalEl = card.querySelector('[data-hero-total]');
+  const to = Number(totalEl?.dataset.heroTotal);
+  if (!totalEl || !Number.isFinite(to) || to < gained) return;
+  const from = to - gained;
+  const startedAt = performance.now();
+  const step = (now) => {
+    if (!totalEl.isConnected) return; // the card was redrawn meanwhile
+    const t = Math.min(1, (now - startedAt) / TODAY.countUpMs);
+    const eased = 1 - (1 - t) ** 3;
+    totalEl.textContent = Math.round(from + (to - from) * eased).toLocaleString('he-IL');
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 export function haptic(pattern) {
