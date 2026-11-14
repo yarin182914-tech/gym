@@ -7,7 +7,7 @@ import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
 import { toDate, dateInputValue, parseDateInputValue } from '../lib/format.js';
 import { todayKey, shiftKey } from '../lib/body-weight.js';
-import { buildActivity, totalOut, weekAverage, BASE_KCAL } from '../lib/daily-activity.js';
+import { buildActivity, totalOut, calorieTargetOf, weekAverage, BASE_KCAL } from '../lib/daily-activity.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
 import { stepper } from '../ui/stepper.js';
 import { emptyState } from '../ui/empty-state.js';
@@ -88,8 +88,7 @@ const activityOn = (day) => activities.find((a) => a.date === day);
 // The calorie target for a day: its logged burn less the deficit, else the
 // default.
 function calorieTargetFor(day) {
-  const out = totalOut(activityOn(day));
-  return out === null ? goals.calorieTarget : Math.max(0, out - goals.calorieDeficit);
+  return calorieTargetOf(activityOn(day), goals);
 }
 
 // The user doc's saved goals over the defaults — the same reading the

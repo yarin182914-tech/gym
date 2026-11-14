@@ -16,7 +16,7 @@ import {
   habitContext, entryFor, isDone, isDue, weekStart, isBad, isGood, badMark, badDayLevel, slipReported,
   cleanRuns, cleanDaysThrough,
 } from './habits.js';
-import { totalOut } from './daily-activity.js';
+import { totalOut, calorieTargetOf } from './daily-activity.js';
 import { exerciseKind, workoutDayKey, brokenSessionRecord } from './workout-types.js';
 import { brokenCardioRecords } from './cardio.js';
 import { toDate } from './format.js';
@@ -210,7 +210,7 @@ export function nutritionGrades(key, ctx) {
   const protein = meals.reduce((s, m) => s + (Number(m.proteinG) || 0), 0);
   const out = totalOut(ctx.activities.get(key));
   const burn = out ?? goals.calorieTarget + goals.calorieDeficit;
-  const target = out === null ? goals.calorieTarget : Math.max(0, out - goals.calorieDeficit);
+  const target = calorieTargetOf(ctx.activities.get(key), goals);
   let calories = 'miss';
   if (burn - eaten > b.maxDeficit) calories = 'miss';
   else if (eaten <= target) calories = 'full';

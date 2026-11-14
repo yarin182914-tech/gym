@@ -49,6 +49,16 @@ export const HABITS = {
   eveningFromHour: 18,
 };
 
+// The top of "היום" (M4c2, js/lib/today-rings.js).
+export const TODAY = {
+  // The hour each greeting starts: בוקר טוב, צהריים טובים, ערב טוב, לילה טוב.
+  greetingHours: { morning: 5, noon: 12, evening: 17, night: 22 },
+  // The level card's streak tag shows from this many days in a row with points.
+  streakMinDays: 2,
+  // A points moment: how long the level card's number takes to count up (ms).
+  countUpMs: 700,
+};
+
 // Calories out (dailyActivity, see docs/DATA.md). The base is resting +
 // daily life — Mifflin-St Jeor BMR × 1.2, sedentary — until M10 makes it
 // personal. Each saved day keeps the base it was saved with.
