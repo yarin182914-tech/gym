@@ -213,15 +213,23 @@ button {
   margin-inline-end: -10px;
 }
 
-/* ===== Auth screen ===== */
+/* ===== Auth screen =====
+   The first screen (js/ui/welcome.js, styled in 03-components.css). It
+   starts from the top rather than the middle, so opening an area pushes
+   only what is under it. */
 .auth-screen {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   text-align: center;
-  padding: 24px;
+  padding: clamp(var(--space-6), 7vh, 64px) var(--space-5) calc(var(--space-6) + var(--safe-bottom));
+}
+
+/* No bottom nav before sign-in, so no room kept for it. */
+body:has(.auth-screen:not(.hidden)) {
+  padding-bottom: 0;
 }
 
 /* ===== Screen transitions and loading =====

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מדיניות פרטיות · ג׳יני</title>
+<meta name="theme-color" content="#16130f">
+<!-- Blocking on purpose: sets the colour theme before first paint, the same
+     theme the app itself is showing. -->
+<script src="js/theme-boot.js"></script>
+<link rel="icon" href="images/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Oswald:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/01-tokens.css">
+<link rel="stylesheet" href="css/02-base.css">
+<link rel="stylesheet" href="css/03-components.css">
+<link rel="stylesheet" href="css/04-utilities.css">
+</head>
+<!-- A draft until the full policy of M10b. A static page on purpose: no
+     Firebase and no modules, so it opens for anyone, signed in or not, and
+     offline once the service worker has cached it. The text was approved by
+     ירין on 2026-11-14 (docs/specs/first-screen.md). When it changes,
+     change the "עודכן לאחרונה" date too. -->
+<body class="legal-body">
+
+<main class="legal-page">
+  <a class="legal-back" href="./">
+    <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+    חזרה לג׳יני
+  </a>
+
+  <header class="legal-head">
+    <h1>מדיניות פרטיות</h1>
+    <p class="legal-meta">
+      <span>עודכן לאחרונה: 14.11.2026</span>
+      <span class="legal-tag">טיוטה</span>
+    </p>
+  </header>
+
+  <nav class="card legal-toc" aria-label="תוכן עניינים">
+    <h2>תוכן עניינים</h2>
+    <ol>
+      <li><a href="#saved"><span class="legal-num">1.</span>מה נשמר</a></li>
+      <li><a href="#where"><span class="legal-num">2.</span>איפה</a></li>
+      <li><a href="#who"><span class="legal-num">3.</span>מי רואה</a></li>
+      <li><a href="#connections"><span class="legal-num">4.</span>חיבורים</a></li>
+      <li><a href="#delete"><span class="legal-num">5.</span>מחיקה</a></li>
+      <li><a href="#changes"><span class="legal-num">6.</span>שינויים</a></li>
+    </ol>
+  </nav>
+
+  <section class="legal-section" id="saved">
+    <h2><span class="legal-num">1.</span>מה נשמר</h2>
+    <p>Google מעבירה לג׳יני את השם והמייל של החשבון שאיתו נכנסת.</p>
+    <p>חוץ מזה נשמר רק מה שרושמים: אימונים, ארוחות, שקילות, שינה, הרגלים, משימות והחלטות.</p>
+  </section>
+
+  <section class="legal-section" id="where">
+    <h2><span class="legal-num">2.</span>איפה</h2>
+    <p>בשרתים של Google Firebase. עותק נשמר גם בטלפון, כדי שג׳יני תעבוד בלי קליטה.</p>
+  </section>
+
+  <section class="legal-section" id="who">
+    <h2><span class="legal-num">3.</span>מי רואה</h2>
+    <p>משתמשים אחרים לא רואים את המידע שלך.</p>
+    <p>למפתח של ג׳יני יש גישה טכנית לשרת, לצורך תחזוקה ותיקון תקלות.</p>
+    <p>אין פרסומות, והמידע לא נמכר ולא מועבר הלאה.</p>
+    <p>חריג אחד: מה שכותבים ב"משוב" גלוי לכל המשתמשים, עם השם שלך.</p>
+  </section>
+
+  <section class="legal-section" id="connections">
+    <h2><span class="legal-num">4.</span>חיבורים</h2>
+    <p>קלוד, יומן גוגל וקיצורי האייפון עובדים רק אם חיברת אותם בעצמך ב"חיבורים". כל אחד מהם אפשר לנתק בכל רגע.</p>
+  </section>
+
+  <section class="legal-section" id="delete">
+    <h2><span class="legal-num">5.</span>מחיקה</h2>
+    <p>כדי למחוק את כל המידע שלך, פונים למי שהזמין אותך לג׳יני. כפתור מחיקה בתוך ג׳יני יגיע בהמשך.</p>
+  </section>
+
+  <section class="legal-section" id="changes">
+    <h2><span class="legal-num">6.</span>שינויים</h2>
+    <p>זו טיוטה. המדיניות המלאה תגיע לפני שג׳יני תיפתח לכולם.</p>
+  </section>
+
+  <footer class="legal-foot">
+    <a class="legal-back" href="./">
+      <svg class="icon icon--sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+      חזרה לג׳יני
+    </a>
+  </footer>
+</main>
+
+</body>
+</html>
