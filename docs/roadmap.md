@@ -167,7 +167,7 @@ Asked by ירין 2026-11-12: a Claude review of the app found the UX/UI "לא �
 - Rules: `TODAY.hintMarkedDays` in `js/lib/rules.js`. Pure logic with tests: Hebrew counts (`js/lib/plural.js`), the + sheet's first action (`js/lib/quick-actions.js`), a task row's line.
 - Done when: Today with the sample data is at most a screen and a half at 390px, the first task shows without scrolling, every action that existed is still reachable, in every theme, and ירין approves before/after screenshots.
 
-## M14b ☐ UX/UI cleanup — the other screens — `feature/m14b-screens`
+## M14b ◐ UX/UI cleanup — the other screens — `feature/m14b-screens`
 The second half of `docs/specs/ux-cleanup.md`, the section "M14b — ה-PR השני". After M14a (merged, PR #43). ירין answered its questions on 2026-11-14: badges earned and the next one per area, only active streaks, the weigh-in on top until it is logged, a connection that isn't connected yet is closed with a "לחבר" button.
 - Data: none.
 - UI: תזונה (the weigh-in on top only until logged, then the ring with a protein line, "הוספת ארוחה" and the meals; carbs, fat and "נכנס מול יוצא" under them), שינה (7 nights, then "עוד לילות"; the trend under the list), התקדמות (the current and the next level, active streaks, badges earned and next, the rest behind closed rows), היסטוריה (the list first, the calendar behind a "לוח שנה" button), חיבורים (every card is one closed row: a status line when connected, one sentence and "לחבר" when not).

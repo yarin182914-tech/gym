@@ -1,5 +1,5 @@
 # ניקוי UX/UI — רגוע יותר, פחות עמוס
-Milestone: M14a + M14b · Branches: feature/m14a-today-tasks, feature/m14b-screens · Status: M14a built and merged (PR #43, 2026-11-14) · M14b draft, questions answered by ירין 2026-11-14
+Milestone: M14a + M14b · Branches: feature/m14a-today-tasks, feature/m14b-screens · Status: M14a built and merged (PR #43, 2026-11-14) · M14b built (PR open, 2026-11-14)
 Requested by ירין on 2026-11-12: סקירה של Claude מצאה שה־UX/UI "לא מספיק טוב ויותר מדי עמוס".
 Draft written on 2026-11-14 from a walk through every screen at 390px with the `?dev` sample data, and measured again the same day after M4c and M4c2 (the "זהב" look, `docs/specs/gold-look.md`) were merged.
 Split by ירין on 2026-11-14 into two PRs: **M14a** is היום, משימות and the + button; **M14b** is תזונה, שינה, התקדמות, היסטוריה and חיבורים. The section "M14a — מה נכנס ל-PR הראשון" is what the first PR built. The section "M14b — ה-PR השני" is what the second PR builds, after its own `/feature` run settled the open questions.
@@ -91,7 +91,7 @@ Split by ירין on 2026-11-14 into two PRs: **M14a** is היום, משימות
 
 - **רמות.** הרמה הנוכחית והבאה בלבד. שורה סגורה "כל הרמות" פותחת את כל הדרך. "הפרס שלי" נשאר.
 - **רצפים.** רק רצפים פעילים. רצף של 0 יורד לשורה סגורה "עוד 3 רצפים". בלי רצף פעיל בכלל: "עוד אין רצף פעיל. הוא מתחיל מהסימון הבא."
-- **תגים.** בכל תחום: מה שהושג והתג הבא (באפור). שורה סגורה "כל התגים" פותחת את כל ה־21. המונה (3/21) נשאר בכותרת.
+- **תגים.** בכל תחום: מה שהושג והתג הבא (באפור), כולם במדף אחד לפי סדר התחומים. שורה סגורה "כל התגים" פותחת את כל ה־21, מחולקים לתחומים. המונה (3/21) נשאר בכותרת.
 
 לשונית "מעקב" לא משתנה.
 
@@ -153,7 +153,19 @@ None. `firestore.rules` unchanged, no env vars.
 - Colours only from tokens (hard rule 12). No new token was needed. Checked in all seven themes: every new text is at a contrast of 4.9 or more against its background.
 - Today's sections sit 12px apart instead of 16px, to reach a screen and a half with the sample data.
 - The service worker's cache name is bumped to v9.
-- Not in the `?dev` sample data: a habit that isn't for today, a paused one, and yesterday's points. The "עוד" row and the "אתמול" line were checked by adding them in the test run.
+- Not in the `?dev` sample data: a habit that isn't for today, a paused one, and yesterday's points. The "עוד" row and the "אתמול" line were checked by adding them in the test run. (M14b added them to the sample data.)
+
+## Technical notes (M14b)
+- `js/lib/summary-view.js` (new, pure): what the progress summary shows before anything is opened. `roadLevels(levels, current, count)`, `splitStreaks(streaks)`, `badgeShelves(badges)`. Test: `tools/test-summary-view.mjs`.
+- `js/ui/progress-summary.js`: three closed rows ("כל הרמות", "עוד N רצפים", "כל התגים"); what is open lives in the mounted card and is forgotten when the screen is left. Closed, the badges are one shelf (per area: earned, then the next one); open, they are grouped by area as before.
+- `js/pages/nutrition.js`: the weigh-in card (`js/ui/body-weight-card.js`, unchanged) is attached at the top until today's weight is in, and by the weight chart after. Saving today's weight re-renders the screen and shows a "המשקל נשמר" toast, because the card leaves the top. The ring card carries the protein bar; carbs, fat and "נכנס מול יוצא" render only while "עוד על היום" is open. The + button's "צעדים" still opens the activity sheet directly.
+- `js/pages/sleep.js`: the list shows `SLEEP.logNights` nights and "עוד לילות" / "פחות לילות" switches to `SLEEP.historyNights`. The trend section now comes after the list.
+- `js/pages/history.js`: the month calendar is built only while the "לוח שנה" chip is open (`mountCalendar()`); `renderCalendar()` returns when it is closed, so expanding a workout still records the selected day for the next time the calendar opens.
+- `js/ui/connection-fold.js` (new): `foldHead(...)`, the top row every connection card shares (status line and a chevron, or one sentence and "לחבר"), and the iPhone language switch (`iosLangSwitch`, `syncIosLangSwitches`). `js/pages/connections.js` keeps which of its cards are open (`openCards`) and handles the language switch for the whole page; `js/ui/usage-card.js` keeps its own open state. A card's body is rendered only while it is open. Coming back from Google's consent screen opens the calendar card. "Connected" for the closed row: steps = an import arrived, Claude = at least one key, calendar = connected, app time = a key exists or minutes arrived today.
+- Hebrew counts through `countHe`: streak units on the progress screen, the sleep card's streak label, meals in "נכנס מול יוצא", exercises, sets and activities in History.
+- Colours only from tokens (hard rule 12); no new token. The "לחבר" pill uses the primary button's gradient and `--gold-text`. Checked at 390px in all seven themes, closed and open, with no console errors.
+- The service worker's cache name is bumped to v10.
+- `js/dev/seed.js`: the three example habits, one that isn't for today, one paused, yesterday's marks, and `rewardsStartDate` = yesterday, so a fresh `?dev` sandbox shows Today's "עוד 2 הרגלים" row and "אתמול" line.
 
 ## לא בגרסה הזאת
 - פיצ׳רים חדשים.
