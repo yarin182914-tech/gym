@@ -6,7 +6,7 @@
      own accent, cardio a colour each theme sets well apart from it. */
   --strength: var(--accent);
   --cardio: #3bb08f;
-  /* ---- Color — a dark, warm "editorial" theme ----
+  /* ---- Color — the "זהב" look, dark: warm near-black and bright gold ----
      --bg / --surface / --surface-raised   backgrounds, darkest to most raised
      --border                              hairline dividers — translucent
                                             white on dark, doing the job
@@ -22,30 +22,32 @@
      --purple                              analytics — progress charts,
                                             trend callouts only
      --info                                drop-set stage tag only */
-  --bg: #1b1a18;
-  --surface: #211f1d;
-  --surface-raised: #2a2724;
-  --border: rgba(255, 255, 255, 0.12);
-  --text: #f3f0ec;
-  --text-muted: #9b9797;
-  --accent: #b68235;
-  --accent-hover: #c9963f;
-  --accent-dim: rgba(182, 130, 53, 0.16);
+  --bg: #16130f;
+  --surface: #211c16;
+  --surface-raised: #332c23;
+  --border: rgba(255, 235, 210, 0.1);
+  --text: #f6efe5;
+  --text-muted: #a89a88;
+  --accent: #f2b65a;
+  --accent-hover: #f6c476;
+  --accent-dim: rgba(242, 182, 90, 0.16);
+  --accent-2-fill: #f08a5d; /* where the primary button's and the + button's
+                               gradient ends: --accent → this (gold → coral) */
   --gold: #facb8d;
-  --gold-text: #3a270d;
+  --gold-text: #241503;  /* text on any filled control: accent, success, danger, gold */
   --danger: #d2705c;
-  --success: #4f9d6a;
-  --purple: #8b6bb0;
+  --success: #6ccb8f;
+  --purple: #a98bd8;
   --info: #5b8fb0;
   --info-text: #9dc4da;
-  --accent-2: #9b7232;   /* exercise-name heading tint, distinct from --accent */
-  --success-text: #7fc79a; /* lighter than --success, for text/glyphs on a done state */
-  --rust: #7c3e3d;       /* index numbers, progress fill, done-check glyph */
-  --border-strong: rgba(255, 255, 255, 0.22); /* dashed/emphasis borders */
-  --field-line: rgba(255, 255, 255, 0.16);    /* underline under weight/reps */
+  --accent-2: #d9a24e;   /* exercise-name heading tint, distinct from --accent */
+  --success-text: #8ad9a6; /* lighter than --success, for text/glyphs on a done state */
+  --rust: #cf6e50;       /* index numbers, progress fill, done-check glyph */
+  --border-strong: rgba(255, 235, 210, 0.22); /* dashed/emphasis borders */
+  --field-line: rgba(255, 235, 210, 0.16);    /* underline under weight/reps */
   --info-dim: rgba(91, 143, 176, 0.14);       /* faint --info tint behind a tag */
-  --overlay: rgba(0, 0, 0, 0.5);              /* backdrop behind dialogs/sheets */
-  --accent-contrast: #ffffff;                 /* a mark drawn on an --accent fill */
+  --overlay: rgba(0, 0, 0, 0.55);             /* backdrop behind dialogs/sheets */
+  --accent-contrast: #241503;                 /* a mark drawn on an --accent fill */
   /* The feet game ("להחליט", js/ui/choosers/feet-art.js): one drawing for
      every theme, like an illustration. */
   --foot-skin: #f4c9a6;
@@ -81,13 +83,14 @@
 
   /* Type scale — one shared ramp every screen draws from, instead of each
      component picking its own one-off rem value. */
-  --text-xs: 0.7rem;    /* uppercase labels, captions */
-  --text-sm: 0.8rem;    /* secondary/muted text, units, badges */
-  --text-base: 0.9rem;  /* body copy, table cells */
-  --text-md: 1rem;      /* buttons, inputs, default UI text */
-  --text-lg: 1.15rem;   /* emphasized values: weight, reps */
-  --text-xl: 1.25rem;   /* h2, dial values */
-  --text-2xl: 1.6rem;   /* h1 */
+  --text-xs: 0.75rem;   /* 12 — uppercase labels, captions */
+  --text-sm: 0.875rem;  /* 14 — secondary/muted text, units, badges */
+  --text-base: 1rem;    /* 16 — body copy, table cells */
+  --text-md: 1rem;      /* 16 — buttons, inputs, default UI text */
+  --text-lg: 1.125rem;  /* 18 — emphasized values: weight, reps */
+  --text-xl: 1.375rem;  /* 22 — h2, dial values */
+  --text-2xl: 1.75rem;  /* 28 — h1 */
+  --text-3xl: 2.25rem;  /* 36 — the one big number on a screen */
 
   /* ---- Spacing scale — for new and touched rules going forward; not a
      retrofit of every existing hardcoded value across the app. ---- */
@@ -100,9 +103,10 @@
   --space-8: 32px;
 
   /* ---- Radius ---- */
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 22px;
+  --radius-xs: 5px;  /* inline code, tiny marks */
+  --radius-sm: 10px; /* small tiles, inner rows */
+  --radius-md: 16px; /* buttons, fields, switches */
+  --radius-lg: 26px; /* cards, sheets, dialogs */
   --radius-full: 999px; /* pills, chips, circular controls */
 
   /* ---- Shadows (elevation) — kept deliberately faint: this theme leans on
@@ -113,6 +117,11 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  /* Resting depth, in the theme's own colour: --elev-1 under a card (a
+     faint gold glow here, a warm shadow in BRIGHT, nothing in the RANDOM
+     palettes), --elev-2 under the primary button and the + button. */
+  --elev-1: 0 10px 30px rgba(242, 182, 90, 0.08);
+  --elev-2: 0 8px 22px rgba(242, 182, 90, 0.22);
 
   /* ---- Icon sizing (emoji used directly as inline icons) ---- */
   --icon-sm: 1rem;
@@ -121,11 +130,20 @@
 
   --tap-min: 48px;   /* icon-only tap targets, bottom nav */
 
-  /* ---- Control heights — one compact scale for the whole app, set by
-     the workout screen's exercise card. ---- */
-  --control-h: 36px; /* buttons, text fields, search */
-  --switch-h: 34px;  /* segmented switches (ק"ג/lb, משקל/נפח...) */
-  --chip-h: 26px;    /* small pill chips (set type, picker categories) */
+  /* ---- Control heights — one scale for the whole app. Buttons and
+     fields are a full 44px touch target; switches and chips stay smaller
+     to the eye and reach 44px through an invisible ::after
+     (03-components.css, "Touch targets"). ---- */
+  --control-h: 44px; /* buttons, text fields, search */
+  --switch-h: 40px;  /* segmented switches (ק"ג/lb, משקל/נפח...) */
+  --chip-h: 30px;    /* small pill chips (set type, picker categories) */
+
+  /* ---- Motion — soft and short. 02-base.css turns all of it off under
+     prefers-reduced-motion. ---- */
+  --motion-fast: 150ms; /* press feedback, colour changes */
+  --motion-base: 300ms; /* things that move or fill */
+  --motion-slow: 450ms; /* sheets, celebrations */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
   --nav-height: 64px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -134,27 +152,33 @@
 /* ===== Colour themes =====
    The :root block above is DARK, the default. Each theme below swaps only
    colour tokens — never sizes, spacing or type — so every screen keeps the
-   exact same design in every theme. js/theme-boot.js sets data-theme on
+   exact same design in every theme. Every colour token is set in every
+   theme block (tools/test-theme-tokens.mjs checks that, and the contrast
+   of text on each theme's surfaces and fills). js/theme-boot.js sets data-theme on
    <html> before first paint: "bright" for BRIGHT, or one of the five
    palettes RANDOM picks from. Text tokens are chosen for readable contrast
    on that theme's own surfaces (--gold doubles as a text colour on chips
    and the PR badge, so on light themes it's a deep tone, not a pale one). */
 
-/* BRIGHT — "warm paper": cream and gold. */
+/* BRIGHT — the "זהב" look, light: warm paper, clean white cards, deep gold.
+   --accent is a shade deeper than the mockup's #b86f14, and the gradient's
+   end than its #c9533a, so both read at 4.5:1 as text on the page and
+   under a white label. */
 :root[data-theme="bright"] {
   --cardio: #17786a;
-  --bg: #f5efe6;
-  --surface: #fffaf3;
-  --surface-raised: #f0e7da;
-  --border: rgba(58, 45, 30, 0.14);
-  --border-strong: rgba(58, 45, 30, 0.28);
-  --field-line: rgba(58, 45, 30, 0.22);
-  --text: #2b241d;
-  --text-muted: #665c50;
-  --accent: #93601f;
-  --accent-hover: #7d5119;
-  --accent-dim: rgba(147, 96, 31, 0.14);
+  --bg: #faf6ef;
+  --surface: #ffffff;
+  --surface-raised: #f2eadd;
+  --border: rgba(60, 40, 20, 0.12);
+  --border-strong: rgba(60, 40, 20, 0.28);
+  --field-line: rgba(60, 40, 20, 0.22);
+  --text: #2a2118;
+  --text-muted: #6b5e50;
+  --accent: #a2600f;
+  --accent-hover: #8a510b;
+  --accent-dim: rgba(184, 111, 20, 0.12);
   --accent-contrast: #ffffff;
+  --accent-2-fill: #c24e36;
   --gold: #8a5a18;
   /* White, not dark ink: on a light theme the gold/green/red fills are
      deep enough that white text is the readable one. */
@@ -168,10 +192,12 @@
   --info-dim: rgba(63, 118, 160, 0.12);
   --accent-2: #8f5f1c;
   --rust: #a2483f;
-  --overlay: rgba(43, 36, 29, 0.4);
-  --shadow-sm: 0 1px 3px rgba(60, 40, 20, 0.1);
-  --shadow-md: 0 8px 20px rgba(60, 40, 20, 0.14);
-  --shadow-lg: 0 12px 32px rgba(60, 40, 20, 0.18);
+  --overlay: rgba(42, 33, 24, 0.4);
+  --shadow-sm: 0 1px 3px rgba(80, 50, 20, 0.08);
+  --shadow-md: 0 8px 20px rgba(80, 50, 20, 0.12);
+  --shadow-lg: 0 12px 32px rgba(80, 50, 20, 0.16);
+  --elev-1: 0 2px 6px rgba(80, 50, 20, 0.06), 0 10px 28px rgba(184, 111, 20, 0.1);
+  --elev-2: 0 8px 20px rgba(184, 111, 20, 0.28);
   color-scheme: light;
 }
 
@@ -203,6 +229,13 @@
   --info-dim: rgba(45, 226, 230, 0.16);
   --accent-2: #ff4fd8;
   --rust: #2de2e6;
+  --accent-2-fill: #9a6bff; /* deeper than --purple, so the white + still reads on it */
+  --overlay: rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --elev-1: none;
+  --elev-2: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
 /* Acid sunset: dark plum, orange, pink, yellow. */
@@ -231,6 +264,13 @@
   --info-dim: rgba(255, 207, 63, 0.16);
   --accent-2: #ffcf3f;
   --rust: #ff5a92;
+  --accent-2-fill: #ff5a92;
+  --overlay: rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --elev-1: none;
+  --elev-2: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
 /* Pop art: bright yellow, black, pink, blue — the one light RANDOM palette. */
@@ -263,6 +303,9 @@
   --shadow-sm: 0 1px 3px rgba(17, 17, 17, 0.15);
   --shadow-md: 0 8px 20px rgba(17, 17, 17, 0.18);
   --shadow-lg: 0 12px 32px rgba(17, 17, 17, 0.22);
+  --accent-2-fill: #d1005e;
+  --elev-1: none;
+  --elev-2: 0 6px 18px rgba(17, 17, 17, 0.22);
   color-scheme: light;
 }
 
@@ -292,6 +335,13 @@
   --info-dim: rgba(0, 245, 196, 0.14);
   --accent-2: #c6ff00;
   --rust: #ff7a59;
+  --accent-2-fill: #00f5c4;
+  --overlay: rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --elev-1: none;
+  --elev-2: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
 /* '70s groove: brown, mustard, orange, turquoise. */
@@ -320,4 +370,11 @@
   --info-dim: rgba(43, 179, 163, 0.2);
   --accent-2: #f2b134;
   --rust: #f2b134;
+  --accent-2-fill: #f2b134;
+  --overlay: rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --elev-1: none;
+  --elev-2: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
