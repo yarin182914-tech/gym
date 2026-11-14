@@ -28,9 +28,15 @@ check('משימות on its החלטות part', first('tasks', 'decision'), 'deci
 check('an unknown name falls back', first('tasks', 'nope'), 'task');
 check('a screen with none can still name one', first('dashboard', 'weigh'), 'weigh');
 
+console.log('the wide row\'s words');
+check('the grid\'s word by default', sheetItems('tasks').primary.label, 'משימה');
+check('on היום, "הרגל" adds one', sheetItems('today').primary.label, 'הרגל חדש');
+check('named from another screen, the grid\'s word', sheetItems('dashboard', 'habit').primary.label, 'הרגל');
+check('the list itself is untouched', QUICK_ITEMS.find((i) => i.action === 'habit').label, 'הרגל');
+
 console.log('the rest');
 const { primary, rest } = sheetItems('tasks');
-check('the first one is not repeated', rest.includes(primary), false);
+check('the first one is not repeated', rest.some((i) => i.action === primary.action), false);
 check('nothing is lost', rest.length + 1, QUICK_ITEMS.length);
 check('order is kept', rest.map((i) => i.action), QUICK_ITEMS.filter((i) => i.action !== 'task').map((i) => i.action));
 check('with none, the whole grid', sheetItems('dashboard').rest.length, QUICK_ITEMS.length);

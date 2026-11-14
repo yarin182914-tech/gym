@@ -37,11 +37,19 @@ const PRIMARY = {
   sleep: 'sleep',
 };
 
+// The wide row says what the action does on its own screen, where that
+// differs from the grid's word: on היום, "הרגל" adds a habit.
+const PRIMARY_LABEL = { habit: 'הרגל חדש' };
+
 // route: the screen that is showing. override: an action the screen itself
 // named for right now (משימות names "decision" on its החלטות part); an
 // unknown one falls back to the screen's usual action.
+// → { primary: the wide first row or null, rest: the grid, in order }.
 export function sheetItems(route, override = null) {
   const byAction = (action) => QUICK_ITEMS.find((item) => item.action === action) || null;
-  const primary = byAction(override) || byAction(PRIMARY[route]);
-  return { primary, rest: QUICK_ITEMS.filter((item) => item !== primary) };
+  const own = byAction(override) || byAction(PRIMARY[route]);
+  if (!own) return { primary: null, rest: QUICK_ITEMS };
+  // "הרגל חדש" only where it is true: asked for on היום itself.
+  const label = own.route === route ? PRIMARY_LABEL[own.action] || own.label : own.label;
+  return { primary: { ...own, label }, rest: QUICK_ITEMS.filter((item) => item !== own) };
 }
