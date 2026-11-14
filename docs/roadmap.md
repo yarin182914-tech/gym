@@ -4,7 +4,7 @@ Each milestone = one branch + one PR. Build them in order; each one must leave t
 Section names in quotes refer to headings in `docs/upgrade-plan.md` (Hebrew).
 Defaults for every number come from the plan and live in one config module (`js/lib/rules.js`).
 
-**Build order now (ירין 2026-11-13, combining the 2026-11-12 order with the growth review):** 1. M0a logo → 2. the M4c "זהב" base, then M4c2 the new Today (moved up by ירין 2026-11-14), then the M14 UX/UI cleanup (one visual pass, three PRs) → 3. M0b name and first screen → 4. M15 polish the existing screens (the feedback page first) → 5. M16 open the app to Maya → 6. the rest of "עכשיו" (M9s, M10, M10b, M10c, M10d) → the pilot. Only then new features. Details under "עכשיו" below.
+**Build order now (ירין 2026-11-13, combining the 2026-11-12 order with the growth review):** 1. M0a logo → 2. the M4c "זהב" base, then M4c2 the new Today (moved up by ירין 2026-11-14), then the M14 UX/UI cleanup in two PRs, M14a and M14b (ירין 2026-11-14) → 3. M0b name and first screen → 4. M15 polish the existing screens (the feedback page first) → 5. M16 open the app to Maya → 6. the rest of "עכשיו" (M9s, M10, M10b, M10c, M10d) → the pilot. Only then new features. Details under "עכשיו" below.
 
 Status legend: ☐ not started · ◐ in progress (branch or PR open) · ☑ merged · ✕ dropped
 
@@ -159,19 +159,27 @@ Asked by ירין 2026-11-13: "אני רגע רוצה לעצב את הלוגו �
 - Files: the logo as SVG plus every icon size the app uses (`images/icon-192.png`, `icon-512.png`, a maskable icon for Android, `apple-touch-icon.png`, `favicon-32.png`), wired into `manifest.json` and `index.html`. Plus (ירין 2026-11-14) the name ג׳יני in every user-visible text: tab title, home-screen name, manifest, sign-in screen, "חיבורים", calendar event description, the connector title. The iPhone shortcut names stay until ירין republishes them.
 - Done when: the new icon shows on the iPhone and Android home screen and in the browser tab, readable on dark and light backgrounds.
 
-## M14 ☐ UX/UI cleanup — calmer, less crowded — `feature/m14-ux-cleanup`
-Asked by ירין 2026-11-12: a Claude review of the app found the UX/UI "לא מספיק טוב ויותר מדי עמוס"; this goes first. Spec: `docs/specs/ux-cleanup.md`, a draft from a walk through every screen on 2026-11-14 (findings and a proposal per screen; its open questions are for this milestone's `/feature`).
-- Scope: structure and density, not new features: fewer cards per screen, one main action per screen, clear hierarchy, consistent spacing and copy, things moved behind "עוד" where rarely used.
-- One visual pass with the M4c "זהב" base (ירין 2026-11-13), as two PRs (ירין 2026-11-14): M4c first, then this, so every screen is tidied once at the final text and button sizes.
+## M14a ☐ UX/UI cleanup — Today, Tasks and the + button — `feature/m14a-today-tasks`
+Asked by ירין 2026-11-12: a Claude review of the app found the UX/UI "לא מספיק טוב ויותר מדי עמוס". Split in two PRs by ירין on 2026-11-14 (M14a, then M14b), built after the "זהב" look (M4c, M4c2) so every screen is tidied once at the final text and button sizes. Spec: `docs/specs/ux-cleanup.md`, the section "M14a — מה נכנס ל-PR הראשון".
+- Scope (both halves): structure and density, not new features: fewer cards per screen, one main action per screen, clear hierarchy, consistent spacing and copy, things moved behind "עוד" where rarely used.
+- Data: none.
+- UI: Today without the sleep card ("לרשום את הלילה" opens the night sheet), yesterday's summary in one line, the habits' day strip and the not-today / paused groups folded. Tasks: no add button on top, quiet view tabs, a task row with only its name, time and a dot for important ("מחר" moves into the task), the filters behind "סינון", decisions rows in the same language. The + sheet opens with the current screen's action as a wide first row (ירין 2026-11-14).
+- Rules: `TODAY.hintMarkedDays` in `js/lib/rules.js`. Pure logic with tests: Hebrew counts (`js/lib/plural.js`), the + sheet's first action (`js/lib/quick-actions.js`), a task row's line.
+- Done when: Today with the sample data is at most a screen and a half at 390px, the first task shows without scrolling, every action that existed is still reachable, in every theme, and ירין approves before/after screenshots.
+
+## M14b ☐ UX/UI cleanup — the other screens — `feature/m14b-screens`
+The second half of `docs/specs/ux-cleanup.md`, the section "M14b — ה-PR השני". After M14a; its own `/feature` run settles the open question (all 21 badges, or earned and next).
+- Data: none expected.
+- UI: תזונה (the rings and "הוספת ארוחה" first, the weigh-in card shrinks once logged), שינה (7 nights, then "עוד לילות"), התקדמות (the current and the next level, badges earned and next), היסטוריה (the list first, the calendar behind a button), חיבורים (a connected card shows one status line).
 - Done when: every tab at 390px shows its main action without scrolling past clutter, in every theme, and ירין approves before/after screenshots.
 
-## M4c ◐ The "זהב" look — the design base — `feature/m4c-gold-base`
+## M4c ☑ The "זהב" look — the design base — `feature/m4c-gold-base`
 The first half of the visual pass (ירין 2026-11-13, its own PR since 2026-11-14), so the cleanup, the first screen and the logo are built once, in the new look. Spec: `docs/specs/gold-look.md`, the section "M4c — מה נכנס ל-PR של הבסיס". The Today redesign from the same spec waits for M4c2.
 - Data: none.
 - UI: 16px body and one type ramp, 44px buttons and fields, radius 26/16, warm elevation, motion tokens, the gold colours in DARK and BRIGHT, gradient primary button and + button, the nav's new active state, in every theme block. The colour theme switch moves from the top bar to the profile sheet (ירין 2026-11-14).
 - Done when: every screen lays out at 16px body and 390px in DARK, BRIGHT and the five RANDOM palettes, buttons are 44 high, the top bar holds only the title and the profile icon, and a 4-set exercise still fits one screen in a workout.
 
-## M4c2 ◐ The "זהב" look — Today — `feature/m4c2-gold-today`
+## M4c2 ☑ The "זהב" look — Today — `feature/m4c2-gold-today`
 The Today part of `docs/specs/gold-look.md`, the section "M4c2 — מה נכנס ל-PR של מסך היום". Split from M4c by ירין (2026-11-13) and first placed after M10; moved up by ירין on 2026-11-14, after seeing the base without the mockup's Today, to right after M4c and before M14. Built on `feature/m4c-gold-base`; it merges after PR #41.
 - Data: none. Today also reads the recent nutrition entries, for the food ring.
 - UI: the greeting and the date in the top bar, the gradient level card (points, progress, today's points, a streak of days with points), three rings (workout days this week, calories today, last night's sleep), the +points moment on the level card. The sleep card moves under "להיגמל".
