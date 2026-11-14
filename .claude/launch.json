@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "gymsite-py",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8765"],
+      "port": 8765
+    },
+    {
       "name": "gymsite",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["--yes", "serve", "-l", "8532", "."],
