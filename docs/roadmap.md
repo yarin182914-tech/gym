@@ -159,7 +159,7 @@ Asked by ירין 2026-11-13: "אני רגע רוצה לעצב את הלוגו �
 - Files: the logo as SVG plus every icon size the app uses (`images/icon-192.png`, `icon-512.png`, a maskable icon for Android, `apple-touch-icon.png`, `favicon-32.png`), wired into `manifest.json` and `index.html`. Plus (ירין 2026-11-14) the name ג׳יני in every user-visible text: tab title, home-screen name, manifest, sign-in screen, "חיבורים", calendar event description, the connector title. The iPhone shortcut names stay until ירין republishes them.
 - Done when: the new icon shows on the iPhone and Android home screen and in the browser tab, readable on dark and light backgrounds.
 
-## M14a ◐ UX/UI cleanup — Today, Tasks and the + button — `feature/m14a-today-tasks`
+## M14a ☑ UX/UI cleanup — Today, Tasks and the + button — `feature/m14a-today-tasks`
 Asked by ירין 2026-11-12: a Claude review of the app found the UX/UI "לא מספיק טוב ויותר מדי עמוס". Split in two PRs by ירין on 2026-11-14 (M14a, then M14b), built after the "זהב" look (M4c, M4c2) so every screen is tidied once at the final text and button sizes. Spec: `docs/specs/ux-cleanup.md`, the section "M14a — מה נכנס ל-PR הראשון".
 - Scope (both halves): structure and density, not new features: fewer cards per screen, one main action per screen, clear hierarchy, consistent spacing and copy, things moved behind "עוד" where rarely used.
 - Data: none.
@@ -168,10 +168,12 @@ Asked by ירין 2026-11-12: a Claude review of the app found the UX/UI "לא �
 - Done when: Today with the sample data is at most a screen and a half at 390px, the first task shows without scrolling, every action that existed is still reachable, in every theme, and ירין approves before/after screenshots.
 
 ## M14b ☐ UX/UI cleanup — the other screens — `feature/m14b-screens`
-The second half of `docs/specs/ux-cleanup.md`, the section "M14b — ה-PR השני". After M14a; its own `/feature` run settles the open question (all 21 badges, or earned and next).
-- Data: none expected.
-- UI: תזונה (the rings and "הוספת ארוחה" first, the weigh-in card shrinks once logged), שינה (7 nights, then "עוד לילות"), התקדמות (the current and the next level, badges earned and next), היסטוריה (the list first, the calendar behind a button), חיבורים (a connected card shows one status line).
-- Done when: every tab at 390px shows its main action without scrolling past clutter, in every theme, and ירין approves before/after screenshots.
+The second half of `docs/specs/ux-cleanup.md`, the section "M14b — ה-PR השני". After M14a (merged, PR #43). ירין answered its questions on 2026-11-14: badges earned and the next one per area, only active streaks, the weigh-in on top until it is logged, a connection that isn't connected yet is closed with a "לחבר" button.
+- Data: none.
+- UI: תזונה (the weigh-in on top only until logged, then the ring with a protein line, "הוספת ארוחה" and the meals; carbs, fat and "נכנס מול יוצא" under them), שינה (7 nights, then "עוד לילות"; the trend under the list), התקדמות (the current and the next level, active streaks, badges earned and next, the rest behind closed rows), היסטוריה (the list first, the calendar behind a "לוח שנה" button), חיבורים (every card is one closed row: a status line when connected, one sentence and "לחבר" when not).
+- Rules: `SLEEP.logNights`, `REWARDS.roadLevelsShown` in `js/lib/rules.js`. Pure logic with tests: which levels, streaks and badges show. Hebrew counts with `js/lib/plural.js`.
+- Dev: the `?dev` sample data gets a habit that isn't for today, a paused habit and points for yesterday.
+- Done when: every tab at 390px shows its main action without scrolling past clutter, every action that existed is still reachable, in every theme, and ירין approves before/after screenshots.
 
 ## M4c ☑ The "זהב" look — the design base — `feature/m4c-gold-base`
 The first half of the visual pass (ירין 2026-11-13, its own PR since 2026-11-14), so the cleanup, the first screen and the logo are built once, in the new look. Spec: `docs/specs/gold-look.md`, the section "M4c — מה נכנס ל-PR של הבסיס". The Today redesign from the same spec waits for M4c2.
