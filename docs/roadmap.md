@@ -165,7 +165,7 @@ Asked by ירין 2026-11-12: a Claude review of the app found the UX/UI "לא �
 - One visual pass with the M4c "זהב" base (ירין 2026-11-13), as two PRs (ירין 2026-11-14): M4c first, then this, so every screen is tidied once at the final text and button sizes.
 - Done when: every tab at 390px shows its main action without scrolling past clutter, in every theme, and ירין approves before/after screenshots.
 
-## M4c ☐ The "זהב" look — the design base — `feature/m4c-gold-base`
+## M4c ◐ The "זהב" look — the design base — `feature/m4c-gold-base`
 The first half of the visual pass (ירין 2026-11-13, its own PR since 2026-11-14), so the cleanup, the first screen and the logo are built once, in the new look. Spec: `docs/specs/gold-look.md`, the section "M4c — מה נכנס ל-PR של הבסיס". The Today redesign from the same spec waits for M4c2.
 - Data: none.
 - UI: 16px body and one type ramp, 44px buttons and fields, radius 26/16, warm elevation, motion tokens, the gold colours in DARK and BRIGHT, gradient primary button and + button, the nav's new active state, in every theme block. The colour theme switch moves from the top bar to the profile sheet (ירין 2026-11-14).
