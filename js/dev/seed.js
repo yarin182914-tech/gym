@@ -2,7 +2,9 @@
 // Dashboard and the "previous performance" popup have something to render.
 // Loaded via dynamic import from app.js and therefore never fetched in
 // production. Writes only to the dev-store's localStorage key.
-import { listWorkouts, createWorkout, addExerciseToLibrary, seedExerciseLibraryIfEmpty } from '../lib/firestore.js';
+import {
+  listWorkouts, createWorkout, addExerciseToLibrary, seedExerciseLibraryIfEmpty, addNutritionEntry,
+} from '../lib/firestore.js';
 
 function sets(rows, weightMode, weightUnit) {
   return rows.map(([type, weight, reps], i) => ({
@@ -71,6 +73,26 @@ export async function seedDevStoreIfEmpty() {
       date: w.date, startTime: w.date, endTime: w.end, notes: '', exercises: w.exercises,
     });
   }
+  // This week, so the three rings on "היום" (M4c2) each show a state: two
+  // recent workouts, two meals today, and no night logged (the grey ring).
+  const at = (daysBack, hour, minute = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysBack);
+    d.setHours(hour, minute, 0, 0);
+    return d;
+  };
+  for (const back of [1, 3]) {
+    await createWorkout({
+      date: at(back, 18), startTime: at(back, 18), endTime: at(back, 19), notes: '', exercises: WORKOUTS[0].exercises,
+    });
+  }
+  await addNutritionEntry({
+    date: at(0, 8), mealType: 'breakfast', description: 'חביתה, לחם וירקות', calories: 520, proteinG: 32, carbsG: 40, fatG: 24,
+  });
+  await addNutritionEntry({
+    date: at(0, 13, 30), mealType: 'lunch', description: 'עוף, אורז וסלט', calories: 780, proteinG: 55, carbsG: 80, fatG: 22,
+  });
+
   // A few tasks (M6), some old enough to show the procrastination ladder.
   const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
   const noon = (n) => {

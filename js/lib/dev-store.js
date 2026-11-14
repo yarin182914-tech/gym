@@ -12,7 +12,7 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (raw) return JSON.parse(raw);
   } catch { /* corrupt/blocked storage falls through to defaults */ }
-  return { user: { displayName: 'מצב פיתוח', weddingDate: null }, workouts: [], exerciseLibrary: [], nutritionEntries: [], plans: [], feedback: [], bodyWeights: [] };
+  return { user: { displayName: 'אורח', weddingDate: null }, workouts: [], exerciseLibrary: [], nutritionEntries: [], plans: [], feedback: [], bodyWeights: [] };
 }
 
 function save(state) {
