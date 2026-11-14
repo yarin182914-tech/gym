@@ -1,0 +1,3 @@
+# Files Vercel must not put on the site.
+# One-time migration pages: finished, and not safe to run again (see _archive/README.md).
+_archive

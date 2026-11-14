@@ -14,7 +14,7 @@ bash tools/check.sh
 
 rm -rf "$DEST"
 mkdir -p "$DEST"
-cp "$SRC/index.html" "$DEST/"
+cp "$SRC/index.html" "$SRC/privacy.html" "$DEST/"
 cp -r "$SRC/css" "$SRC/js" "$DEST/"
 [ -d "$SRC/images" ] && cp -r "$SRC/images" "$DEST/"
 [ -f "$SRC/manifest.json" ] && cp "$SRC/manifest.json" "$DEST/"

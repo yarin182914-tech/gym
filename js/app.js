@@ -20,15 +20,20 @@ import { mountLibrary, unmountLibrary } from './pages/library.js';
 import { mountQuickAdd } from './ui/quick-add.js';
 import { captureInstallPrompt, notifyAppEntered } from './ui/install-banner.js';
 import { mountAppBar } from './ui/app-bar.js';
+import { mountWelcome } from './ui/welcome.js';
 
 const authScreen = document.getElementById('auth-screen');
 const appRoot = document.getElementById('app');
 const nav = document.getElementById('bottom-nav');
-const signInBtn = document.getElementById('google-signin-btn');
 
-signInBtn.addEventListener('click', () => {
-  signIn().catch((err) => alert('ההתחברות נכשלה: ' + err.message));
-});
+// The first screen (js/ui/welcome.js), for whoever isn't signed in.
+function showWelcome(onSignIn) {
+  mountWelcome(authScreen, { onSignIn });
+  document.title = 'ג׳יני';
+  authScreen.classList.remove('hidden');
+  appRoot.classList.add('hidden');
+  nav.classList.add('hidden');
+}
 
 if ('serviceWorker' in navigator) {
   // Registered unconditionally (dev sandbox included) — network-first means
@@ -96,15 +101,13 @@ if (!useCloud) {
   document.body.prepend(banner);
   const { seedDevStoreIfEmpty } = await import('./dev/seed.js');
   await seedDevStoreIfEmpty();
-  enterApp();
+  // `?dev&welcome` shows the first screen in the sandbox too; its sign-in
+  // button just walks into the sample data.
+  if (new URLSearchParams(location.search).has('welcome')) showWelcome(() => enterApp());
+  else enterApp();
 } else {
   onAuthChange(async (user) => {
-    if (user) {
-      await enterApp();
-    } else {
-      authScreen.classList.remove('hidden');
-      appRoot.classList.add('hidden');
-      nav.classList.add('hidden');
-    }
+    if (user) await enterApp();
+    else showWelcome(signIn);
   });
 }
