@@ -116,13 +116,15 @@ plan, and show only what changed.
 5. Update the spec to what was actually built (Status: built), and set the roadmap
    milestone to ◐.
 6. Push with `git push -u origin <branch>` and open a PR, with the description from
-   `CLAUDE.md` plus the screenshots. Never push to `main`, never merge.
+   `CLAUDE.md` plus the screenshots. Never push to `main`; merge only after ירין's "כן"
+   for that PR (hard rule 1 in `CLAUDE.md`).
 7. Finish with a short Hebrew message to ירין:
    - What was built, in 2–3 lines.
    - The Vercel preview link (`gym-git-<branch-with-dashes>-yarin9.vercel.app`) and the PR link.
    - 3–5 test steps on the iPhone.
    - Anything ירין must do before merging (rules deploy, env var), or "אין".
-   - One line on what the PR is and what the merge does ("מיזוג = הענף נכנס לאתר החי").
+   - One line on what the PR is and what the merge does ("מיזוג = הענף נכנס לאתר החי"),
+     and that a "כן" after testing makes Claude merge it.
    - Follow-ups that came up, as one short list.
 
 If something is unclear in the middle of the build, ask one question with a recommendation instead of
