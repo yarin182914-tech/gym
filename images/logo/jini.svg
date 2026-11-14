@@ -1,0 +1,13 @@
+<!-- ג׳יני app icon, "Slim j", default. Full-bleed square: iOS and Android round the corners themselves. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EFA052"/>
+      <stop offset="0.55" stop-color="#D2683A"/>
+      <stop offset="1" stop-color="#9C3F22"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" fill="url(#bg)"/>
+  <path d="M62,38 V61 C62,72 55,78 47.5,78 C41,78 36.5,74.5 35,69" fill="none" stroke="#FFF6E6" stroke-width="10" stroke-linecap="round"/>
+  <path transform="translate(62 22.5) scale(9)" fill="#FFF6E6" d="M0,-1 Q0.14,-0.14 1,0 Q0.14,0.14 0,1 Q-0.14,0.14 -1,0 Q-0.14,-0.14 0,-1Z"/>
+</svg>

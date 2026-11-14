@@ -1,4 +1,4 @@
-// Personal keys for sending data to ג׳ימי from outside the app — first the
+// Personal keys for sending data to ג׳יני from outside the app — first the
 // iPhone steps shortcut (api/steps.js), later the Claude connector (M11).
 //
 // A key is `gymi.<uid>.<secret>`, shown to the user once. Only a SHA-256

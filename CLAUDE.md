@@ -1,6 +1,7 @@
-# ג׳ימי (Gym app) — instructions for Claude Code
+# ג׳יני (Jini, formerly ג׳ימי) — instructions for Claude Code
 
 ## What this app is
+The app is called **ג׳יני** (Jini; renamed from ג׳ימי on 2026-11-13). She is a personal assistant, so Hebrew copy speaks of her in the feminine ("ג׳יני זוכרת"). Code identifiers and stored data keep `gymi`, and the iPhone shortcut names keep "ג׳ימי" until ירין republishes them.
 A personal training, nutrition, sleep, habits and tasks PWA in Hebrew (RTL). Live at https://gym-yarin9.vercel.app.
 It is becoming a gamified daily hub that friends can also use, each with their own Claude as a coach.
 

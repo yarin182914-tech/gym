@@ -1,5 +1,5 @@
 // The Claude connector's tools (M11): what each user's Claude can read and
-// write in their own ג׳ימי. Every handler gets ctx = { store, uid, now,
+// write in their own ג׳יני. Every handler gets ctx = { store, uid, now,
 // lastCheckAt, markChecked } — `store` (api/_lib/store.js) is the only
 // thing that touches Firestore, and every call carries the key's own uid,
 // so a tool can't reach another user's data. No delete tools.

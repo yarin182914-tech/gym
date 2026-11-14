@@ -34,7 +34,7 @@ async function createEvent(io, uid, taskId, event) {
   return r.data.id;
 }
 
-// Deletes only an event ג׳ימי made: its own id, or one carrying the mark.
+// Deletes only an event ג׳יני made: its own id, or one carrying the mark.
 async function deleteEvent(io, uid, taskId, eventId) {
   const path = `/${encodeURIComponent(eventId)}`;
   if (eventId !== eventIdFor(uid, taskId)) {

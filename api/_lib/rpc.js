@@ -5,11 +5,11 @@
 
 import { toolList, callTool } from './tools.js';
 
-export const SERVER_INFO = { name: 'gymi', title: 'ג׳ימי', version: '1.0.0' };
+export const SERVER_INFO = { name: 'gymi', title: 'ג׳יני', version: '1.0.0' };
 const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 
 export const INSTRUCTIONS = [
-  'ג׳ימי is the user\'s own training, nutrition, sleep and habits app (Hebrew). These tools read and write only this user\'s data.',
+  'ג׳יני (Jini) is the user\'s own training, nutrition, sleep and habits app (Hebrew). These tools read and write only this user\'s data.',
   'Dates are Israel dates (yyyy-mm-dd) and times are Israel time. A night of sleep is keyed by the morning.',
   'For the evening check, call get_changes once, then get_today.',
   'Before any write (log_*, mark_habit), show the user exactly what will be saved, in Hebrew, and wait for an explicit yes — unless they just asked for that exact entry. There is no undo and no delete here; deleting is done in the app.',
