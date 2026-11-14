@@ -11,22 +11,46 @@
 //
 // The banner can be dismissed for good; ⚙ settings keeps "התקנת האפליקציה"
 // for as long as the app runs in a browser (installApp below).
+//
+// The first screen (js/ui/welcome.js) offers the same install before
+// sign-in: watchInstallOffer tells it which button fits this browser, and
+// when that changes (Chrome's prompt can arrive after the screen is drawn).
 
 import { icon } from './icon.js';
 import { openBottomSheet } from './bottom-sheet.js';
+import { detectPlatform, installOffer } from '../lib/platform.js';
 
 const DISMISS_KEY = 'gym-install-banner-dismissed-v1';
 let deferredPrompt = null;
 let appEntered = false;
 let bannerEl = null;
+let installed = false;
+const offerListeners = new Set();
 
-const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent)
-  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPadOS reports as a Mac
+const platform = () => detectPlatform(navigator);
+const isIOS = () => platform().os === 'ios';
 
 // matchMedia covers Android/desktop Chrome; navigator.standalone is the
 // legacy iOS Safari equivalent. Either means it's already installed.
 export function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+
+// 'prompt' | 'steps' | null — see installOffer in js/lib/platform.js.
+function currentOffer() {
+  return installOffer({ platform: platform(), standalone: installed || isStandalone(), hasPrompt: !!deferredPrompt });
+}
+
+function notifyOffer() {
+  const offer = currentOffer();
+  offerListeners.forEach((listener) => listener(offer));
+}
+
+// Calls back now and on every change; returns the way to stop listening.
+export function watchInstallOffer(listener) {
+  offerListeners.add(listener);
+  listener(currentOffer());
+  return () => offerListeners.delete(listener);
 }
 
 function eligible() {
@@ -44,10 +68,14 @@ export function captureInstallPrompt() {
     e.preventDefault();
     deferredPrompt = e;
     if (appEntered) showBanner();
+    notifyOffer();
   });
   window.addEventListener('appinstalled', () => {
-    localStorage.setItem(DISMISS_KEY, '1');
+    installed = true;
+    deferredPrompt = null;
+    try { localStorage.setItem(DISMISS_KEY, '1'); } catch { /* blocked storage */ }
     hideBanner();
+    notifyOffer();
   });
 }
 
@@ -66,6 +94,7 @@ export async function installApp() {
     await deferredPrompt.userChoice; // a captured prompt can only be used once
     deferredPrompt = null;
     hideBanner();
+    notifyOffer();
     return;
   }
   openInstallSteps();
