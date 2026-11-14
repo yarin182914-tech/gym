@@ -115,9 +115,6 @@ check('not for tomorrow, repeating, done or with no time', [
   task({ timing: 'day', scheduledAt: noon(TODAY), status: 'done', doneAt: NOW }),
   task({ timing: 'claude' }),
 ].map((t) => T.canPostpone(t, TODAY)), [false, false, false, false]);
-const moved = T.postponePatch(task({ timing: 'exact', scheduledAt: T.atTime('2026-11-08', '18:30'), postponeCount: 1 }), TODAY);
-check('"מחר" keeps the hour and counts the move', [moved.scheduledAt.getTime(), moved.postponeCount], [T.atTime('2026-11-11', '18:30').getTime(), 2]);
-check('"מחר" for a day → tomorrow noon', T.postponePatch(task({ timing: 'day', scheduledAt: noon(TODAY) }), TODAY).scheduledAt.getTime(), noon('2026-11-11').getTime());
 
 if (failed) {
   console.log(`\n${failed} failed`);

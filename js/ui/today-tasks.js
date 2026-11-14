@@ -17,6 +17,7 @@ import { esc } from '../core/dom.js';
 import { icon } from './icon.js';
 import { showToast } from './toast.js';
 import { runQuickAction } from './quick-add.js';
+import { IMPORTANT_DOT } from './task-sheet.js';
 
 // host: an element on the home screen. Returns { refresh } for re-renders
 // of the screen that rebuild the host.
@@ -51,7 +52,7 @@ export function mountTodayTasks(host) {
             <div class="task-row-main">
               <button type="button" class="task-check${isDone ? ' task-check--done' : ''}" data-today-task="${esc(t.id)}" aria-pressed="${isDone}" aria-label="${esc(`${isDone ? 'לבטל סימון' : 'סיום'}: ${t.title}`)}">${isDone ? icon('check', { className: 'icon--sm' }) : ''}</button>
               <button type="button" class="task-row-body" data-tasks-all>
-                <span class="task-title">${esc(t.title)}</span>
+                <span class="task-title">${t.important ? IMPORTANT_DOT : ''}${esc(t.title)}</span>
                 ${when ? `<span class="task-when">${esc(when)}</span>` : ''}
               </button>
             </div>

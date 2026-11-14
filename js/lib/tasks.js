@@ -249,17 +249,6 @@ export function canPostpone(t, today = todayKey()) {
   return !!at && at <= today;
 }
 
-// What "מחר" changes: tomorrow (from today, even if it was due earlier), at
-// the same time for a timed task; counts toward "moved 3 times".
-export function postponePatch(t, today = todayKey()) {
-  const next = noonOf(shiftDays(today, 1));
-  if (t.timing === 'exact' && t.scheduledAt) {
-    const from = toDate(t.scheduledAt);
-    next.setHours(from.getHours(), from.getMinutes(), 0, 0);
-  }
-  return { scheduledAt: next, postponeCount: t.postponeCount + 1 };
-}
-
 // One line under the title: when, and what's due.
 export function whenText(t, today = todayKey()) {
   if (t.type === 'daily') {

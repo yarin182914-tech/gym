@@ -10,17 +10,20 @@ import { mountDateField, mountTimeField } from './date-time-picker.js';
 import { confirmDialog } from './confirm-dialog.js';
 import { icon } from './icon.js';
 import { esc } from '../core/dom.js';
-import { dateKey } from '../lib/sleep.js';
+import { dateKey, shiftDays } from '../lib/sleep.js';
 import { toDate } from '../lib/format.js';
 import {
   AREAS, OWNERS, SIZES, SIZE_HINTS, TYPES, TIMINGS, normalizeTask, noonOf, atTime, weekOf, importantOn,
-  scheduledKey, dueKey,
+  scheduledKey, dueKey, canPostpone,
 } from '../lib/tasks.js';
 import { TASKS } from '../lib/rules.js';
 
 const FAR = '2099-12-31';
 const WEEKDAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 const pad = (n) => String(n).padStart(2, '0');
+
+// The dot before an important task's name, on every list of tasks.
+export const IMPORTANT_DOT = '<span class="task-dot" role="img" aria-label="חשובה"></span>';
 
 function pill(attr, value, label, active) {
   return `<button type="button" class="pill${active ? ' active' : ''}" ${attr}="${esc(value)}" aria-pressed="${active}">${label}</button>`;
@@ -59,7 +62,9 @@ export function openQuickTask({ onSave, onMore }) {
 
 // task: the stored task to edit, or null for a new one (prefill: fields to
 // start a new one with). tasks: every task, for the important-a-day limit.
-export function openTaskSheet({ task = null, prefill = {}, tasks = [], newId, onSave, onDelete }) {
+// inCalendar: the task has an event in Google Calendar. onSave also gets
+// postponed: true when "מחר" saved it.
+export function openTaskSheet({ task = null, prefill = {}, tasks = [], newId, inCalendar = false, onSave, onDelete }) {
   const isNew = !task;
   const today = dateKey(new Date());
   const base = normalizeTask(task || { ...prefill, timing: prefill.timing ?? 'claude' });
@@ -81,6 +86,9 @@ export function openTaskSheet({ task = null, prefill = {}, tasks = [], newId, on
         const once = draft.type === 'once';
         const dayFor = once && (draft.timing === 'exact' || draft.timing === 'day') ? draft.date : once && draft.timing === 'week' ? null : today;
         const busy = draft.important && dayFor ? importantOn(tasks, dayFor, base.id) >= TASKS.maxImportantPerDay : false;
+        // "מחר" (M14a: moved here from the list): for a task whose day has
+        // come, while the form still gives it a day or a time.
+        const offerTomorrow = !isNew && canPostpone(base, today) && once && (draft.timing === 'exact' || draft.timing === 'day');
         body.innerHTML = `
           <h3 style="margin:0 0 10px; color:var(--text);">${isNew ? 'משימה חדשה' : 'עריכת משימה'}</h3>
           <input type="text" class="search-bar" data-t-title maxlength="120" placeholder="מה צריך לעשות?" value="${esc(draft.title)}">
@@ -108,6 +116,7 @@ export function openTaskSheet({ task = null, prefill = {}, tasks = [], newId, on
             <div class="pill-row">${Object.entries(TIMINGS).map(([k, l]) => pill('data-t-timing', k, l, draft.timing === k)).join('')}</div>
             ${draft.timing === 'exact' || draft.timing === 'day' ? '<div class="task-when-row"><div data-t-date></div><div data-t-time></div></div>' : ''}
             ${draft.timing === 'claude' ? '<p class="task-note">נכנסת לתור "מחכה לשיבוץ". קלוד יציע לה זמן בבדיקת הערב.</p>' : ''}
+            ${inCalendar ? `<p class="task-note task-in-calendar">${icon('calendar-days', { className: 'icon--sm' })} ביומן גוגל</p>` : ''}
 
             <div class="sheet-field-label">תאריך יעד</div>
             <div class="task-when-row">
@@ -125,6 +134,7 @@ export function openTaskSheet({ task = null, prefill = {}, tasks = [], newId, on
 
           <div class="sheet-actions">
             ${isNew ? '' : `<button type="button" class="btn btn-secondary" data-t-someday>${draft.status === 'someday' ? 'להחזיר לרשימה' : 'למתישהו'}</button>`}
+            ${offerTomorrow ? '<button type="button" class="btn btn-secondary" data-t-tomorrow>מחר</button>' : ''}
             <button type="button" class="btn btn-primary" data-t-save>שמירה</button>
           </div>
           ${isNew ? '' : `<button type="button" class="btn-link task-delete" data-t-delete>${icon('trash-2', { className: 'icon--sm' })} מחיקת המשימה</button>`}`;
@@ -175,6 +185,10 @@ export function openTaskSheet({ task = null, prefill = {}, tasks = [], newId, on
         else if (d.tSomeday !== undefined) {
           draft.status = draft.status === 'someday' ? 'open' : 'someday';
           return save();
+        } else if (d.tTomorrow !== undefined) {
+          // Tomorrow, at the same hour for a timed task; save() counts the move.
+          draft.date = shiftDays(today, 1);
+          return save({ postponed: true });
         } else if (d.tSave !== undefined) return save();
         else if (d.tDelete !== undefined) {
           const ok = await confirmDialog({ title: 'למחוק את המשימה?', message: 'הנקודות שכבר קיבלת עליה נשארות.', confirmLabel: 'מחיקה', danger: true });
@@ -187,7 +201,7 @@ export function openTaskSheet({ task = null, prefill = {}, tasks = [], newId, on
         render();
       });
 
-      function save() {
+      function save({ postponed = false } = {}) {
         const title = draft.title.trim();
         if (!title) {
           body.querySelector('[data-t-title]').focus();
@@ -221,7 +235,7 @@ export function openTaskSheet({ task = null, prefill = {}, tasks = [], newId, on
           } : {}),
         };
         sheet.close();
-        onSave({ id: isNew ? newId() : base.id, data, isNew });
+        onSave({ id: isNew ? newId() : base.id, data, isNew, postponed });
       }
 
       render();
