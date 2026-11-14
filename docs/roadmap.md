@@ -1,4 +1,4 @@
-# Build roadmap — ג׳ימי upgrade
+# Build roadmap — ג׳יני (formerly ג׳ימי) upgrade
 
 Each milestone = one branch + one PR. Build them in order; each one must leave the live app working.
 Section names in quotes refer to headings in `docs/upgrade-plan.md` (Hebrew).
@@ -167,7 +167,7 @@ Asked by ירין 2026-11-12: a Claude review of the app found the UX/UI "לא �
 - Rules: `TODAY.hintMarkedDays` in `js/lib/rules.js`. Pure logic with tests: Hebrew counts (`js/lib/plural.js`), the + sheet's first action (`js/lib/quick-actions.js`), a task row's line.
 - Done when: Today with the sample data is at most a screen and a half at 390px, the first task shows without scrolling, every action that existed is still reachable, in every theme, and ירין approves before/after screenshots.
 
-## M14b ◐ UX/UI cleanup — the other screens — `feature/m14b-screens`
+## M14b ☑ UX/UI cleanup — the other screens — `feature/m14b-screens`
 The second half of `docs/specs/ux-cleanup.md`, the section "M14b — ה-PR השני". After M14a (merged, PR #43). ירין answered its questions on 2026-11-14: badges earned and the next one per area, only active streaks, the weigh-in on top until it is logged, a connection that isn't connected yet is closed with a "לחבר" button.
 - Data: none.
 - UI: תזונה (the weigh-in on top only until logged, then the ring with a protein line, "הוספת ארוחה" and the meals; carbs, fat and "נכנס מול יוצא" under them), שינה (7 nights, then "עוד לילות"; the trend under the list), התקדמות (the current and the next level, active streaks, badges earned and next, the rest behind closed rows), היסטוריה (the list first, the calendar behind a "לוח שנה" button), חיבורים (every card is one closed row: a status line when connected, one sentence and "לחבר" when not).
@@ -189,8 +189,8 @@ The Today part of `docs/specs/gold-look.md`, the section "M4c2 — מה נכנס
 - Done when: Today matches the mockup's top (greeting, level card, three rings) with real data, also offline; a ring with no data is grey, never red; a mark that gives points shows the shine and the "+N" tag, and nothing moves under "reduce motion"; all of it in DARK, BRIGHT and the five RANDOM palettes.
 - Later: M10's minimal mode hides the ring of a domain that is switched off; M14 shortens what sits under the rings.
 
-## M0b ☐ Name and first screen — `feature/m0b-first-screen`
-Growth review, phase "עכשיו". Spec: `docs/specs/first-screen.md`. After M0a and M14 (with the M4c base).
+## M0b ◐ Name and first screen — `feature/m0b-first-screen`
+Growth review, phase "עכשיו". Spec: `docs/specs/first-screen.md`. After M0a and M14 (with the M4c base), both merged. ירין settled the texts on 2026-11-14: the sleep and nutrition lines are two short sentences, the calendar line says it is connected once, "יום חסד" is out (not built yet), the privacy page keeps "אין פרסומות" and "למפתח יש גישה טכנית", and a delete request goes to "מי שהזמין אותך".
 - Data: new user docs no longer get `weddingDate` (old ones keep it). No rules change.
 - UI: (the name itself already changed in M0a.) A welcome screen for signed-out users: the logo, "כי מישהו צריך לנהל לך את החיים", and five areas (sleep, nutrition, movement, tasks, habits) that each open to 3–4 lines with a hook. An install button there (Chrome's prompt with screenshots on Android, the steps on iPhone), a professional "ההתחברות כפופה למדיניות הפרטיות" line, and a draft `privacy.html`. `import-30-7.html` moves to `_archive/`, and `_archive/` stops being served.
 - Done when: a new user sees no wedding and no "ג׳ימי" anywhere, every area opens, install works from the first screen on Android and iPhone, and the privacy link works, at 390px in every theme.

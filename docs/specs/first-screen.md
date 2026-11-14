@@ -1,5 +1,5 @@
 # שם ומסך ראשון
-Milestone: M0b · Branch: feature/m0b-first-screen · Status: draft (built after M0a, the logo, and M14, the UX cleanup with the M4c "זהב" base)
+Milestone: M0b · Branch: feature/m0b-first-screen · Status: built 2026-11-14, PR open (texts and open questions settled by ירין the same day; the name itself already changed in M0a)
 Requested by ירין on 2026-11-12, after the growth review (https://claude.ai/artifact/WkCqJqGnTUW3rM1kjHskuZ), as the first step of the "עכשיו" readiness phase before the pilot.
 Changes by ירין on 2026-11-13:
 - Welcome copy: "ג'ימי / כי מישהו צריך לנהל לך את החיים / ואז אפשר שורה לכל פיצ'ר מרכזי שזה השינה, תזונה, תנועה, יומן משימות והרגלים".
@@ -21,17 +21,19 @@ Changes by ירין on 2026-11-13:
 1. הלוגו מ־M0a.
 2. **ג׳יני** (כותרת גדולה).
 3. "כי מישהו צריך לנהל לך את החיים" (שורת משנה).
-4. חמש שורות סגורות, אחת לכל תחום: אייקון, שם התחום ושאלה אחת שתופסת את העין. לחיצה פותחת מתחת 3–4 שורות. רק אחת פתוחה בכל רגע, ולחיצה נוספת סוגרת. כל מה שכתוב כבר עובד באפליקציה היום: לא מבטיחים דברים שעוד לא נבנו, כמו ארוחה מצילום. הטקסט (לאישור ירין):
+4. חמש שורות סגורות, אחת לכל תחום: אייקון, שם התחום ושאלה אחת שתופסת את העין. לחיצה פותחת מתחת 3–4 שורות. רק אחת פתוחה בכל רגע, ולחיצה נוספת סוגרת. כל מה שכתוב כבר עובד באפליקציה היום: לא מבטיחים דברים שעוד לא נבנו, כמו ארוחה מצילום. הטקסט (אושר על ידי ירין ב־2026-11-14, אחרי בדיקה של כל משפט מול האפליקציה):
    - **שינה** (ירח) · "ישנת מספיק?"
-     "רושמים את הלילה בשתי שניות, וג׳יני משווה לשעה שקבעת ולמינימום השעות שלך. חמישי ושישי גמישים, כי ככה החיים. גרף של שבועיים ושל חודש מראה אם שעת השינה זזה, ועל כל לילה בזמן מקבלים נקודות."
+     "רושמים את הלילה בשתי שניות, וג׳יני משווה לשעה שקבעת. גרף של שבועיים או חודש מראה אם שעת השינה זזה."
    - **תזונה** (סכו״ם) · "כמה חלבון חסר לך היום?"
-     "ג׳יני מראה קלוריות וחלבון מול היעד, והיעד גדל ביום שהלכת יותר או התאמנת. שוקלים בבוקר ורואים מגמה של שבוע, ולא רק את המספר של היום. בלי לספור כל ביס: ארוחה אחרי ארוחה, והתמונה מתבהרת."
+     "קלוריות וחלבון מול היעד, והיעד גדל ביום שהלכת יותר או התאמנת. שוקלים בבוקר ורואים מגמה של שבוע, לא רק את המספר של היום."
    - **תנועה** (משקולת) · "מה הרמת בפעם הקודמת?"
      "ג׳יני זוכרת, ומראה את זה ליד כל תרגיל. שיא חדש מזוהה לבד, ושעון מנוחה רץ בין הסטים. כוח, ריצה, קרוספיט, פילאטיס, יוגה, שחייה ועוד. הצעדים מהאייפון נכנסים לבד."
    - **משימות ויומן** (רשימה) · "יותר מדי דברים בראש?"
-     "זורקים משימה בשורה אחת, ורואים מה להיום ומה חשוב מול מה דחוף. משימה עם שעה נכנסת ליומן גוגל לבד. משימה שנדחית שוב ושוב? ג׳יני שואלת מה תקוע, בלי להטיף. ולהחלטות שתוקעות אותך, יש טיימר של שתי דקות."
+     "זורקים משימה בשורה אחת, ורואים מה להיום ומה חשוב מול מה דחוף. מחברים את יומן גוגל פעם אחת, ומשימה עם שעה נכנסת אליו לבד. משימה שנדחית שוב ושוב? ג׳יני שואלת מה תקוע, בלי להטיף. ולהחלטות שתוקעות אותך, יש טיימר של שתי דקות."
    - **הרגלים** (חזרה) · "הרגל שמחזיק גם ביום עמוס?"
-     "לכל הרגל יש גרסה מלאה וגרסה מקוצרת, כך שגם יום עמוס נספר. רצפים, נקודות ורמות, ויום חסד כשמשהו מתפספס. וגם גמילה מהרגל רע: כפתור 'מעדתי' בלי אשמה, ושרשרת של ימים נקיים."
+     "לכל הרגל יש גרסה מלאה וגרסה מקוצרת, כך שגם יום עמוס נספר. רצפים, נקודות ורמות. וגם גמילה מהרגל רע: כפתור 'מעדתי' בלי אשמה, ושרשרת של ימים נקיים."
+
+   מה ירין שינה ב־2026-11-14: שינה ותזונה קוצרו לשתי שורות; במשימות, היומן נכנס "לבד" רק אחרי חיבור חד־פעמי; בהרגלים ירד "יום חסד", כי הוא עוד לא בנוי (הוא מופיע רק כטקסט ברמה 1).
 5. כפתור ראשי "התחברות עם Google". (הכניסה עם מייל מכל ספק מגיעה ב־M10.)
 6. כפתור משני להתקנה, רק כשאפשר:
    - אנדרואיד (וכרום במחשב): "התקנה למסך הבית" פותח את חלון ההתקנה של כרום. באנדרואיד החלון מראה גם תיאור ו־3 צילומי מסך של ג׳יני.
@@ -46,12 +48,12 @@ Changes by ירין on 2026-11-13:
 - חלקים ממוספרים.
 - "חזרה לג׳יני" למעלה ולמטה.
 
-אותה ערכת צבעים כמו האפליקציה. הטקסט (לאישור ירין):
+אותה ערכת צבעים כמו האפליקציה. הטקסט (אושר על ידי ירין ב־2026-11-14):
 1. **מה נשמר:** Google מעבירה לג׳יני את השם והמייל של החשבון שאיתו נכנסת. חוץ מזה נשמר רק מה שרושמים: אימונים, ארוחות, שקילות, שינה, הרגלים, משימות והחלטות.
 2. **איפה:** בשרתים של Google Firebase. עותק נשמר גם בטלפון, כדי שג׳יני תעבוד בלי קליטה.
 3. **מי רואה:** משתמשים אחרים לא רואים את המידע שלך. למפתח של ג׳יני יש גישה טכנית לשרת, לצורך תחזוקה ותיקון תקלות. אין פרסומות, והמידע לא נמכר ולא מועבר הלאה. חריג אחד: מה שכותבים ב"משוב" גלוי לכל המשתמשים, עם השם שלך.
 4. **חיבורים:** קלוד, יומן גוגל וקיצורי האייפון עובדים רק אם חיברת אותם בעצמך ב"חיבורים". כל אחד מהם אפשר לנתק בכל רגע.
-5. **מחיקה:** אפשר לבקש מירין למחוק את כל המידע שלך. כפתור מחיקה בתוך ג׳יני יגיע בהמשך.
+5. **מחיקה:** כדי למחוק את כל המידע שלך, פונים למי שהזמין אותך לג׳יני. כפתור מחיקה בתוך ג׳יני יגיע בהמשך. (ירין 2026-11-14: בלי שם ובלי מייל בדף ציבורי, בזמן הפיילוט.)
 6. **שינויים:** "זו טיוטה. המדיניות המלאה תגיע לפני שג׳יני תיפתח לכולם."
 
 **השם ג׳יני** מופיע:
@@ -93,12 +95,21 @@ Changes by ירין on 2026-11-13:
   - What to offer is pure logic in a new `js/lib/platform.js` (`detectPlatform`, `installOffer`). It is tested in `tools/test-platform.mjs`: iPhone, an iPad that reports as a Mac, Android, desktop, and already installed.
   - The existing banner after sign-in stays as it is.
 - **Rich install on Android:** `manifest.json` gets `screenshots`, so Chrome shows its larger install sheet. These are 3 phone shots (`form_factor: "narrow"`) from the `?dev` sample data, in DARK, in `images/screenshots/`.
+  - As built: `today.jpg`, `progress.jpg` (the strength chart of one exercise) and `nutrition.jpg`, each 780×1688. The workout screen itself is empty in the sample data, so the chart stands in for it.
 - **Privacy page:** a static `privacy.html` at the root. It uses the same tokens and `js/theme-boot.js`, has no Firebase, and works offline once cached.
 - **`import-30-7.html`:**
   - It moves to `_archive/` and gets a row in `_archive/README.md`.
   - A new `.vercelignore` with `_archive/` stops the folder from being served. Today `/_archive/*` answers 200 on the live site, `migrate.html` included.
   - On the preview, `/_archive/README.md` must not answer 200. If Vercel ignores the file for Git deploys, a redirect in `vercel.json` does the same job.
 - **Service worker:** the cache name is bumped, so the new manifest and screen arrive on the next open.
+  - As built: `gym-site-v11`, and `privacy.html` and the logo join the precached shell.
+- **As built, beyond the notes above:**
+  - `?dev&welcome` shows the first screen in the sandbox (localhost and branch previews). Its sign-in button walks into the sample data.
+  - An iPhone browser that is not Safari (Chrome, or a link opened inside Instagram and the like) gets no install button, since the steps describe Safari.
+  - Closing Google's sign-in window is not reported as an error. Any other sign-in failure still is.
+  - The first screen starts from the top of the page, not the middle, so opening an area pushes only what is under it.
+  - The styles of the first screen and of `privacy.html` are in `css/03-components.css` (`.welcome…`, `.legal-…`). `.auth-screen` stays in `css/02-base.css`.
+  - `tools/build-deploy.sh` copies `privacy.html` too.
 
 ## לא בגרסה הזאת
 - הלוגו עצמו: M0a. ניקוי ה־UX והמראה "זהב": M14 (עם M4c).
@@ -121,5 +132,5 @@ Changes by ירין on 2026-11-13:
 - `tools/check.sh` וכל הבדיקות עוברים, כולל `tools/test-platform.mjs`.
 
 ## שאלות פתוחות
-- הטקסטים של התחומים ושל דף הפרטיות מאושרים כמו שהם? במיוחד "אין פרסומות, והמידע לא נמכר" ו"למפתח יש גישה טכנית".
+- נסגר (ירין 2026-11-14): הטקסטים של התחומים אושרו עם השינויים שלמעלה. בדף הפרטיות, "אין פרסומות, והמידע לא נמכר" ו"למפתח יש גישה טכנית" נשארים כמו שכתוב, ובקשת מחיקה היא "פונים למי שהזמין אותך".
 - שמות כפתורי ההתקנה באנדרואיד בעברית ("התקנת אפליקציה" / "הוספה למסך הבית") לא נבדקו על טלפון אנדרואיד בעברית. תהיה הערה ב־PR.
