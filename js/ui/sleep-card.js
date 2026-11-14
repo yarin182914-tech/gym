@@ -21,6 +21,7 @@ import { openNightSheet, saveNight, nightPreview, nightName, DURATION_TEXT } fro
 import { showToast } from './toast.js';
 import { icon } from './icon.js';
 import { esc } from '../core/dom.js';
+import { countHe } from '../lib/plural.js';
 
 const WEEKDAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
 const WEEKDAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
@@ -106,7 +107,7 @@ export function createSleepCard(nights, userDoc, { onChange, onSettingsChange } 
       <div class="sleep-head">
         <span class="sleep-title">${icon('moon', { className: 'icon--sm' })} שינה</span>
         <span class="sleep-sub">אתמול בלילה${nightRules(key, settings).flexible ? ' · גמיש' : ''}</span>
-        ${streak ? `<span class="sleep-streak" aria-label="${streak} לילות ברצף">${icon('flame', { className: 'icon--sm' })}<span class="num">${streak}</span></span>` : ''}
+        ${streak ? `<span class="sleep-streak" aria-label="${countHe(streak, 'לילה', 'לילות')} ברצף">${icon('flame', { className: 'icon--sm' })}<span class="num">${streak}</span></span>` : ''}
         <button type="button" class="app-bar-btn sleep-settings-btn" data-sleep-settings aria-label="הגדרות שינה">${icon('settings', { className: 'icon--sm' })}</button>
       </div>
       ${last ? (() => {

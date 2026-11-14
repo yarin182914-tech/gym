@@ -1,7 +1,8 @@
 // "שינה" — the sleep tab: the same sleep card as on "היום" (last night,
-// this week), and under it the last 30 nights. A night not logged is a grey
-// row with "לרשום", never a gap; tapping any row opens the card's night
-// sheet to log it, fix it or delete it.
+// this week), under it the last week of nights ("עוד לילות" opens the last
+// 30 — M14b), and then the trend charts. A night not logged is a grey row
+// with "לרשום", never a gap; tapping any row opens the card's night sheet
+// to log it, fix it or delete it.
 
 import { getUserSettings, listSleep } from '../lib/firestore.js';
 import {
@@ -24,6 +25,7 @@ let nights = [];
 let settings = sleepSettings();
 let stopQuickActions = null;
 let trend = null; // the "מגמה" charts
+let showAll = false; // "עוד לילות" is open; closed again on every visit
 
 // A canvas chart doesn't follow CSS colour changes — redraw on a theme flip.
 window.addEventListener('gym-theme-change', () => trend?.redraw());
@@ -60,12 +62,17 @@ export async function mountSleep(rootEl) {
   });
   container.innerHTML = `
     <div id="sleep-slot"></div>
-    <section data-sleep-trend aria-label="מגמה"></section>
-    <section data-sleep-log aria-label="30 לילות אחרונים"></section>`;
+    <section data-sleep-log aria-label="לילות אחרונים"></section>
+    <section data-sleep-trend aria-label="מגמה"></section>`;
   container.querySelector('#sleep-slot').replaceWith(sleepCard);
   container.querySelector('[data-sleep-log]').addEventListener('click', (e) => {
     const row = e.target.closest('[data-night]');
     if (row) sleepCard.openNight(row.dataset.night);
+    if (e.target.closest('[data-sleep-more]')) {
+      showAll = !showAll;
+      renderLog();
+      container.querySelector('[data-sleep-more]')?.focus({ preventScroll: true });
+    }
   });
   renderLog();
   trend = mountSleepTrend(container.querySelector('[data-sleep-trend]'), {
@@ -86,25 +93,32 @@ export function unmountSleep() {
   container = null;
   sleepCard = null;
   nights = [];
+  showAll = false;
 }
 
 function renderLog() {
   const host = container?.querySelector('[data-sleep-log]');
   if (!host) return;
   const today = todayKey();
-  const keys = Array.from({ length: SLEEP.historyNights }, (_, i) => shiftDays(today, -i));
+  const count = showAll ? SLEEP.historyNights : Math.min(SLEEP.logNights, SLEEP.historyNights);
+  const keys = Array.from({ length: count }, (_, i) => shiftDays(today, -i));
   const byDate = new Map(nights.map((n) => [n.date, n]));
   const logged = keys.map((k) => byDate.get(k)).filter(Boolean);
   const avg = logged.length ? logged.reduce((sum, n) => sum + n.durationMin, 0) / logged.length : 0;
 
   host.innerHTML = `
     <div class="sleep-log-head">
-      <h2 class="sleep-log-title">${SLEEP.historyNights} לילות אחרונים</h2>
+      <h2 class="sleep-log-title">${count} לילות אחרונים</h2>
       <span class="sleep-log-sub">${logged.length
-        ? `<span class="num">${logged.length}</span> נרשמו · ממוצע <span class="num">${formatDuration(avg)}</span>`
+        ? `<span class="num">${logged.length}</span> מתוך <span class="num">${count}</span> נרשמו · ממוצע <span class="num">${formatDuration(avg)}</span>`
         : 'עוד לא נרשמו לילות'}</span>
     </div>
-    <div class="sleep-log" role="list">${keys.map((key) => row(key, byDate.get(key))).join('')}</div>`;
+    <div class="sleep-log" role="list">${keys.map((key) => row(key, byDate.get(key))).join('')}</div>
+    ${SLEEP.logNights < SLEEP.historyNights ? `
+    <button type="button" class="today-more" data-sleep-more aria-expanded="${showAll}">
+      <span>${showAll ? 'פחות לילות' : 'עוד לילות'}</span>
+      ${icon('chevron-down', { className: 'icon--sm' })}
+    </button>` : ''}`;
 }
 
 // A night is named by its evening, dated by its morning.

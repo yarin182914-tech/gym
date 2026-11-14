@@ -14,6 +14,7 @@ import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 import { cardioActivity, summarizeSegments, formatSummary, formatKm } from '../lib/cardio.js';
 import { mountBodyWeightHistory } from '../ui/body-weight-history.js';
 import { workoutSwitch } from '../ui/workout-switch.js';
+import { countHe } from '../lib/plural.js';
 import {
   workoutKind, workoutLabel, exerciseKind, resolveType, sessionSummary,
 } from '../lib/workout-types.js';
@@ -34,6 +35,8 @@ let expandedMonths = new Set();
 // so the two views can never show contradictory state.
 let selectedDate = null;
 let calendarMonth = new Date();
+// The month calendar waits behind the "לוח שנה" chip; closed on every visit.
+let calendarOpen = false;
 let hintTimeoutId = null;
 // workoutId -> { detailEl, chevronEl, rootEl } — built once per render(),
 // patched in place on expand/collapse so toggling one row never touches any
@@ -78,6 +81,7 @@ export function unmountHistory() {
   expandedMonths = new Set();
   selectedDate = null;
   calendarMonth = new Date();
+  calendarOpen = false;
   if (hintTimeoutId) clearTimeout(hintTimeoutId);
   hintTimeoutId = null;
   rowRefs = new Map();
@@ -102,6 +106,8 @@ function groupByMonth(list) {
   return groups;
 }
 
+// The view switch and, on the workouts view, the quiet "לוח שנה" chip that
+// opens the month calendar above the list (M14b: the list comes first).
 function viewToggle() {
   return `<div class="history-view-toggle">${toggleGroup({
     name: 'history-view',
@@ -109,7 +115,50 @@ function viewToggle() {
     label: 'תצוגה',
     groupAttrs: 'data-history-view',
     options: [{ value: 'workouts', label: 'אימונים' }, { value: 'weight', label: 'משקל' }],
-  })}</div>`;
+  })}${historyView === 'workouts' ? `
+    <button type="button" class="btn-mini-dashed history-cal-btn${calendarOpen ? ' active' : ''}" data-cal-toggle aria-expanded="${calendarOpen}" aria-controls="history-cal">
+      ${icon('calendar-days', { className: 'icon--sm' })} לוח שנה
+    </button>` : ''}</div>`;
+}
+
+function calendarCard() {
+  return `
+    <div class="card">
+      <div class="row" style="margin-bottom:10px;">
+        <button class="btn btn-secondary" id="cal-prev" aria-label="החודש הקודם">${icon('chevron-right', { className: 'icon--sm' })}</button>
+        <h3 id="cal-heading" style="margin:0;">${formatMonthHe(calendarMonth)}</h3>
+        <button class="btn btn-secondary" id="cal-next" aria-label="החודש הבא">${icon('chevron-left', { className: 'icon--sm' })}</button>
+      </div>
+      <div id="cal-grid" style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center;"></div>
+      <div id="cal-hint" class="text-muted" style="font-size:var(--text-sm); text-align:center; min-height:1.2em; margin-top:6px; opacity:0; transition:opacity 0.2s ease;"></div>
+    </div>`;
+}
+
+// Fills or empties the calendar's place; the list under it isn't touched.
+function mountCalendar() {
+  const slot = container?.querySelector('#history-cal');
+  if (!slot) return;
+  slot.innerHTML = calendarOpen ? calendarCard() : '';
+  if (!calendarOpen) return;
+  renderCalendar();
+  slot.querySelector('#cal-prev').addEventListener('click', () => {
+    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
+    animateCalendarChange();
+  });
+  slot.querySelector('#cal-next').addEventListener('click', () => {
+    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
+    animateCalendarChange();
+  });
+}
+
+function wireCalendarToggle() {
+  const btn = container.querySelector('[data-cal-toggle]');
+  btn.addEventListener('click', () => {
+    calendarOpen = !calendarOpen;
+    btn.classList.toggle('active', calendarOpen);
+    btn.setAttribute('aria-expanded', String(calendarOpen));
+    mountCalendar();
+  });
 }
 
 function wireViewToggle() {
@@ -138,20 +187,13 @@ function render() {
   container.innerHTML = `
     ${workoutSwitch('history')}
     ${viewToggle()}
-    <div class="card">
-      <div class="row" style="margin-bottom:10px;">
-        <button class="btn btn-secondary" id="cal-prev" aria-label="החודש הקודם">${icon('chevron-right', { className: 'icon--sm' })}</button>
-        <h3 id="cal-heading" style="margin:0;">${formatMonthHe(calendarMonth)}</h3>
-        <button class="btn btn-secondary" id="cal-next" aria-label="החודש הבא">${icon('chevron-left', { className: 'icon--sm' })}</button>
-      </div>
-      <div id="cal-grid" style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; text-align:center;"></div>
-      <div id="cal-hint" class="text-muted" style="font-size:var(--text-sm); text-align:center; min-height:1.2em; margin-top:6px; opacity:0; transition:opacity 0.2s ease;"></div>
-    </div>
+    <div id="history-cal"></div>
     <div id="workout-list"></div>
   `;
 
   wireViewToggle();
-  renderCalendar();
+  wireCalendarToggle();
+  mountCalendar();
 
   const list = container.querySelector('#workout-list');
   if (workouts.length === 0) {
@@ -162,15 +204,6 @@ function render() {
       list.appendChild(buildMonthSection(key, group));
     }
   }
-
-  container.querySelector('#cal-prev').addEventListener('click', () => {
-    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1);
-    animateCalendarChange();
-  });
-  container.querySelector('#cal-next').addEventListener('click', () => {
-    calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1);
-    animateCalendarChange();
-  });
 }
 
 // A brief fade instead of an instant content swap — only the calendar itself
@@ -190,7 +223,8 @@ function animateCalendarChange() {
 }
 
 function renderCalendar() {
-  const grid = container.querySelector('#cal-grid');
+  const grid = container?.querySelector('#cal-grid');
+  if (!grid) return; // the calendar is closed
   const year = calendarMonth.getFullYear();
   const month = calendarMonth.getMonth();
   const firstDay = new Date(year, month, 1);
@@ -280,7 +314,7 @@ function openWorkoutPickerSheet(matches) {
           return `
             <button type="button" class="btn btn-secondary btn-block" data-pick-workout="${esc(w.id)}" style="margin-bottom:8px; justify-content:space-between;">
               <span>${esc(timeLabel)}</span>
-              <span class="text-muted">${exerciseCount} תרגילים</span>
+              <span class="text-muted">${countHe(exerciseCount, 'תרגיל', 'תרגילים')}</span>
             </button>`;
         }).join('')}
       `;
@@ -354,7 +388,7 @@ function kindSummary({ kind, cardio, strength, sessions, activities }, durationM
     if (text) parts.push(text);
     else if (durationMin) parts.push(`${durationMin} דק'`);
     if (burn) parts.push(burn);
-    return parts.join(' · ') || `${cardio.length} פעילויות`;
+    return parts.join(' · ') || countHe(cardio.length, 'פעילות', 'פעילויות', { feminine: true });
   }
   if (kind === 'session' && sessions.length === 1) {
     const ex = sessions[0];
@@ -364,8 +398,8 @@ function kindSummary({ kind, cardio, strength, sessions, activities }, durationM
     if (burn) parts.push(burn);
     return parts.join(' · ');
   }
-  if (strength.length) parts.push(`${strength.length} תרגילים`);
-  if (strength.length && !cardio.length) parts.push(`${sets} סטים`);
+  if (strength.length) parts.push(countHe(strength.length, 'תרגיל', 'תרגילים'));
+  if (strength.length && !cardio.length) parts.push(countHe(sets, 'סט', 'סטים'));
   if (cardio.length && cardioTotals.distanceKm) {
     parts.push(`${cardioActivity(activities[0]).name} ${formatKm(cardioTotals.distanceKm)} ק"מ`);
   }

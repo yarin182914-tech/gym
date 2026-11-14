@@ -6159,3 +6159,87 @@ body.keyboard-open .fab,
 .foot-stem {
   stroke: none;
 }
+
+/* ===== M14b: calmer screens — the main action first, the rest behind a
+   closed row (.today-more) or a chip (.btn-mini-dashed) ===== */
+
+/* Nutrition: the ring card also carries the protein line; the other macros
+   and "נכנס מול יוצא" open from the row under the meals. */
+.nut-ring-card {
+  text-align: center;
+}
+
+.nut-ring-protein {
+  margin-top: var(--space-3);
+  text-align: start;
+}
+
+.nut-more {
+  margin: 0 0 var(--space-3);
+}
+
+/* Sleep: the trend charts now follow the list of nights. */
+[data-sleep-log] + [data-sleep-trend] {
+  margin-top: var(--space-3);
+}
+
+/* Progress: "כל הרמות" sits right under the two levels shown. */
+.level-road + .today-more {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-2);
+}
+
+.progress-none {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.streak-list + .today-more,
+.today-more + .streak-list {
+  margin-top: var(--space-2);
+}
+
+/* History: the view switch with the "לוח שנה" chip beside it. */
+.history-view-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.history-view-toggle .toggle-group {
+  flex: 1;
+}
+
+.history-cal-btn {
+  flex: none;
+  gap: 4px;
+}
+
+/* Connections: a card's top row is a button that opens it. */
+.connection-toggle {
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: 0;
+  text-align: start;
+}
+
+.connection-chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-muted);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.connection-toggle[aria-expanded="true"] .connection-chevron {
+  transform: rotate(180deg);
+}
+
+/* "לחבר" on a card that isn't connected yet: the row's own call to action. */
+.connection-connect {
+  flex: none;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2-fill));
+  color: var(--gold-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}

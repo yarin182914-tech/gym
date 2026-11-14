@@ -14,6 +14,8 @@ export const SLEEP = {
   eveningFromHour: 12,
   // Nights listed on the "שינה" screen, this morning's included.
   historyNights: 30,
+  // Nights the list shows before "עוד לילות" opens the rest (M14b).
+  logNights: 7,
   // Settings for a user who hasn't set their own (users/{uid} fields).
   defaults: {
     sleepBedtimeTarget: '22:30',
@@ -292,6 +294,9 @@ export const REWARDS = {
   syncDelayMs: 300,
   // The "+10" floats from where you tapped if it was this recent.
   floatAnchorMs: 4000,
+  // Levels the progress screen shows before "כל הרמות" opens the road
+  // (M14b): the current one and the next.
+  roadLevelsShown: 2,
   levels: [
     { level: 1, name: 'צעד ראשון', min: 0, unlock: 'המסך הבסיסי ויום חסד אחד בשבוע' },
     { level: 2, name: 'בתנועה', min: 500, unlock: 'ערכת צבעים חדשה' },
