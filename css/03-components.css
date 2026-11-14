@@ -138,6 +138,15 @@
   color: var(--gold);
 }
 
+/* Open, or holding a choice: "יום אחר" with the day strip showing, "סינון"
+   with a filter picked. */
+.btn-mini-dashed.active {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--text);
+}
+
 /* ===== Stepper (weight / reps input) ===== */
 .stepper {
   display: inline-flex;
@@ -1358,7 +1367,7 @@ th {
    of chips clips it, so those rows get the same room as padding. */
 .toggle-group button,
 .workout-switch a,
-.task-add,
+.task-views button,
 .pill,
 .effort-chip,
 .timer-chip,
@@ -1369,7 +1378,7 @@ th {
 
 .toggle-group button::after,
 .workout-switch a::after,
-.task-add::after,
+.task-views button::after,
 .pill::after,
 .effort-chip::after,
 .timer-chip::after,
@@ -3158,7 +3167,7 @@ th {
 }
 
 .today-habits {
-  margin-top: var(--space-4);
+  margin-top: var(--space-3);
 }
 
 .today-section-head {
@@ -3180,9 +3189,49 @@ th {
   font-size: var(--text-sm);
 }
 
-.today-add {
+.today-head-btn {
   gap: 4px;
   margin-inline-start: auto;
+}
+
+/* "עוד 3 הרגלים · לא היום ומושהים": one closed row for what isn't for
+   today (M14a). */
+.today-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: var(--tap-min);
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.today-more .icon,
+.day-summary-chevron,
+.task-filter-btn .icon {
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.today-more[aria-expanded="true"] .icon,
+.day-summary-toggle[aria-expanded="true"] .day-summary-chevron,
+.task-filter-btn[aria-expanded="true"] .icon {
+  transform: rotate(180deg);
+}
+
+.today-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.today-empty p {
+  margin: 0;
 }
 
 .today-sub-head {
@@ -3194,7 +3243,7 @@ th {
 }
 
 .today-hint {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   text-align: center;
   font-size: var(--text-xs);
   color: var(--text-muted);
@@ -3731,6 +3780,15 @@ body:has(.sheet-overlay, .modal-overlay, .install-banner, [data-meal-form]) .fab
 body.keyboard-open .fab,
 #app.hidden ~ .fab {
   display: none;
+}
+
+/* The screen's own action: one wide row above the grid (M14a). */
+.quick-add-primary {
+  width: 100%;
+  min-height: 56px;
+  margin-bottom: var(--space-2);
+  gap: var(--space-2);
+  font-size: var(--text-md);
 }
 
 .quick-add-grid {
@@ -4372,20 +4430,50 @@ body.keyboard-open .fab,
 
 /* ---------- day summary on "היום" (js/ui/day-summary-card.js) ---------- */
 
+/* One line ("אתמול · +140 נק׳") that opens to the points, line by line. */
+.day-summary {
+  padding-block: var(--space-2);
+}
+
 .day-summary-head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.day-summary--open .day-summary-head {
   margin-bottom: var(--space-2);
+}
+
+.day-summary-toggle {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: start;
+}
+
+.day-summary-chevron {
+  color: var(--text-muted);
 }
 
 .day-summary-title {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
   margin: 0;
   font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+
+.day-summary--open .day-summary-list {
+  padding-bottom: var(--space-2);
 }
 
 .day-summary--perfect .day-summary-title {
@@ -5166,39 +5254,31 @@ body.keyboard-open .fab,
   display: none;
 }
 
-.task-head {
+/* The views of the part that is showing (היום · מטריצה · הכול): quiet
+   words with a line under the chosen one, so the first task sits high
+   (M14a). */
+.task-views {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
+  gap: var(--space-5);
+  margin: 0 var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--border);
 }
 
-.task-tabs {
-  flex: 1;
-  display: flex;
-}
-
-.task-tabs button {
-  flex: 1;
+.task-views button {
   min-height: var(--switch-h);
+  padding: 0 2px;
+  margin-bottom: -1px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
 }
 
-.task-tabs button.active {
-  background: var(--accent-dim);
-  color: var(--gold);
-}
-
-.task-add {
-  flex: none;
-  min-height: var(--switch-h);
-  padding: 0 12px;
-  gap: 4px;
-  font-size: var(--text-sm);
+.task-views button.active {
+  border-bottom-color: var(--accent);
+  color: var(--text);
 }
 
 .task-section {
@@ -5273,43 +5353,31 @@ body.keyboard-open .fab,
   overflow-wrap: anywhere;
 }
 
-.task-when,
-.task-step {
+/* An important task: one dot before its name, the only mark on a row. */
+.task-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-inline-end: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  vertical-align: 0.12em;
+}
+
+.task-row--done .task-dot {
+  background: var(--missed);
+}
+
+.task-when {
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
-.task-tags {
+/* "ביומן גוגל", in the task's form. */
+.task-in-calendar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.task-tag {
-  display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 1px 8px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-}
-
-.task-tag--accent,
-.task-tag--wait {
-  border-color: var(--accent);
-  background: var(--accent-dim);
-  color: var(--gold);
-}
-
-.task-tag--quiet {
-  border-style: dashed;
-}
-
-.task-postpone {
-  flex: none;
+  gap: 6px;
 }
 
 .task-ladder {
@@ -5334,6 +5402,16 @@ body.keyboard-open .fab,
 .task-empty-day {
   color: var(--text-muted);
   font-size: var(--text-sm);
+}
+
+/* "הכול": the filters open from one chip that says what is picked. */
+.task-filter-head {
+  display: flex;
+  margin-bottom: var(--space-2);
+}
+
+.task-filter-btn {
+  gap: 4px;
 }
 
 .task-filters {

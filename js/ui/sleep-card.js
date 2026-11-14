@@ -3,21 +3,21 @@
 // a ring of hours against the minimum, the streak and an edit button.
 // Underneath, this week's seven nights — tap one to log or fix it.
 //
-// Lives on the "היום" screen (js/pages/today.js), under the next step, and
-// at the top of the "שינה" screen (js/pages/sleep.js), whose 30-night list
-// opens a night through el.openNight(key).
+// Lives at the top of the "שינה" screen (js/pages/sleep.js), whose 30-night
+// list opens a night through el.openNight(key). "היום" has no sleep card
+// since M14a: it opens the same night sheet (js/ui/night-sheet.js) itself.
 // Owns its element, like the body-weight card: the screen re-attaches it on
 // every render. The rules themselves are in js/lib/sleep.js.
 
-import { setSleep, deleteSleep, updateUserSettings } from '../lib/firestore.js';
+import { updateUserSettings } from '../lib/firestore.js';
 import {
-  buildNight, evaluateNight, nightGrade, nightRules, usualTimes, sleepSettings, sleepStreak,
+  evaluateNight, nightGrade, nightRules, usualTimes, sleepSettings, sleepStreak,
   clockOf, formatDuration, shiftDays, parseKey, dateKey,
 } from '../lib/sleep.js';
 import { mountTimeField } from './date-time-picker.js';
 import { mountNumericField } from './numeric-input.js';
 import { openBottomSheet } from './bottom-sheet.js';
-import { confirmDialog } from './confirm-dialog.js';
+import { openNightSheet, saveNight, nightPreview, nightName, DURATION_TEXT } from './night-sheet.js';
 import { showToast } from './toast.js';
 import { icon } from './icon.js';
 import { esc } from '../core/dom.js';
@@ -27,7 +27,6 @@ const WEEKDAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמ
 const todayKey = () => dateKey(new Date());
 
 const ON_TIME_TEXT = { full: 'נרדמת בזמן', close: 'קרוב לזמן', miss: 'מאוחר' };
-const DURATION_TEXT = { full: 'שעות מלאות', close: 'כמעט', miss: 'קצר' };
 
 // nights: sleep docs (any order); userDoc: users/{uid} (sleep settings);
 // onChange(nights) after a night is saved or deleted; onSettingsChange
@@ -40,36 +39,21 @@ export function createSleepCard(nights, userDoc, { onChange, onSettingsChange } 
 
   const nightOn = (key) => list.find((n) => n.date === key);
 
-  // "ליל ה׳" — a night is named by its evening.
-  const nightName = (morningKey) => `ליל ${WEEKDAY_NAMES[parseKey(shiftDays(morningKey, -1)).getDay()]}`;
-
-  async function save(key, bed, wake) {
-    const night = buildNight(key, bed, wake);
-    if (!night) {
-      showToast('שעת הקימה צריכה להיות אחרי שעת ההירדמות');
-      return false;
-    }
-    const isNew = !nightOn(key);
-    try {
-      await setSleep(key, { ...night, source: 'manual' }, { isNew });
-    } catch (err) {
-      console.error('[sleep] save failed', err);
-      showToast('השמירה נכשלה — נסה שוב');
-      return false;
-    }
-    list = list.filter((n) => n.date !== key).concat({ id: key, ...night, source: 'manual' });
+  // The night sheet (js/ui/night-sheet.js) saves and deletes; the card
+  // keeps its own copy of the list in step.
+  function setList(next) {
+    list = next;
     onChange?.(list);
     render();
-    return true;
   }
 
-  // Duration and verdict for two clock values, before saving.
-  function preview(key, bed, wake) {
-    const night = buildNight(key, bed, wake);
-    if (!night) return 'הקימה לפני ההירדמות';
-    const ev = evaluateNight(night, settings);
-    return `${formatDuration(night.durationMin)} שעות · ${DURATION_TEXT[ev.duration]}`;
+  async function save(key, bed, wake) {
+    const next = await saveNight(list, key, bed, wake);
+    if (next) setList(next);
+    return !!next;
   }
+
+  const preview = (key, bed, wake) => nightPreview(key, bed, wake, settings);
 
   function verdictChips(ev) {
     const chip = (grade, text) => `<span class="sleep-chip sleep-chip--${grade}">${text}</span>`;
@@ -148,9 +132,9 @@ export function createSleepCard(nights, userDoc, { onChange, onSettingsChange } 
       ${weekStrip()}`;
 
     el.querySelector('[data-sleep-settings]').addEventListener('click', openSettingsSheet);
-    el.querySelector('[data-night-edit]')?.addEventListener('click', () => openNightSheet(key));
+    el.querySelector('[data-night-edit]')?.addEventListener('click', () => openNight(key));
     el.querySelectorAll('[data-night]').forEach((btn) => {
-      btn.addEventListener('click', () => openNightSheet(btn.dataset.night));
+      btn.addEventListener('click', () => openNight(btn.dataset.night));
     });
 
     if (!last) {
@@ -169,59 +153,8 @@ export function createSleepCard(nights, userDoc, { onChange, onSettingsChange } 
   }
 
   // Log or fix any night of the week; delete a logged one.
-  function openNightSheet(key) {
-    const existing = nightOn(key);
-    const usual = usualTimes(key, settings);
-    let bed = existing ? clockOf(existing.bedtime) : usual.bed;
-    let wake = existing ? clockOf(existing.wakeTime) : usual.wake;
-    const morning = parseKey(key).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
-    openBottomSheet({
-      ariaLabel: nightName(key),
-      render(body, sheetApi) {
-        body.innerHTML = `
-          <h3 style="margin:0 0 4px; color:var(--text);">${esc(nightName(key))}</h3>
-          <p class="text-muted" style="margin:0; font-size:0.8rem;">עד הבוקר של ${esc(morning)}${nightRules(key, settings).flexible ? ' · לילה גמיש: נספר רק המשך' : ''}</p>
-          <div class="sleep-clocks">
-            <div><div class="sheet-field-label">נרדמתי</div><div data-n-bed></div></div>
-            <div><div class="sheet-field-label">קמתי</div><div data-n-wake></div></div>
-          </div>
-          <p class="text-muted" data-n-preview style="margin:10px 0 0; font-size:0.85rem;"></p>
-          <div class="sheet-actions">
-            ${existing ? '<button type="button" class="btn btn-danger" data-n-delete>מחיקה</button>' : ''}
-            <button type="button" class="btn btn-secondary" data-n-cancel>ביטול</button>
-            <button type="button" class="btn btn-primary" data-n-save>שמירה</button>
-          </div>`;
-        const previewEl = body.querySelector('[data-n-preview]');
-        const refresh = () => { previewEl.textContent = preview(key, bed, wake); };
-        refresh();
-        mountTimeField(body.querySelector('[data-n-bed]'), { value: bed, clearable: false, ariaLabel: 'שעת הירדמות', onChange: (v) => { bed = v; refresh(); } });
-        mountTimeField(body.querySelector('[data-n-wake]'), { value: wake, clearable: false, ariaLabel: 'שעת קימה', onChange: (v) => { wake = v; refresh(); } });
-        body.querySelector('[data-n-cancel]').addEventListener('click', () => sheetApi.close());
-        body.querySelector('[data-n-save]').addEventListener('click', async () => {
-          if (await save(key, bed, wake)) sheetApi.close();
-        });
-        body.querySelector('[data-n-delete]')?.addEventListener('click', async () => {
-          const ok = await confirmDialog({
-            title: 'למחוק את הלילה?',
-            message: `${nightName(key)} · ${formatDuration(existing.durationMin)} שעות`,
-            confirmLabel: 'מחיקה',
-            danger: true,
-          });
-          if (!ok) return;
-          try {
-            await deleteSleep(key);
-          } catch (err) {
-            console.error('[sleep] delete failed', err);
-            showToast('המחיקה נכשלה — נסה שוב');
-            return;
-          }
-          list = list.filter((n) => n.date !== key);
-          onChange?.(list);
-          sheetApi.close();
-          render();
-        });
-      },
-    });
+  function openNight(key) {
+    openNightSheet({ key, nights: list, settings, onChange: setList });
   }
 
   // Bedtime target and latest, wake time, minimum hours and flexible
@@ -292,7 +225,7 @@ export function createSleepCard(nights, userDoc, { onChange, onSettingsChange } 
     });
   }
 
-  el.openNight = openNightSheet;
+  el.openNight = openNight;
   render();
   return el;
 }

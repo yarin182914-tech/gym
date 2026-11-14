@@ -231,6 +231,24 @@ export function shortDay(key, today = todayKey()) {
   return `יום ${day}׳ ${d.getDate()}.${d.getMonth() + 1}`;
 }
 
+// The one line under a task's name on a list (M14a): when, and the two
+// states that used to be tags — still in the inbox, a week with no time.
+export function rowLine(t, today = todayKey(), now = new Date()) {
+  const parts = [];
+  const when = whenText(t, today);
+  if (when) parts.push(when);
+  if (t.status === 'inbox') parts.push('בתיבה');
+  if (ladderStage(t, now) === 'waiting') parts.push('מחכה שבוע');
+  return parts.join(' · ');
+}
+
+// "מחר" is offered on an open one-off with a day or a time that has come.
+export function canPostpone(t, today = todayKey()) {
+  if (isRepeating(t) || !isOpen(t)) return false;
+  const at = t.timing === 'exact' || t.timing === 'day' ? scheduledKey(t) : null;
+  return !!at && at <= today;
+}
+
 // One line under the title: when, and what's due.
 export function whenText(t, today = todayKey()) {
   if (t.type === 'daily') {

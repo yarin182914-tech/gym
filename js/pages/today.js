@@ -1,8 +1,12 @@
 // "היום" — the home screen, top to bottom: the level card (points, level
 // and streak, js/lib/rewards-sync.js), the day's three rings (workout,
-// food, sleep — js/lib/today-rings.js), the next step, today's tasks and
-// habits, marked right here, and last night's sleep. The greeting above it
-// all is the app bar's (js/ui/app-bar.js).
+// food, sleep — js/lib/today-rings.js), yesterday's points in one line, the
+// next step, and today's tasks and habits, marked right here. The greeting
+// above it all is the app bar's (js/ui/app-bar.js).
+//
+// Kept short on purpose (M14a, docs/specs/ux-cleanup.md): last night is the
+// sleep ring plus the night sheet the next step opens — no sleep card; the
+// habits' day strip, and the habits that aren't for today, open on demand.
 //
 // Marks show at once and are written in the background (see the habits
 // section of js/lib/firestore.js) — offline, Firestore keeps them in its
@@ -21,11 +25,12 @@ import { dateKey, shiftDays, parseKey, sleepSettings, nightRules, formatDuration
 import { HABITS, BAD_HABITS, TODAY } from '../lib/rules.js';
 import { nutritionGoals, weeklyWorkoutGoal } from '../lib/rewards.js';
 import { todayRings, pointsStreak } from '../lib/today-rings.js';
+import { countHe } from '../lib/plural.js';
 import { badHabitCardHtml, slipClock } from '../ui/bad-habit-card.js';
 import { rewardsState, rewardsLedger, rewardsUserDoc, markSeen } from '../lib/rewards-sync.js';
 import { daySummaryHtml } from '../ui/day-summary-card.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
-import { createSleepCard } from '../ui/sleep-card.js';
+import { openNightSheet } from '../ui/night-sheet.js';
 import { habitCardHtml, targetText } from '../ui/habit-card.js';
 import { openHabitWizard } from '../ui/habit-wizard.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
@@ -40,8 +45,7 @@ import { mountTodayTasks } from '../ui/today-tasks.js';
 const LEVEL_TEXT = { full: 'מלא', short: 'מקוצר', none: 'פחות מהמקוצר, לא נורא' };
 
 let container = null;
-let sleepCard = null; // created once per visit, re-attached by render()
-let tasksHost = null; // "משימות להיום" (M6), the same
+let tasksHost = null; // "משימות להיום" (M6): created once per visit, re-attached by render()
 let habits = []; // normalized, active and paused, in order
 let logs = []; // habitLogs docs
 let activities = []; // dailyActivity docs, for auto-counted steps
@@ -57,6 +61,9 @@ let swallowClick = false; // the click that ends a long press
 // The day the habit cards show and mark: null = today. Picking an earlier
 // day (up to HABITS.backfillDays back) marks a habit you forgot to log.
 let habitDay = null;
+let showDays = false; // the day strip, behind "יום אחר"
+let showMore = false; // the habits that aren't for this day, and the paused ones
+let summaryOpen = false; // yesterday's points, line by line
 let stopQuickActions = null; // while mounted: the + button's "הרגל"
 
 const todayKey = () => dateKey(new Date());
@@ -113,23 +120,17 @@ export async function mountToday(rootEl) {
   document.addEventListener('visibilitychange', flushIfHidden);
   window.addEventListener('pagehide', flushSlips);
   sleepLoggedToday = nights.some((n) => n.date === todayKey());
-  sleepCard = createSleepCard(nights, settings, {
-    onChange(list) {
-      nights = list;
-      sleepLoggedToday = list.some((n) => n.date === todayKey());
-      renderTop();
-    },
-  });
   tasksHost = document.createElement('section');
   tasksHost.className = 'today-habits today-tasks';
   tasksHost.setAttribute('aria-label', 'משימות להיום');
   mountTodayTasks(tasksHost);
   render();
-  // The + button's "הרגל": today's habits, ready to mark (or a new one when
-  // there are none).
-  stopQuickActions = handleQuickActions('today', () => {
-    const title = container?.querySelector('.today-section-title');
-    if (!activeHabits().length || !title) addHabit();
+  // The + button's "הרגל": asked for on this screen, a new habit (the sheet's
+  // wide first row); from another screen, today's habits, ready to mark (or
+  // a new one when there are none).
+  stopQuickActions = handleQuickActions('today', (action, { here } = {}) => {
+    const title = container?.querySelector('[data-today-habits] .today-section-title');
+    if (here || !activeHabits().length || !title) addHabit();
     else title.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 }
@@ -143,7 +144,6 @@ export function unmountToday() {
   flushSlips();
   clearTimeout(pressTimer);
   container = null;
-  sleepCard = null;
   tasksHost = null;
   habits = [];
   logs = [];
@@ -157,6 +157,9 @@ export function unmountToday() {
   pressTimer = null;
   swallowClick = false;
   habitDay = null;
+  showDays = false;
+  showMore = false;
+  summaryOpen = false;
 }
 
 // The three example habits, once per user (habitsSeeded on the user doc
@@ -176,9 +179,7 @@ function render() {
     <div data-today-top></div>
     <div id="tasks-slot"></div>
     <section class="today-habits" data-today-habits aria-label="הרגלים"></section>
-    <section class="today-habits today-bad" data-today-bad aria-label="להיגמל"></section>
-    <div id="sleep-slot"></div>`;
-  container.querySelector('#sleep-slot').replaceWith(sleepCard);
+    <section class="today-habits today-bad" data-today-bad aria-label="להיגמל"></section>`;
   container.querySelector('#tasks-slot').replaceWith(tasksHost);
   const section = container.querySelector('[data-today-habits]');
   bindHabitEvents(section);
@@ -203,16 +204,37 @@ function renderTop() {
   // Yesterday's points, once, after the day closed.
   const yesterday = shiftDays(key, -1);
   const showSummary = rewardsState() && rewardsUserDoc().rewardsSeen?.daySummary !== yesterday;
-  host.innerHTML = levelCard(key) + ringsRow(key) + (showSummary ? daySummaryHtml(rewardsLedger(), yesterday) : '') + nextStep(key);
+  host.innerHTML = levelCard(key) + ringsRow(key)
+    + (showSummary ? daySummaryHtml(rewardsLedger(), yesterday, { open: summaryOpen }) : '') + nextStep(key);
   host.querySelector('[data-level]').addEventListener('click', () => navigate('dashboard'));
   host.querySelectorAll('[data-ring]').forEach((el) => el.addEventListener('click', () => navigate(el.dataset.ring)));
+  host.querySelector('[data-day-summary-toggle]')?.addEventListener('click', () => {
+    summaryOpen = !summaryOpen;
+    renderTop();
+  });
   host.querySelector('[data-day-summary-close]')?.addEventListener('click', () => {
     markSeen({ daySummary: yesterday });
     renderTop();
   });
   host.querySelector('[data-next]')?.addEventListener('click', (e) => {
-    const target = e.currentTarget.dataset.next === 'sleep' ? sleepCard : container.querySelector('[data-today-habits]');
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (e.currentTarget.dataset.next === 'sleep') return openLastNight();
+    container.querySelector('[data-today-habits]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+// "לרשום את הלילה": last night's two clocks in a sheet. Once saved the
+// sleep ring fills and the next step moves on; fixing a night, the week and
+// the sleep settings are on the שינה tab (the ring leads there).
+function openLastNight() {
+  openNightSheet({
+    key: todayKey(),
+    nights,
+    settings: sleepSettings(userDoc),
+    onChange(list) {
+      nights = list;
+      sleepLoggedToday = list.some((n) => n.date === todayKey());
+      renderTop();
+    },
   });
 }
 
@@ -231,7 +253,7 @@ function levelCard(key) {
   const showStreak = streak >= TODAY.streakMinDays;
   let foot = 'סופרים נקודות…';
   if (state && state.total === 0) foot = 'ההרפתקה מתחילה — כל סימון שווה נקודות';
-  else if (state && level.next) foot = `עוד ${fmt(level.toNext)} נקודות לרמה ${level.next.level}`;
+  else if (state && level.next) foot = `עוד ${countHe(level.toNext, 'נקודה', 'נקודות', { feminine: true })} לרמה ${level.next.level}`;
   else if (state) foot = 'הרמה הגבוהה ביותר';
   const label = state
     ? `רמה ${level.level}, ${level.name} · ${fmt(state.total)} נקודות · ${foot}${showStreak ? ` · רצף של ${streak} ימים` : ''} · ${state.today} נקודות היום · התקדמות`
@@ -324,7 +346,7 @@ function nextStep(key) {
     </button>`;
 
   if (!sleepLoggedToday && hour < HABITS.morningUntilHour) return step('moon', 'לרשום את הלילה', 'שני שעונים, שתי שניות', 'sleep');
-  if (open && hour >= HABITS.eveningFromHour) return step('check', 'לסמן את ההרגלים', `עוד ${open} פתוחים היום`, 'habits');
+  if (open && hour >= HABITS.eveningFromHour) return step('check', 'לסמן את ההרגלים', open === 1 ? 'עוד אחד פתוח היום' : `עוד ${open} פתוחים היום`, 'habits');
   if (!sleepLoggedToday) return step('moon', 'הלילה עוד לא נרשם', 'אפשר לרשום גם עכשיו', 'sleep');
   if (open) return step('check', open === 1 ? 'הרגל אחד פתוח היום' : `${open} הרגלים פתוחים היום`, 'אפשר לסמן כבר עכשיו', 'habits');
   if (activeHabits().length) {
@@ -361,19 +383,36 @@ function renderHabits() {
     <div class="today-sub-head">${title}</div>
     <div class="habit-list">${list.map(card).join('')}</div>` : '');
 
+  // The day strip opens from "יום אחר", and stays while another day is picked.
+  const daysOpen = showDays || !isToday;
+  // Habits that aren't for this day, and paused ones: one closed row.
+  const notTodayTitle = isToday ? 'לא היום' : 'לא באותו יום';
+  const moreCount = notToday.length + paused.length;
+  const moreKinds = [notToday.length ? notTodayTitle : '', paused.length ? 'מושהים' : ''].filter(Boolean).join(' ו');
+  // The how-to line is for the first days only.
+  const markedDays = logs.filter((l) => Object.keys(l.habits || {}).length).length;
+
   section.innerHTML = `
     <div class="today-section-head">
       <h2 class="today-section-title">הרגלים</h2>
       ${dueNow.length ? `<span class="today-section-count num">${doneCount}/${dueNow.length}</span>` : ''}
-      <button type="button" class="btn-mini-dashed today-add" data-habit-add>${icon('plus', { className: 'icon--sm' })} הרגל</button>
+      ${habits.length ? `<button type="button" class="btn-mini-dashed today-head-btn${daysOpen ? ' active' : ''}" data-habit-days-toggle aria-expanded="${daysOpen}">${icon('calendar-days', { className: 'icon--sm' })} יום אחר</button>` : ''}
     </div>
-    ${habits.length ? dayStrip(key) : ''}
+    ${habits.length && daysOpen ? dayStrip(key) : ''}
     ${isToday ? '' : `<p class="today-backfill-note">מסמנים ל${esc(dayName(key))}</p>`}
-    ${habits.length ? '' : '<p class="text-muted">אין עדיין הרגלים. הוסיפו אחד — משהו קטן שאפשר לעשות כל יום.</p>'}
+    ${habits.length ? '' : `
+    <div class="card today-empty">
+      <p class="text-muted">אין עדיין הרגלים. מתחילים מאחד: משהו קטן שאפשר לעשות כל יום.</p>
+      <button type="button" class="btn btn-primary" data-habit-add>${icon('plus', { className: 'icon--sm' })} הרגל ראשון</button>
+    </div>`}
     <div class="habit-list">${dueNow.map(card).join('')}</div>
-    ${group(isToday ? 'לא היום' : 'לא באותו יום', notToday)}
-    ${group('מושהים', paused)}
-    ${habits.length ? '<p class="today-hint">לחיצה לסימון · לחיצה ארוכה מבטלת</p>' : ''}`;
+    ${moreCount ? `
+    <button type="button" class="today-more" data-habit-more aria-expanded="${showMore}">
+      <span>עוד ${countHe(moreCount, 'הרגל', 'הרגלים')} · ${moreKinds}</span>
+      ${icon('chevron-down', { className: 'icon--sm' })}
+    </button>` : ''}
+    ${showMore ? group(notTodayTitle, notToday) + group('מושהים', paused) : ''}
+    ${habits.length && markedDays < TODAY.hintMarkedDays ? '<p class="today-hint">לחיצה לסימון · לחיצה ארוכה מבטלת</p>' : ''}`;
 }
 
 // "היום", "אתמול", then weekday letters, newest first — tap to mark that day.
@@ -403,9 +442,24 @@ function dayStrip(selected) {
 function bindHabitEvents(section) {
   section.addEventListener('click', (e) => {
     if (e.target.closest('[data-habit-add]')) return addHabit();
+    if (e.target.closest('[data-habit-more]')) {
+      showMore = !showMore;
+      return renderHabits();
+    }
+    // "יום אחר" opens the day strip; closing it goes back to today.
+    if (e.target.closest('[data-habit-days-toggle]')) {
+      showDays = !(showDays || habitDay);
+      habitDay = null;
+      openId = null;
+      renderHabits();
+      renderBad();
+      return;
+    }
     const dayBtn = e.target.closest('[data-habit-day]');
     if (dayBtn) {
       habitDay = dayBtn.dataset.habitDay === todayKey() ? null : dayBtn.dataset.habitDay;
+      // Back on "היום" the strip has done its job.
+      if (!habitDay) showDays = false;
       openId = null;
       // The "להיגמל" cards follow the same day: an unreported day is filled
       // in from here.
