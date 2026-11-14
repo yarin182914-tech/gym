@@ -1,5 +1,5 @@
 # ניקוי UX/UI — רגוע יותר, פחות עמוס
-Milestone: M14a + M14b · Branches: feature/m14a-today-tasks, feature/m14b-screens · Status: M14a approved (ירין 2026-11-14) · M14b draft
+Milestone: M14a + M14b · Branches: feature/m14a-today-tasks, feature/m14b-screens · Status: M14a built (approved by ירין 2026-11-14, PR open) · M14b draft
 Requested by ירין on 2026-11-12: סקירה של Claude מצאה שה־UX/UI "לא מספיק טוב ויותר מדי עמוס".
 Draft written on 2026-11-14 from a walk through every screen at 390px with the `?dev` sample data, and measured again the same day after M4c and M4c2 (the "זהב" look, `docs/specs/gold-look.md`) were merged.
 Split by ירין on 2026-11-14 into two PRs: **M14a** is היום, משימות and the + button; **M14b** is תזונה, שינה, התקדמות, היסטוריה and חיבורים. The section "M14a — מה נכנס ל-PR הראשון" is what the first PR builds. M14b keeps the draft's findings, and its own `/feature` run settles its open question.
@@ -21,6 +21,8 @@ Split by ירין on 2026-11-14 into two PRs: **M14a** is היום, משימות
 
 ## M14a — מה נכנס ל-PR הראשון
 
+מה נמדד אחרי הבנייה (390×844, נתוני הדוגמה, DARK): היום ירד מ־1.92 מסכים ל־1.49, ומשימות מ־1.42 ל־1.24. צילומי לפני ואחרי: `docs/screenshots/m14a/`.
+
 ### היום
 הסדר: כרטיס הרמה → שלוש הטבעות → אתמול (שורה אחת) → הדבר הבא → משימות להיום → הרגלים → להיגמל. כרטיס השינה יורד מהמסך.
 
@@ -28,19 +30,19 @@ Split by ירין on 2026-11-14 into two PRs: **M14a** is היום, משימות
 - **אתמול.** שורה אחת: "אתמול · ‎+140 נק׳" (ביום מושלם: "יום מושלם אתמול"). לחיצה פותחת את פירוט הנקודות באותו כרטיס, וה־× סוגר אותו עד מחר, כמו היום.
 - **הרגלים.** בכותרת: "הרגלים", המונה (3/5) וכפתור שקט "יום אחר". רצועת הימים נפתחת רק ממנו, ונסגרת כשחוזרים ל"היום".
 - **לא היום ומושהים.** שורה סגורה אחת, "עוד 3 הרגלים · לא היום ומושהים", שנפתחת בלחיצה.
-- **הרגל חדש.** מכפתור ה־+ (ראו למטה). בלי הרגלים בכלל: כפתור ראשי "הרגל ראשון" בתוך המצב הריק.
+- **הרגל חדש.** מכפתור ה־+ (ראו למטה); הכפתור "+ הרגל" שבכותרת ירד. בלי הרגלים בכלל: כפתור ראשי "הרגל ראשון" בתוך המצב הריק.
 - **שורת ההסבר** "לחיצה לסימון · לחיצה ארוכה מבטלת" מופיעה רק למי שסימן הרגלים בפחות מ־7 ימים.
 - **מספרים בעברית.** "יום אחד" ולא "1 ימים", "הרגל אחד" ולא "1 הרגלים".
 
 מצבים: טעינה כמו היום. בלי חיבור: הכול עובד, כולל רישום הלילה. שמירה שנכשלה: ההודעה הקיימת "השמירה נכשלה — נסה שוב".
 
 ### משימות
-- **ראש המסך.** המתג "משימות | החלטות" נשאר. מתחתיו שורת תצוגות קטנה ושקטה (היום · מטריצה · הכול, או פתוחות · החלטתי). כפתור "+ משימה" / "+ החלטה" יורד: מוסיפים מכפתור ה־+. במצב ריק נשאר כפתור ראשי אחד בתוך הכרטיס הריק.
+- **ראש המסך.** המתג "משימות | החלטות" נשאר. מתחתיו שורת תצוגות קטנה ושקטה (היום · מטריצה · הכול, או פתוחות · החלטתי). כפתור "+ משימה" / "+ החלטה" יורד: מוסיפים מכפתור ה־+, שפותח שורה אחת לתיבה, ו"עוד פרטים" פותח את הטופס המלא. במצב ריק נשאר כפתור ראשי אחד בתוך הכרטיס הריק.
 - **שורת משימה.** תיבת הסימון, השם, שורת המועד ונקודה צבעונית לחשובה. בלי תגיות, בלי "צעד ראשון" ובלי כפתור "מחר". "בתיבה" ו"מחכה שבוע" נכתבים בשורת המועד.
-- **בתוך המשימה.** כפתור "מחר" (למשימה של היום או שעבר זמנה; נספר כדחייה, כמו היום), ושורה שקטה "ביומן גוגל" כשיש לה אירוע. גודל, דחופה, מי וצעד ראשון כבר נמצאים שם.
+- **בתוך המשימה.** כפתור "מחר" (למשימה של היום או שעבר זמנה; נספר כדחייה, כמו היום, ושומר גם שינויים אחרים שנעשו בטופס), ושורה שקטה "ביומן גוגל" כשיש לה אירוע. גודל, דחופה, מי וצעד ראשון כבר נמצאים שם.
 - **סולם הדחיינות** ("למה היא תקועה?", ההחלטה אחרי שלושה שבועות) נשאר כמו שהוא.
 - **"הכול".** שתי שורות הסינון (תחום, מי) נפתחות מכפתור "סינון", שמראה מה נבחר.
-- **החלטות.** אותה שפה: השאלה, ומתחתיה שורה שקטה אחת במקום תגיות ("בינונית · להחליט עד מחר"). ביומן: השאלה, מה נבחר, ושורה אחת (תאריך · בזמן · איך יצא). הנימוק נשאר בפתיחת ההחלטה.
+- **החלטות.** אותה שפה: השאלה, ומתחתיה שורה שקטה אחת במקום תגיות ("בינונית · להחליט עד מחר"). ביומן: השאלה, מה נבחר, ושורה אחת (תאריך · בזמן · איך יצא). הנימוק נשאר בפתיחת ההחלטה; "למדתי" נשאר על השורה, כי אין לו מקום אחר.
 - **משימות להיום במסך היום.** אותה נקודה לחשובה.
 
 ### כפתור ה־+
@@ -48,7 +50,7 @@ Split by ירין on 2026-11-14 into two PRs: **M14a** is היום, משימות
 
 | המסך | השורה הראשית |
 |---|---|
-| היום | הרגל (פותח הרגל חדש) |
+| היום | הרגל חדש |
 | משימות | משימה |
 | משימות, בחלק של החלטות | החלטה |
 | אימון, היסטוריה, התקדמות האימונים | אימון |
@@ -107,10 +109,13 @@ None. `firestore.rules` unchanged, no env vars.
 ## Technical notes (M14a)
 - `js/ui/night-sheet.js` (new): the night sheet moves out of `js/ui/sleep-card.js`, so Today can open it without the card. The sleep card keeps using it.
 - `js/lib/plural.js` (new, pure): Hebrew counts, 1 → "יום אחד". Test: `tools/test-plural.mjs`.
-- `js/lib/quick-actions.js` (new, pure): the + sheet's items and `primaryFor(route, override)`. A screen may name its own first action (`handleQuickActions(route, fn, { primary })`), which is how משימות switches to "החלטה". The handler also learns whether the action was asked for on its own screen (`{ here }`), which is how "הרגל" opens the wizard on Today and the list from elsewhere. Test: `tools/test-quick-actions.mjs`.
-- `js/lib/tasks.js`: `rowLine(t, today)`, the one line under a task's name (time, "בתיבה", "מחכה שבוע"). Test added to the tasks test.
-- Colours only from tokens (hard rule 12); a new token, if one is needed, goes into every theme block.
-- The service worker's cache name is bumped.
+- `js/lib/quick-actions.js` (new, pure): the + sheet's items and `sheetItems(route, override)` → the wide first row and the grid. A screen may name its own first action (`handleQuickActions(route, fn, { primary })`), which is how משימות switches to "החלטה". The handler also learns whether the action was asked for on its own screen (`{ here }`), which is how "הרגל" opens the wizard on Today and the list from elsewhere. Test: `tools/test-quick-actions.mjs`.
+- `js/lib/tasks.js`: `rowLine(t, today)`, the one line under a task's name (time, "בתיבה", "מחכה שבוע"), and `canPostpone(t, today)`, when the form offers "מחר". "מחר" sets the form's day to tomorrow and saves, so the existing save counts the move. Tests added to `tools/test-tasks.mjs`.
+- `js/ui/day-summary-card.js` takes `{ open }`; the screen keeps that state for the visit.
+- Colours only from tokens (hard rule 12). No new token was needed. Checked in all seven themes: every new text is at a contrast of 4.9 or more against its background.
+- Today's sections sit 12px apart instead of 16px, to reach a screen and a half with the sample data.
+- The service worker's cache name is bumped to v9.
+- Not in the `?dev` sample data: a habit that isn't for today, a paused one, and yesterday's points. The "עוד" row and the "אתמול" line were checked by adding them in the test run.
 
 ## לא בגרסה הזאת
 - פיצ׳רים חדשים.

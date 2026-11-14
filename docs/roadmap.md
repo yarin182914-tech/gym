@@ -159,7 +159,7 @@ Asked by ירין 2026-11-13: "אני רגע רוצה לעצב את הלוגו �
 - Files: the logo as SVG plus every icon size the app uses (`images/icon-192.png`, `icon-512.png`, a maskable icon for Android, `apple-touch-icon.png`, `favicon-32.png`), wired into `manifest.json` and `index.html`. Plus (ירין 2026-11-14) the name ג׳יני in every user-visible text: tab title, home-screen name, manifest, sign-in screen, "חיבורים", calendar event description, the connector title. The iPhone shortcut names stay until ירין republishes them.
 - Done when: the new icon shows on the iPhone and Android home screen and in the browser tab, readable on dark and light backgrounds.
 
-## M14a ☐ UX/UI cleanup — Today, Tasks and the + button — `feature/m14a-today-tasks`
+## M14a ◐ UX/UI cleanup — Today, Tasks and the + button — `feature/m14a-today-tasks`
 Asked by ירין 2026-11-12: a Claude review of the app found the UX/UI "לא מספיק טוב ויותר מדי עמוס". Split in two PRs by ירין on 2026-11-14 (M14a, then M14b), built after the "זהב" look (M4c, M4c2) so every screen is tidied once at the final text and button sizes. Spec: `docs/specs/ux-cleanup.md`, the section "M14a — מה נכנס ל-PR הראשון".
 - Scope (both halves): structure and density, not new features: fewer cards per screen, one main action per screen, clear hierarchy, consistent spacing and copy, things moved behind "עוד" where rarely used.
 - Data: none.
