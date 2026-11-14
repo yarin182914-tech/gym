@@ -57,6 +57,9 @@ export const TODAY = {
   streakMinDays: 2,
   // A points moment: how long the level card's number takes to count up (ms).
   countUpMs: 700,
+  // The habits' "לחיצה לסימון · לחיצה ארוכה מבטלת" line shows until habits
+  // have been marked on this many days (M14a).
+  hintMarkedDays: 7,
 };
 
 // Calories out (dailyActivity, see docs/DATA.md). The base is resting +

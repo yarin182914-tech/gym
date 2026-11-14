@@ -101,6 +101,24 @@ check('task awards', awards.map((a) => [a.id, a.raw]), [
 ]);
 check('nothing on another day', R.scoreDay('2026-11-09', ctx, { closed: true }).filter((a) => a.source === 'task').length, 0);
 
+console.log('the row\'s line and "מחר" (M14a)');
+const NOW = new Date('2026-11-10T10:00:00+02:00');
+const daysBefore = (n) => new Date(NOW.getTime() - n * 86400000);
+check('a day → its name', T.rowLine(task({ timing: 'day', scheduledAt: noon(TODAY) }), TODAY, NOW), 'היום');
+check('new in the inbox → "בתיבה"', T.rowLine(task({ status: 'inbox', createdAt: daysBefore(1) }), TODAY, NOW), 'בתיבה');
+check('a week with no time → "מחכה שבוע"', T.rowLine(task({ timing: 'claude', createdAt: daysBefore(TASKS.ladder.waiting) }), TODAY, NOW), 'קלוד ישבץ · מחכה שבוע');
+check('a done task is off the ladder', T.rowLine(task({ timing: 'claude', status: 'done', doneAt: NOW, createdAt: daysBefore(TASKS.ladder.waiting) }), TODAY, NOW), 'קלוד ישבץ');
+check('"מחר" for today and for overdue', [TODAY, '2026-11-08'].map((k) => T.canPostpone(task({ timing: 'day', scheduledAt: noon(k) }), TODAY)), [true, true]);
+check('not for tomorrow, repeating, done or with no time', [
+  task({ timing: 'day', scheduledAt: noon('2026-11-11') }),
+  task({ type: 'daily' }),
+  task({ timing: 'day', scheduledAt: noon(TODAY), status: 'done', doneAt: NOW }),
+  task({ timing: 'claude' }),
+].map((t) => T.canPostpone(t, TODAY)), [false, false, false, false]);
+const moved = T.postponePatch(task({ timing: 'exact', scheduledAt: T.atTime('2026-11-08', '18:30'), postponeCount: 1 }), TODAY);
+check('"מחר" keeps the hour and counts the move', [moved.scheduledAt.getTime(), moved.postponeCount], [T.atTime('2026-11-11', '18:30').getTime(), 2]);
+check('"מחר" for a day → tomorrow noon', T.postponePatch(task({ timing: 'day', scheduledAt: noon(TODAY) }), TODAY).scheduledAt.getTime(), noon('2026-11-11').getTime());
+
 if (failed) {
   console.log(`\n${failed} failed`);
   process.exit(1);
