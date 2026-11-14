@@ -4,7 +4,7 @@ Each milestone = one branch + one PR. Build them in order; each one must leave t
 Section names in quotes refer to headings in `docs/upgrade-plan.md` (Hebrew).
 Defaults for every number come from the plan and live in one config module (`js/lib/rules.js`).
 
-**Build order now (ירין 2026-11-12):** 1. M14 UX/UI cleanup → 2. M15 polish the existing screens (the feedback page first) → 3. M16 open ג׳ימי to Maya. Only then new features (M8, M9, M10, M12, M13). M4c "זהב" is a visual layer and may be folded into M14, ירין decides at M14's `/feature`.
+**Build order now (ירין 2026-11-13, combining the 2026-11-12 order with the growth review):** 1. M0a logo → 2. M14 UX/UI cleanup with the M4c "זהב" base inside it → 3. M0b name and first screen → 4. M15 polish the existing screens (the feedback page first) → 5. M16 open the app to Maya → 6. the rest of "עכשיו" (M9s, M10, M10b, M10c, M10d) → the pilot. Only then new features. Details under "עכשיו" below.
 
 Status legend: ☐ not started · ◐ in progress (branch or PR open) · ☑ merged · ✕ dropped
 
@@ -143,17 +143,137 @@ Plan: "חיבור ליומן גוגל" in "מענה טכני", "סנכרון ע�
 - Needs from ירין: Calendar API + an OAuth client in Google Cloud, `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in Vercel. No `firestore.rules` change.
 - Done when: a task with a time shows in Google Calendar within seconds, moving it moves the same event, done adds ✓, delete removes it, and the connection survives a day without asking again.
 
+---
+
+**From the growth review (2026-11-12, https://claude.ai/artifact/WkCqJqGnTUW3rM1kjHskuZ).** ירין decided: the audience is trainees (training, food and sleep around it), the AI is hybrid (code for everyone, a small built-in model for photo meals and the weekly summary, the user's own Claude/ChatGPT as optional depth), Android is supported from today (every milestone is tested in Chrome on Android too), and the pilot starts only after the "עכשיו" phase below. No new features until "עכשיו" is merged. The pilot: 5–10 trainees, at least 3 on Android and 3 without Claude; success = 40% still log 2 workouts a week after 30 days.
+
+**"עכשיו" — ready for the first friend**
+
+**New name (ירין 2026-11-13): ג׳ימי → ג׳יני, in English Jini.** She is a personal assistant, so the copy speaks of her in the feminine ("ג׳יני זוכרת"). The rename of user-visible text moved to M0a (ירין 2026-11-14: "השם של האתר משתנה מהיום"); code identifiers (`gymi`) and stored data keep their names.
+
+**Combined order (ירין 2026-11-13):** M0a logo → M14 UX cleanup together with the M4c "זהב" base, one visual pass → M0b name and first screen → M15 polish (the feedback page first) → M16 Maya → M9s, M10, M10b, M10c, M10d → the pilot. It merges the 2026-11-12 order (UX cleanup, polish and Maya before new features) with the 2026-11-13 one (logo, "זהב", first screen). M14–M16 keep their 2026-11-12 numbers; the growth review's own M14 / M14a / M15 / M15a / M16 are M17 / M17a / M18 / M18a / M19 here.
+
+## M0a ◐ Logo and the name ג׳יני — `feature/m0a-logo-name`
+Asked by ירין 2026-11-13: "אני רגע רוצה לעצב את הלוגו של האפליקצייה ולהכניס אותו גם לפה".
+- ירין picked "Slim j" (a cream j with a sparkle on an amber → coral → clay gradient) in a logo artifact, 2026-11-14. Spec: `docs/specs/logo-name.md`.
+- Files: the logo as SVG plus every icon size the app uses (`images/icon-192.png`, `icon-512.png`, a maskable icon for Android, `apple-touch-icon.png`, `favicon-32.png`), wired into `manifest.json` and `index.html`. Plus (ירין 2026-11-14) the name ג׳יני in every user-visible text: tab title, home-screen name, manifest, sign-in screen, "חיבורים", calendar event description, the connector title. The iPhone shortcut names stay until ירין republishes them.
+- Done when: the new icon shows on the iPhone and Android home screen and in the browser tab, readable on dark and light backgrounds.
+
 ## M14 ☐ UX/UI cleanup — calmer, less crowded — `feature/m14-ux-cleanup`
 Asked by ירין 2026-11-12: a Claude review of the app found the UX/UI "לא מספיק טוב ויותר מדי עמוס"; this goes first. Spec: `docs/specs/ux-cleanup.md` (to write in `/feature`, starting from that review).
 - Scope: structure and density, not new features: fewer cards per screen, one main action per screen, clear hierarchy, consistent spacing and copy, things moved behind "עוד" where rarely used.
-- Decide in `/feature`: whether M4c's "זהב" look is built inside this milestone or right after it.
+- Includes the M4c "זהב" base (ירין 2026-11-13: one visual pass instead of two). `/feature` may still split it into two PRs if it gets too big.
 - Done when: every tab at 390px shows its main action without scrolling past clutter, both themes, and ירין approves before/after screenshots.
+
+## M4c ☐ The "זהב" look — the design base — `feature/m4c-gold-look`
+Built inside M14 (ירין 2026-11-13), so the first screen and the logo are built once, in the new look. Spec: `docs/specs/gold-look.md`, the "בסיס לכל האפליקציה" part: tokens, type ramp, radius, elevation, motion, buttons, cards, the + button and the nav, in every theme block. The Today redesign from the same spec waits for M4c2.
+
+## M0b ☐ Name and first screen — `feature/m0b-first-screen`
+Growth review, phase "עכשיו". Spec: `docs/specs/first-screen.md`. After M0a and M14 (with the M4c base).
+- Data: new user docs no longer get `weddingDate` (old ones keep it). No rules change.
+- UI: (the name itself already changed in M0a.) A welcome screen for signed-out users: the logo, "כי מישהו צריך לנהל לך את החיים", and five areas (sleep, nutrition, movement, tasks, habits) that each open to 3–4 lines with a hook. An install button there (Chrome's prompt with screenshots on Android, the steps on iPhone), a professional "ההתחברות כפופה למדיניות הפרטיות" line, and a draft `privacy.html`. `import-30-7.html` moves to `_archive/`, and `_archive/` stops being served.
+- Done when: a new user sees no wedding and no "ג׳ימי" anywhere, every area opens, install works from the first screen on Android and iPhone, and the privacy link works, at 390px in every theme.
 
 ## M15 ☐ Polish the existing screens (feedback page first) — `feature/m15-polish`
 Asked by ירין 2026-11-12: before new features, fix what exists. Start with the feedback page ("דף המשוב") as the example of a screen that needs work, then screen by screen (this replaces M4c's follow-up M4d). One PR per screen or two is fine (M15a, M15b…).
 
 ## M16 ☐ Open ג׳ימי to Maya — `feature/m16-maya`
 Asked by ירין 2026-11-12: Maya is the first user after ירין. Her own ג׳ימי user (Google sign-in already works for any account; rules isolate `users/{uid}`), with ירין's personal leftovers out of her way (the 1950 base burn, `weddingDate`, ירין-only links) and a short first-run setup (the minimum of M10). Her Claude: the connector key from "חיבורים" (M11) on her own phone, plus a "ניהול חיים" project per the plan's "קלוד כעוזר אישי" (the part of M12 she needs). Check first: how Maya's Claude account works (ירין asked if she can use his paid plan; answered in the build thread).
+- **Decided by ירין 2026-11-14** (asked to bring Maya in "כמה שיותר מהר" for feedback; kept at place 5 in the order):
+  - Maya may sign in on the live site with Google before M16 and start logging; her feedback goes on the in-app board. Until M16 her base burn and targets are ירין's defaults.
+  - Her Claude: her own free Claude account (personal, not ירין's), with her own ג׳ימי key. Free allows one custom connector, which is enough; she uses it as a coach, not to maintain the app. Check in the build whether the connector works inside a project on the free plan, and how far the free message cap goes.
+  - Areas: everything on, like ירין (the switches come in M10).
+  - Burn and targets: a short form (weight, height, age, sex) → Mifflin-St Jeor base burn and calorie/protein targets on the user doc, each editable by hand; the same form is reused by M10's signup. Replaces the fixed 1950 for her (old docs and ירין keep theirs).
+
+## M9s ☐ Security before friends — `feature/m9s-hardening`
+Growth review, phase "עכשיו".
+- Rules: the feedback board readable and editable only by its author plus an admin (today any Google account can read, edit and delete every entry, with names). **`firestore.rules` changes** → deploy before merge.
+- Server: App Check, rate limits and a batch cap on `api/`, a Claude key that expires and travels in a header instead of the URL, a server-side check of points before anything compares users.
+- Also: stop serving `docs/`, `tools/` and `CLAUDE.md` from the site, and check `docs/specs/img/` for real personal data.
+- Done when: a second Google account can't read or change someone else's feedback, and a 1,000-call batch is refused.
+
+## M10 ☐ Signup, profile and minimal mode — `feature/m10-onboarding`
+Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). **Moved into "עכשיו"** by the growth review (2026-11-12). Includes "במה תרצה להשתמש?" (the M8 feature switches, built here). Questionnaire on first login, about 3 minutes (level 1 only is required; ends with "set goals now / later / never" → `lifePlan.planDepth`); personal BMR (Mifflin-St Jeor) replaces the hard-coded 1950; targets from the goal.
+- **Trainee minimal mode:** a new user starts with training, protein, sleep and weight. Tasks, decisions, bad habits and the library are off until switched on. No silent example habits; a clean Today with one first step. (M0b's welcome screen lists all five areas by ירין's wish; recheck its lines once the defaults are set here.)
+- Meals per day by choice: today `maxMeals: 2` means anyone eating 3 meals never gets a perfect day.
+- `weddingDate`: no longer written since M0b; old docs keep it.
+- Email + password sign-in for friends without a Google account, any email provider (ירין 2026-11-11, again 2026-11-13: "עם כל סוגי המיילים"): already written in August as `signInWithEmail` / `signUpWithEmail` / `resetPassword` in `js/auth.js` on branch `phase-0-backup` (with its sign-in screen). Reuse it here instead of rewriting. The same branch has a CSV export (`js/lib/csv.js`, BOM for Hebrew in Excel) — a candidate for M10b.
+- Sign in with Apple: not in the pilot (ירין 2026-11-13). It needs an Apple Developer membership ($99 a year), which an App Store app would need anyway; add it when that is decided.
+- Done when: a new account answers the questionnaire in about 3 minutes, gets its own burn and targets, and Today shows only the areas it chose.
+
+## M4c2 ☐ The "זהב" look — Today — `feature/m4c2-gold-today`
+The Today part of `docs/specs/gold-look.md` (greeting, gradient level card with streak, three rings, the +points moment), split from M4c by ירין (2026-11-13). After M10, because minimal mode decides what Today shows.
+
+## M10b ☐ Account and privacy — `feature/m10b-account`
+Growth review, phase "עכשיו". Health data is "especially sensitive" under Israel's privacy law (Amendment 13, in force since 2025-08-14).
+- Sign-out (exists as `signOutUser`, no button), export of all the user's data to a file, account deletion, a full Hebrew privacy policy (replacing M0b's draft at the same `privacy.html`), and an explicit consent before data goes to Claude.
+- The "ניהול חיים" project moves from the service account (which sees every user) to a personal key.
+- **Face ID lock** (ירין 2026-11-13, chose a lock over Face ID sign-in): opt-in; when on, the app opens only after Face ID / fingerprint (WebAuthn with the phone's own sensor). Check first that it works in the iPhone home-screen app and on Android.
+- A short consultation with a privacy lawyer before the pilot.
+- Done when: a user can sign out, download their data and delete the account from the app, and turn on the Face ID lock.
+
+## M10c ☐ Measurement — `feature/m10c-metrics`
+Growth review, phase "עכשיו". Without it the pilot runs on feelings.
+- Basic, privacy-respecting events (signed up, opened, logged, came back), a retention view after 1, 7 and 30 days, error reports, and a visible message when a save fails (today only the console knows). Document every path in DATA.md.
+- Done when: ירין can see how many pilot users came back on day 7.
+
+## M10d ☐ Lean reads and speed — `feature/m10d-lean`
+Growth review, phase "עכשיו". Today every save and every return to the app re-reads about 1,000 documents, and all 109 modules load at start.
+- A stored points total, reads by date range, screens loaded only when opened, the disabled AI library dropped from start-up, and a versioned cache in the service worker.
+- Done when: a save reads tens of documents, not about 1,000, and the first screen loads noticeably faster on a phone.
+
+**"אחר כך" — during the pilot**
+
+## M3f ☐ Fast workout — `feature/m3f-fast-workout`
+Growth review, phase "אחר כך", first in the pilot. Asked on the feedback board: start from the workout type, then pick exercises.
+- "Like last time" in one tap, templates from past workouts, a set logged in two taps. On the way, split `js/pages/active-session.js` (3,323 lines today).
+- Done when: a repeat workout starts in one tap and a set takes two taps.
+
+## M19 ☐ Progression and readiness — `feature/m19-progression`
+Growth review (its M16), phase "אחר כך". Code only, no AI; every number in `js/lib/rules.js`.
+- Next-session weight and reps from last time (in the rep range → +2.5 kg), a readiness note from last night's sleep, weekly volume per muscle group, and a calorie target that follows the weight trend.
+- Done when: after a workout the next one suggests its weights, and a short night shows a readiness note.
+
+## M17a ☐ Photo meal — `feature/m17a-photo-meal`
+Growth review (its M14a), phase "אחר כך". The code exists but is off.
+- Photograph a meal, get calories and protein, confirm. Recognition runs through the server with a small model and a usage cap (numbers in `js/lib/rules.js`), free in the pilot.
+- Done when: a photo becomes a confirmed meal in under 10 seconds, and the cap stops calls past the limit.
+
+## M18a ☐ Steps from Android + "חיבורים" per phone — `feature/m18a-android-steps`
+Split out of M0b by ירין (2026-11-13). A web app can't read Health Connect, so the phone needs a helper app.
+- On Android, "חיבורים" hides the iPhone-only cards (steps shortcut, app time) and shows a steps card with today's number and a quick manual log (+ → צעדים). Reuses `detectPlatform` from M0b's `js/lib/platform.js`.
+- Automatic steps through the "Health Connect Webhook" app (Google Play, open source): it posts Health Connect steps with the personal key in a header; `POST /api/steps` learns its payload (`steps: [{ count, start_time, end_time }]`). Check first: price, privacy and how reliable its background sync is.
+- App time on Android (Instagram): look at Tasker / MacroDroid before promising it.
+- Done when: an Android phone sees only cards that work on it, and its steps arrive by themselves at least once a day.
+
+## M11b ☐ The coach acts — `feature/m11b-coach-actions`
+Growth review, phase "אחר כך".
+- Claude tools for tasks (including scheduling), workouts, decisions, habits and the plan. An in-app "המאמן מציע" card to approve, a change log with undo, and "allowed without asking" per kind of action.
+- Done when: Claude can suggest a task with a time, it appears for approval in the app, and one tap undoes it.
+
+## M11c ☐ Coach memory — `feature/m11c-coach-memory`
+Growth review, phase "אחר כך".
+- `users/{uid}/coachMemory`: what the coach knows about the user, visible and editable in the app, read by Claude at the start of each chat. Document in DATA.md.
+- Done when: a user can see, edit and delete what the coach remembers.
+
+## M9b ☐ Proactive moments — `feature/m9b-moments`
+Growth review, phase "אחר כך". Needs M9.
+- Rules in code that spot a moment (late nights, a stuck task, a weak week) and send one notification with a question ready for the coach. Counts inside M9's 4-a-day cap.
+- Done when: three late nights in a row send one notification, never more than the cap.
+
+**"מאוחר יותר" — only once the pilot works**
+
+## M17 ☐ Built-in assistant — `feature/m17-assistant`
+Growth review (its M14), phase "מאוחר יותר".
+- A free line that becomes a task or a workout, and a weekly summary paragraph. Through the server, a small model, a usage cap; numbers in `js/lib/rules.js`.
+
+## M11d ☐ The app in ChatGPT — `feature/m11d-chatgpt`
+Growth review, phase "מאוחר יותר". The same connector server as an app in ChatGPT, for people without Claude.
+
+## M18 ☐ Android and watches — `feature/m18-watches`
+Growth review (its M15). Strava first (phase "אחר כך": works on both phones, but brings workouts, not steps; a new Strava app starts limited to 1 athlete until Strava approves more, so ask early). Then Garmin through the server. Then a decision on a store app wrapper with Apple Health and Health Connect, which breaks the "no build step" rule and needs ירין's call.
+
+---
 
 ## M8 ☐ Settings — "התכנית שלי" — `feature/m8-my-plan`
 Plan: "מסך ההגדרות: "התכנית שלי"".
@@ -184,10 +304,6 @@ Plan: "שלב 3: התראות פוש", "שרת קטן" in "מענה טכני".
 - **What sends a notification** (ירין 2026-11-12: "תרשום את זה במפת הדרכים שלא נשכח"). Keep adding to this list as features ask for one:
   - "איך זה יצא?" (M6e): on the day a decision's review is due, one notification with its question ("איך זה יצא? <השאלה>"), opening the review.
 
-## M10 ☐ Signup and profile — `feature/m10-onboarding`
-Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). Includes "במה תרצה להשתמש?" (the M8 feature switches). Questionnaire on first login (level 1 only is required; ends with "set goals now / later / never" → `lifePlan.planDepth`); personal BMR (Mifflin-St Jeor) replaces the hard-coded 1950; targets from the goal; remove `weddingDate`.
-- Email + password sign-in for friends without a Google account (ירין 2026-11-11): already written in August as `signInWithEmail` / `signUpWithEmail` / `resetPassword` in `js/auth.js` on branch `phase-0-backup` (with its sign-in screen). Reuse it here instead of rewriting. The same branch has a CSV export (`js/lib/csv.js`, BOM for Hebrew in Excel) — a candidate for "Later".
-
 ## M11 ☑ Claude connector (MCP) — `feature/m11-mcp`
 Plan: "שלב 5". Vercel function, hashed personal keys, per-user tools incl. "what changed since last check". PR #22 merged 2026-11-11 (rules deployed first; deploy needs `--project gym-site-ea1b7`, there is no `.firebaserc`).
 - Adds its card to the "חיבורים" page (status, one-tap connect, short steps).
@@ -200,12 +316,11 @@ Plan: "שלב 6", and the "ליזום, לא לחייב" rules in "שאלון ח�
 ## M13 ☐ Share achievements — `feature/m13-share`
 Asked by ירין 2026-11-10, for after the app is ready for other users (after the pilot). Share a level-up, badge, PR, streak or weekly summary as an image card (canvas → PNG) through the phone's share sheet (`navigator.share` with files), no raw data. Opt-in per share, nothing posted automatically.
 
-## M4c ☐ The "זהב" look — design base + Today — `feature/m4c-gold-look`
-Asked by ירין 2026-11-12: "שיפור המראה הכללי של האפליקציה … ברמה של תאגיד ענק כמו גוגל או מייקרוסופט". Picked "זהב" of four proposals. Spec: `docs/specs/gold-look.md`. Built last, by ירין's choice (2026-11-12), so Today is designed once after the other milestones add their cards.
-- Data: none (rings and level read existing data).
-- UI: retuned tokens (16px body, new type ramp, radius 26/16, warm elevation, motion tokens, ring/reward/missed tokens) in every theme block; shared cards, buttons, FAB and nav restyled; Today rebuilt as greeting → gradient level card with streak → three rings (אימון · תזונה · שינה) → existing sections. Gold shine + glow toast for the +points moment (when it fires stays with M4b).
-- Done when: Today matches the comparison mockup at 390px with real data (also offline), every tab still lays out at 16px body, and DARK, BRIGHT and all five RANDOM palettes stay readable with missed = grey.
+## M4c — moved
+Asked by ירין 2026-11-12: "שיפור המראה הכללי של האפליקציה … ברמה של תאגיד ענק כמו גוגל או מייקרוסופט". Picked "זהב" of four proposals. Spec: `docs/specs/gold-look.md`. First planned last; on 2026-11-13 ירין split it: the design base is **M4c**, built inside M14 in "עכשיו" (before M0b), the Today redesign is **M4c2** after M10.
+- UI (the whole spec): retuned tokens (16px body, new type ramp, radius 26/16, warm elevation, motion tokens, ring/reward/missed tokens) in every theme block; shared cards, buttons, FAB and nav restyled; Today rebuilt as greeting → gradient level card with streak → three rings (אימון · תזונה · שינה) → existing sections. Gold shine + glow toast for the +points moment (when it fires stays with M4b).
+- Done when (both parts): Today matches the comparison mockup at 390px with real data (also offline), every tab still lays out at 16px body, and DARK, BRIGHT and all five RANDOM palettes stay readable with missed = grey.
 - Follow-up: M4d, screen-by-screen polish of אימון, תזונה, שינה, משימות, החלטות and התקדמות.
 
 ## Later
-"לאורך זמן" (graduating habits, seasons, monthly recalibration, vacation mode), Garmin (שלב 7), pilot (שלב 8).
+"לאורך זמן" (graduating habits, seasons, monthly recalibration, vacation mode). Garmin (שלב 7) is now part of M18, and the pilot (שלב 8) starts after the "עכשיו" phase.
