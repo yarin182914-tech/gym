@@ -1,8 +1,8 @@
-// DARK · RANDOM · BRIGHT — the colour theme switch at the top of every
-// screen, in the app bar (js/ui/app-bar.js), outside #app so a route
-// change never rebuilds it. The theme logic itself lives in
-// js/theme-boot.js (window.gymTheme), which already applied the saved theme
-// before first paint; this is only the control.
+// DARK · RANDOM · BRIGHT — the colour theme switch, the first row of the
+// profile sheet (js/ui/app-bar.js). Built fresh each time the sheet opens.
+// The theme logic itself lives in js/theme-boot.js (window.gymTheme), which
+// already applied the saved theme before first paint; this is only the
+// control.
 
 import { toggleGroup, patchToggleGroup } from './toggle-group.js';
 import { showToast } from './toast.js';
@@ -15,11 +15,8 @@ const PALETTE_NAMES = {
   groove70: 'גרוב שנות ה־70',
 };
 
-let mounted = false;
-
 export function mountThemeSwitch(hostEl) {
-  if (mounted || !window.gymTheme) return;
-  mounted = true;
+  if (!hostEl || !window.gymTheme) return;
 
   const bar = document.createElement('div');
   bar.className = 'theme-bar';
@@ -34,7 +31,7 @@ export function mountThemeSwitch(hostEl) {
       { value: 'bright', label: 'BRIGHT' },
     ],
   });
-  hostEl.appendChild(bar);
+  hostEl.replaceChildren(bar);
 
   const group = bar.querySelector('[data-theme-switch]');
   group.classList.add('toggle-group--live');

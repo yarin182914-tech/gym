@@ -31,16 +31,28 @@ export function toggleGroup({ options, active, name, groupAttrs = '', label = ''
 // change animate instead of instantly swapping colour.
 export function patchToggleGroup(groupEl, activeValue) {
   if (!groupEl) return;
-  let activeBtn = null;
   groupEl.querySelectorAll('button').forEach((btn) => {
     const isActive = btn.dataset.value === String(activeValue);
     btn.classList.toggle('active', isActive);
     btn.setAttribute('aria-pressed', String(isActive));
-    if (isActive) activeBtn = btn;
   });
-  const indicator = groupEl.querySelector('.toggle-group-indicator');
-  if (indicator && activeBtn) {
-    indicator.style.width = `${activeBtn.offsetWidth}px`;
-    indicator.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
+  placeIndicator(groupEl);
+  // The indicator is measured from the active button, and a group is often
+  // patched before it has a size: a card built before it is attached, or a
+  // screen that is still hidden. Measuring again whenever the group's size
+  // changes covers those, and a font or a rotation that lands later.
+  if (!watched.has(groupEl) && typeof ResizeObserver !== 'undefined') {
+    watched.add(groupEl);
+    new ResizeObserver(() => placeIndicator(groupEl)).observe(groupEl);
   }
+}
+
+const watched = new WeakSet();
+
+function placeIndicator(groupEl) {
+  const indicator = groupEl.querySelector('.toggle-group-indicator');
+  const activeBtn = groupEl.querySelector('button.active');
+  if (!indicator || !activeBtn) return;
+  indicator.style.width = `${activeBtn.offsetWidth}px`;
+  indicator.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
 }

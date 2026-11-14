@@ -1,8 +1,9 @@
-// The top app bar: the current screen's title, the colour theme switch and
-// the profile button. Sticky, under the phone's status bar (safe-area
-// inset), and outside #app, so a route change only swaps its title.
+// The top app bar: the current screen's title and the profile button.
+// Sticky, under the phone's status bar (safe-area inset), and outside #app,
+// so a route change only swaps its title.
 //
-// The profile sheet opens "התכנית שלי" (#/plan), "ללמוד", "חיבורים", the feedback button and
+// The profile sheet starts with the colour theme switch ("ערכת צבעים"), then
+// opens "התכנית שלי" (#/plan), "ללמוד", "חיבורים", the feedback button and
 // the Feedback list (all off the bottom nav), and "install the app" for as
 // long as it's running in a browser tab. A screen with no tab of its own
 // gets a back arrow before its title.
@@ -48,13 +49,11 @@ export function mountAppBar(beforeEl) {
         <h1 class="app-bar-title" data-app-title></h1>
       </div>
       <div class="app-bar-actions">
-        <div data-theme-slot></div>
         <button type="button" class="app-bar-btn" data-profile aria-label="פרופיל והגדרות">${icon('circle-user')}</button>
       </div>
     </div>`;
   beforeEl.before(bar);
 
-  mountThemeSwitch(bar.querySelector('[data-theme-slot]'));
   const titleEl = bar.querySelector('[data-app-title]');
   const backBtn = bar.querySelector('[data-back]');
   let shown = null;
@@ -86,6 +85,10 @@ function openProfileSheet() {
       body.innerHTML = `
         <h3 style="margin:0 0 10px; color:var(--text);">פרופיל והגדרות</h3>
         <div class="settings-list">
+          <div class="settings-theme">
+            <span class="settings-theme-label">ערכת צבעים</span>
+            <div data-theme-slot></div>
+          </div>
           ${item('data-plan', 'target', 'התכנית שלי', 'מטרות, שינה, הרגלים, אימונים ותזונה')}
           ${item('data-library', 'book-open', 'ללמוד', 'ספרים, פודקאסטים וסרטונים לחיים בריאים')}
           ${item('data-connections', 'plug', 'חיבורים', 'צעדים מהאייפון ומקורות נוספים')}
@@ -93,6 +96,7 @@ function openProfileSheet() {
           ${item('data-feedback-new', 'message-square', 'שליחת משוב')}
           ${item('data-feedback-list', 'sticky-note', 'כל המשובים')}
         </div>`;
+      mountThemeSwitch(body.querySelector('[data-theme-slot]'));
       body.querySelector('[data-plan]').addEventListener('click', () => {
         sheetApi.close();
         navigate('plan');

@@ -5,7 +5,7 @@
 // build step, so every successful same-origin GET is just cached
 // opportunistically as it's fetched instead of enumerating every page module
 // here that would drift out of sync.
-const CACHE_NAME = 'gym-site-v6';
+const CACHE_NAME = 'gym-site-v7';
 const NETWORK_WAIT_MS = 1200;
 
 // The one exception: the top-level shell IS worth precaching explicitly, so
