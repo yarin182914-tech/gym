@@ -242,6 +242,11 @@ The doc has other fields (`displayName`, `createdAt`…) — update only the
 field you mean to change (`set` with `merge: true`, or `update`), never
 overwrite the whole doc.
 
+The app creates a new user's doc with `{ displayName: '', createdAt }` only.
+Docs created before M0b also hold `weddingDate` (always `null` or a leftover
+of the first version): nothing reads it, and it is never deleted. Don't
+write it.
+
 ---
 
 ## Workouts — `users/{uid}/workouts/{auto}`

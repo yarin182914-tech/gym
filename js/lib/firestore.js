@@ -69,7 +69,6 @@ export async function ensureUserDoc() {
   if (!snap.exists()) {
     await setDoc(ref, {
       displayName: '',
-      weddingDate: null,
       createdAt: serverTimestamp(),
     });
   }
