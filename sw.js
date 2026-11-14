@@ -5,7 +5,7 @@
 // build step, so every successful same-origin GET is just cached
 // opportunistically as it's fetched instead of enumerating every page module
 // here that would drift out of sync.
-const CACHE_NAME = 'gym-site-v10';
+const CACHE_NAME = 'gym-site-v11';
 const NETWORK_WAIT_MS = 1200;
 
 // The one exception: the top-level shell IS worth precaching explicitly, so
@@ -16,6 +16,7 @@ const NETWORK_WAIT_MS = 1200;
 const APP_SHELL = [
   './',
   './index.html',
+  './privacy.html',
   './manifest.json',
   './css/01-tokens.css',
   './css/02-base.css',
@@ -28,6 +29,7 @@ const APP_SHELL = [
   './images/icon-192.png',
   './images/icon-512.png',
   './images/icon-maskable-512.png',
+  './images/logo/jini.svg',
 ];
 
 self.addEventListener('install', (event) => {

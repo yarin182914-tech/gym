@@ -15,5 +15,10 @@
     { "src": "images/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "images/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "images/icon-monochrome-512.png", "sizes": "512x512", "type": "image/png", "purpose": "monochrome" }
+  ],
+  "screenshots": [
+    { "src": "images/screenshots/today.jpg", "sizes": "780x1688", "type": "image/jpeg", "form_factor": "narrow", "label": "היום: אימון, תזונה, שינה והרגלים במסך אחד" },
+    { "src": "images/screenshots/progress.jpg", "sizes": "780x1688", "type": "image/jpeg", "form_factor": "narrow", "label": "אימון: ההתקדמות בכל תרגיל" },
+    { "src": "images/screenshots/nutrition.jpg", "sizes": "780x1688", "type": "image/jpeg", "form_factor": "narrow", "label": "תזונה: קלוריות וחלבון מול היעד" }
   ]
 }
