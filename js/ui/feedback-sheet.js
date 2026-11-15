@@ -18,13 +18,17 @@ import { auth } from '../firebase-config.js';
 
 export { FEEDBACK_CATEGORIES };
 
+export const FEEDBACK_SAVED_EVENT = 'gym-feedback-saved';
+
 function typeChips(active) {
   return FEEDBACK_CATEGORIES.map((c) => `
     <button type="button" class="pill${c.id === active ? ' active' : ''}" data-fb-type="${c.id}" aria-pressed="${c.id === active}">${esc(c.label)}</button>`).join('');
 }
 
 // item: an existing item to fix; omit to send a new one. onSaved: called
-// after a successful save so the caller can refresh its own list.
+// after a successful save. Every save also fires FEEDBACK_SAVED_EVENT on
+// window, so the feedback page refreshes whichever button opened the form
+// (its own, or the + sheet's "משוב").
 export function openFeedbackSheet({ item = null, onSaved } = {}) {
   const isEdit = !!item;
   // An old item may carry a type the form no longer offers ('suggestion'):
@@ -88,6 +92,7 @@ export function openFeedbackSheet({ item = null, onSaved } = {}) {
           showToast(isEdit
             ? `${icon('check', { className: 'icon--sm' })} המשוב עודכן`
             : `${icon('heart', { className: 'icon--sm' })} תודה ששלחת! זה עוזר לשפר את ג׳יני`);
+          window.dispatchEvent(new Event(FEEDBACK_SAVED_EVENT));
           onSaved?.();
         } catch (err) {
           console.error('feedback save failed', err);

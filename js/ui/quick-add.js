@@ -23,6 +23,7 @@ import { icon } from './icon.js';
 import { openBottomSheet } from './bottom-sheet.js';
 import { navigate, onRouteChange } from '../lib/router.js';
 import { QUICK_ITEMS, sheetItems } from '../lib/quick-actions.js';
+import { openFeedbackSheet } from './feedback-sheet.js';
 
 const handlers = {}; // route -> fn(action, { here }), while that screen is mounted
 const primaries = {}; // route -> () => the action that screen puts first right now
@@ -128,7 +129,9 @@ function openQuickAddSheet() {
         const item = QUICK_ITEMS.find((i) => i.action === action);
         if (!item) return;
         sheetApi.close();
-        request(item.route, item.action);
+        // No screen of its own: the form opens where the user is.
+        if (!item.route) openFeedbackSheet();
+        else request(item.route, item.action);
       });
     },
   });

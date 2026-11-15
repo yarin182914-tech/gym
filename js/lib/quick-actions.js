@@ -12,6 +12,8 @@
 //            list (to mark one) from any other screen
 //   משימה  → משימות, one line into the inbox
 //   החלטה  → משימות, להחליט, a new decision
+//   משוב   → no screen (route null): the feedback form opens right where
+//            the user is (M15a)
 
 export const QUICK_ITEMS = [
   { route: 'session', action: 'workout', icon: 'dumbbell', label: 'אימון' },
@@ -23,10 +25,11 @@ export const QUICK_ITEMS = [
   { route: 'today', action: 'habit', icon: 'check', label: 'הרגל' },
   { route: 'tasks', action: 'task', icon: 'list-checks', label: 'משימה' },
   { route: 'tasks', action: 'decision', icon: 'split', label: 'החלטה' },
+  { route: null, action: 'feedback', icon: 'message-square', label: 'משוב' },
 ];
 
 // The screen's own action: the sheet shows it first, as a wide row. A
-// screen that isn't here (התקדמות, חיבורים, ללמוד, משוב) has none.
+// screen that isn't here (התקדמות, חיבורים, ללמוד) has none.
 const PRIMARY = {
   today: 'habit',
   tasks: 'task',
@@ -35,6 +38,7 @@ const PRIMARY = {
   'workout-progress': 'workout',
   nutrition: 'meal',
   sleep: 'sleep',
+  feedback: 'feedback',
 };
 
 // The wide row says what the action does on its own screen, where that

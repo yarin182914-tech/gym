@@ -13,7 +13,7 @@ import { showToast } from '../ui/toast.js';
 import { icon } from '../ui/icon.js';
 import { toggleGroup, patchToggleGroup } from '../ui/toggle-group.js';
 import { openBottomSheet } from '../ui/bottom-sheet.js';
-import { openFeedbackSheet } from '../ui/feedback-sheet.js';
+import { openFeedbackSheet, FEEDBACK_SAVED_EVENT } from '../ui/feedback-sheet.js';
 import {
   listFeedback, setFeedbackStatus, deleteFeedback, feedbackViewer,
 } from '../lib/firestore.js';
@@ -34,6 +34,7 @@ export async function mountFeedback(rootEl) {
   container = rootEl;
   foldOpen = false;
   viewer = feedbackViewer();
+  window.addEventListener(FEEDBACK_SAVED_EVENT, refresh);
   renderLoading(container, 'טוען משוב...');
   let loaded = [];
   try {
@@ -47,6 +48,7 @@ export async function mountFeedback(rootEl) {
 }
 
 export function unmountFeedback() {
+  window.removeEventListener(FEEDBACK_SAVED_EVENT, refresh);
   container = null;
   items = [];
 }
@@ -128,7 +130,7 @@ function render() {
   container.innerHTML = intro + body;
 
   container.querySelector('[data-fb-add]').addEventListener('click', () => {
-    openFeedbackSheet({ onSaved: refresh });
+    openFeedbackSheet();
   });
   container.querySelector('[data-fb-fold]')?.addEventListener('click', (e) => {
     foldOpen = !foldOpen;
@@ -194,7 +196,7 @@ function openActionsSheet(item) {
 
       body.querySelector('[data-role="fb-edit"]').addEventListener('click', () => {
         sheetApi.close();
-        openFeedbackSheet({ item, onSaved: refresh });
+        openFeedbackSheet({ item });
       });
 
       body.querySelector('[data-role="fb-delete"]').addEventListener('click', async () => {
