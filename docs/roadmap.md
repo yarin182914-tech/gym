@@ -189,7 +189,7 @@ The Today part of `docs/specs/gold-look.md`, the section "M4c2 — מה נכנס
 - Done when: Today matches the mockup's top (greeting, level card, three rings) with real data, also offline; a ring with no data is grey, never red; a mark that gives points shows the shine and the "+N" tag, and nothing moves under "reduce motion"; all of it in DARK, BRIGHT and the five RANDOM palettes.
 - Later: M10's minimal mode hides the ring of a domain that is switched off; M14 shortens what sits under the rings.
 
-## M0b ◐ Name and first screen — `feature/m0b-first-screen`
+## M0b ☑ Name and first screen — `feature/m0b-first-screen`
 Growth review, phase "עכשיו". Spec: `docs/specs/first-screen.md`. After M0a and M14 (with the M4c base), both merged. ירין settled the texts on 2026-11-14: the sleep and nutrition lines are two short sentences, the calendar line says it is connected once, "יום חסד" is out (not built yet), the privacy page keeps "אין פרסומות" and "למפתח יש גישה טכנית", and a delete request goes to "מי שהזמין אותך".
 - Data: new user docs no longer get `weddingDate` (old ones keep it). No rules change.
 - UI: (the name itself already changed in M0a.) A welcome screen for signed-out users: the logo, "כי מישהו צריך לנהל לך את החיים", and five areas (sleep, nutrition, movement, tasks, habits) that each open to 3–4 lines with a hook. An install button there (Chrome's prompt with screenshots on Android, the steps on iPhone), a professional "ההתחברות כפופה למדיניות הפרטיות" line, and a draft `privacy.html`. `import-30-7.html` moves to `_archive/`, and `_archive/` stops being served.
@@ -197,6 +197,12 @@ Growth review, phase "עכשיו". Spec: `docs/specs/first-screen.md`. After M0a
 
 ## M15 ☐ Polish the existing screens (feedback page first) — `feature/m15-polish`
 Asked by ירין 2026-11-12: before new features, fix what exists. Start with the feedback page ("דף המשוב") as the example of a screen that needs work, then screen by screen (this replaces M4c's follow-up M4d). One PR per screen or two is fine (M15a, M15b…).
+
+### M15a ☐ The feedback page — private, tidy and quick — `feature/m15a-feedback-page`
+Asked by ירין 2026-11-12, settled 2026-11-15. Spec: `docs/specs/feedback-page.md`.
+- Data: `siteFeedback` gets `closedAt`; `author` comes from the Google name. **`firestore.rules` changes:** only the author and the admin read an item; only the admin changes status; the author edits or deletes while it is "new". ירין deploys the rules right before the merge.
+- UI: a short form (text + type buttons, no name field) with a thank-you; a user sees only "המשובים שלי" folded, done items gone after 7 days; ירין sees "פתוחים" and a folded "סגורים". `privacy.html` says feedback is seen only by its writer and the developer.
+- Done when: a second account can't read or change anyone else's feedback (also directly against Firestore), sending works offline, and the page looks right at 390px in every theme.
 
 ## M16 ☐ Open ג׳ימי to Maya — `feature/m16-maya`
 Asked by ירין 2026-11-12: Maya is the first user after ירין. Her own ג׳ימי user (Google sign-in already works for any account; rules isolate `users/{uid}`), with ירין's personal leftovers out of her way (the 1950 base burn, `weddingDate`, ירין-only links) and a short first-run setup (the minimum of M10). Her Claude: the connector key from "חיבורים" (M11) on her own phone, plus a "ניהול חיים" project per the plan's "קלוד כעוזר אישי" (the part of M12 she needs). Check first: how Maya's Claude account works (ירין asked if she can use his paid plan; answered in the build thread).
@@ -208,7 +214,7 @@ Asked by ירין 2026-11-12: Maya is the first user after ירין. Her own ג�
 
 ## M9s ☐ Security before friends — `feature/m9s-hardening`
 Growth review, phase "עכשיו".
-- Rules: the feedback board readable and editable only by its author plus an admin (today any Google account can read, edit and delete every entry, with names). **`firestore.rules` changes** → deploy before merge.
+- Rules: the feedback board part moved to M15a (2026-11-15). **`firestore.rules` changes** for anything else here → deploy before merge.
 - Server: App Check, rate limits and a batch cap on `api/`, a Claude key that expires and travels in a header instead of the URL, a server-side check of points before anything compares users.
 - Also: stop serving `docs/`, `tools/` and `CLAUDE.md` from the site, and check `docs/specs/img/` for real personal data.
 - Done when: a second Google account can't read or change someone else's feedback, and a 1,000-call batch is refused.
