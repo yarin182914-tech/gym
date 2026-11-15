@@ -474,3 +474,18 @@ export const CALENDAR = {
   // The consent link is good for this long.
   stateTtlMs: 10 * 60 * 1000,
 };
+
+// The feedback page (M15a, docs/specs/feedback-page.md).
+export const FEEDBACK = {
+  // A user's done/dismissed item leaves their list this many days after it
+  // was closed. The admin always sees everything.
+  closedVisibleDays: 7,
+  // Items one read fetches (newest first for the admin).
+  listMax: 200,
+  // Longest text one item may hold (also in firestore.rules).
+  textMax: 4000,
+  // Who sees and manages every item. A Firebase uid is not a secret. The
+  // same list is in firestore.rules (isFeedbackAdmin); tools/test-feedback.mjs
+  // checks the two match.
+  adminUids: ['N2tdF3DUzEY5YqJfhLJWpD9Qx1K2'],
+};

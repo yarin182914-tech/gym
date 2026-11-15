@@ -347,8 +347,8 @@ export async function devUpdatePlannedWorkout(dateKey, patch) {
   save(state);
 }
 
-// ---------- site feedback (shared board — see firestore.js for why this
-// isn't scoped under the user, unlike everything above) ----------
+// ---------- site feedback (top level, private to author + admin since
+// M15a — see firestore.js) ----------
 
 export async function devCreateFeedback({ text, author, category, authorUid }) {
   const state = load();
@@ -362,6 +362,7 @@ export async function devCreateFeedback({ text, author, category, authorUid }) {
     authorUid: authorUid ?? null,
     category: category ?? 'other',
     status: 'new',
+    closedAt: null,
     createdAt: now,
     updatedAt: now,
   });
@@ -369,9 +370,12 @@ export async function devCreateFeedback({ text, author, category, authorUid }) {
   return id;
 }
 
-export async function devListFeedback(max = 200) {
+// authorUid: only that author's items (the user's view), like the cloud
+// query; null = everything (the admin's view).
+export async function devListFeedback({ authorUid = null, max = 200 } = {}) {
   const state = load();
   return [...(state.feedback || [])]
+    .filter((f) => !authorUid || f.authorUid === authorUid)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, max);
 }

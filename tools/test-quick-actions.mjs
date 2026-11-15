@@ -21,7 +21,7 @@ const first = (route, override) => sheetItems(route, override).primary?.action ?
 console.log('the screen\'s own action');
 check('each tab', ['today', 'tasks', 'session', 'nutrition', 'sleep'].map((r) => first(r)), ['habit', 'task', 'workout', 'meal', 'sleep']);
 check('the parts of אימון', ['history', 'workout-progress'].map((r) => first(r)), ['workout', 'workout']);
-check('screens with none', ['dashboard', 'connections', 'library', 'feedback', 'nope'].map((r) => first(r)), [null, null, null, null, null]);
+check('screens with none', ['dashboard', 'connections', 'library', 'nope'].map((r) => first(r)), [null, null, null, null]);
 
 console.log('named by the screen');
 check('משימות on its החלטות part', first('tasks', 'decision'), 'decision');
@@ -33,6 +33,11 @@ check('the grid\'s word by default', sheetItems('tasks').primary.label, 'משי�
 check('on היום, "הרגל" adds one', sheetItems('today').primary.label, 'הרגל חדש');
 check('named from another screen, the grid\'s word', sheetItems('dashboard', 'habit').primary.label, 'הרגל');
 check('the list itself is untouched', QUICK_ITEMS.find((i) => i.action === 'habit').label, 'הרגל');
+
+console.log('feedback (M15a)');
+check('in the grid, with no screen of its own', QUICK_ITEMS.find((i) => i.action === 'feedback')?.route, null);
+check('first on the feedback page', first('feedback'), 'feedback');
+check('in the grid on other screens', sheetItems('today').rest.some((i) => i.action === 'feedback'), true);
 
 console.log('the rest');
 const { primary, rest } = sheetItems('tasks');

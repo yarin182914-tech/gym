@@ -32,7 +32,7 @@ public repo.
 | `users/{uid}/pointsLedger` | `{date}_{rule}[_{ref}]` | Points, one entry per award — app only, never written from outside |
 | `mcpKeys` (top level) | SHA-256 of the key | Claude connector keys → their user — app and server only, never written from outside |
 | `calendarTokens` (top level) | the user's uid | Google Calendar consent — server only, no client can read it |
-| `siteFeedback` (top level) | auto | App feedback board — don't write here |
+| `siteFeedback` (top level) | auto | Feedback about the app, private to its author and the admin — don't read or write here |
 
 ---
 
@@ -1058,6 +1058,36 @@ Created by Google's way back to `/api/calendar` after the consent screen;
 deleted on "ניתוק" (the token is revoked first) or when Google reports
 the consent was withdrawn. The connection's visible state is
 `users/{uid}.calendar` (see User settings).
+
+---
+
+## Site feedback — `siteFeedback/{auto}` (top level, app only)
+
+Feedback about the app itself (bugs, UX, ideas), from the page "משוב"
+(M15a, `docs/specs/feedback-page.md`). Top level so the admin can list every
+item at once, but **private since M15a**: `firestore.rules` lets an item be
+read only by its author and the admin (`FEEDBACK.adminUids` in
+`js/lib/rules.js`, the same list as in the rules). Anyone signed in may
+create one, as themselves, with `status: 'new'`. Only the admin changes
+`status`; the author may change `text` and `category`, or delete the item,
+while it is still `new`. **The coach never reads or writes here.**
+
+| Field | Type | Notes |
+|---|---|---|
+| `text` | string | What the user wrote, at most `FEEDBACK.textMax` (4000) characters |
+| `category` | string | `bug` · `ux` · `ui` · `feature` ("רעיון") · `other`. Old items may have `suggestion` (also shown as "רעיון") |
+| `status` | string | `new` · `in_progress` · `done` · `dismissed`. The author sees `new` as "נשלח" and `dismissed` as "נסגר" |
+| `author` | string | The Google display name when it was sent (before M15a: typed by hand, may be empty). Shown to the admin only |
+| `authorUid` | string | Who sent it. Items without one are visible to the admin only |
+| `closedAt` | Timestamp \| null | Since M15a. Set when `status` becomes `done` or `dismissed`, back to `null` when it reopens. Missing on old items: the app uses `updatedAt` |
+| `createdAt` | Timestamp | |
+| `updatedAt` | Timestamp | Every change |
+
+Reads: the admin lists everything, newest first (`FEEDBACK.listMax`). A user
+lists `where('authorUid', '==', uid)` with no `orderBy` (no composite index
+needed) and the app sorts it. A user's `done` / `dismissed` items leave their
+list `FEEDBACK.closedVisibleDays` (7) days after `closedAt`; the admin keeps
+them all.
 
 ---
 

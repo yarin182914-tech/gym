@@ -4,15 +4,15 @@
 // so a route change only swaps its title.
 //
 // The profile sheet starts with the colour theme switch ("ערכת צבעים"), then
-// opens "התכנית שלי" (#/plan), "ללמוד", "חיבורים", the feedback button and
-// the Feedback list (all off the bottom nav), and "install the app" for as
+// opens "התכנית שלי" (#/plan), "ללמוד", "חיבורים", "משוב" (the feedback page,
+// where feedback is both sent and followed; all off the bottom nav), and
+// "install the app" for as
 // long as it's running in a browser tab. A screen with no tab of its own
 // gets a back arrow before its title.
 
 import { icon } from './icon.js';
 import { mountThemeSwitch } from './theme-switch.js';
 import { openBottomSheet } from './bottom-sheet.js';
-import { openFeedbackSheet } from './feedback-sheet.js';
 import { isStandalone, installApp } from './install-banner.js';
 import { navigate, onRouteChange } from '../lib/router.js';
 import { getUserSettings } from '../lib/firestore.js';
@@ -130,8 +130,7 @@ function openProfileSheet() {
           ${item('data-library', 'book-open', 'ללמוד', 'ספרים, פודקאסטים וסרטונים לחיים בריאים')}
           ${item('data-connections', 'plug', 'חיבורים', 'צעדים מהאייפון ומקורות נוספים')}
           ${isStandalone() ? '' : item('data-install', 'download', 'התקנת האפליקציה', 'פתיחה במסך מלא, בלי שורת הכתובת')}
-          ${item('data-feedback-new', 'message-square', 'שליחת משוב')}
-          ${item('data-feedback-list', 'sticky-note', 'כל המשובים')}
+          ${item('data-feedback', 'message-square', 'משוב', 'באג או רעיון? כאן שולחים ורואים מה קרה איתם')}
         </div>`;
       mountThemeSwitch(body.querySelector('[data-theme-slot]'));
       body.querySelector('[data-plan]').addEventListener('click', () => {
@@ -150,11 +149,7 @@ function openProfileSheet() {
         sheetApi.close();
         installApp();
       });
-      body.querySelector('[data-feedback-new]').addEventListener('click', () => {
-        sheetApi.close();
-        openFeedbackSheet();
-      });
-      body.querySelector('[data-feedback-list]').addEventListener('click', () => {
+      body.querySelector('[data-feedback]').addEventListener('click', () => {
         sheetApi.close();
         navigate('feedback');
       });
