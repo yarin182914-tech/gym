@@ -36,7 +36,7 @@ service cloud.firestore {
     match /siteFeedback/{feedbackId} {
       function isFeedbackAdmin() {
         return request.auth != null
-          && request.auth.uid in ['REPLACE_WITH_ADMIN_UID'];
+          && request.auth.uid in ['N2tdF3DUzEY5YqJfhLJWpD9Qx1K2'];
       }
       function isAuthor() {
         return request.auth != null && resource.data.authorUid == request.auth.uid;

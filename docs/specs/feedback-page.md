@@ -103,4 +103,4 @@ This takes the feedback part out of M9s ("the feedback board readable and editab
 - הקובץ `docs/specs/first-screen.md` עדיין מצטט את שורת הפרטיות הישנה. זה תיעוד של M0b כפי שנבנה, ולכן לא שיניתי אותו.
 
 ## שאלות פתוחות
-- ה־uid של ירין עוד לא בקוד. `FEEDBACK.adminUids` ו־`firestore.rules` מחזיקים `REPLACE_WITH_ADMIN_UID` עד שירין יאשר את המזהה, ולפני הפריסה של הכללים.
+- (אין. ה־uid של ירין נלקח מרשימת המשתמשים ב־Firebase באישורו, ב־2026-11-15, ונכנס ל־`FEEDBACK.adminUids` ול־`firestore.rules`.)

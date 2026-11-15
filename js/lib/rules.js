@@ -487,5 +487,5 @@ export const FEEDBACK = {
   // Who sees and manages every item. A Firebase uid is not a secret. The
   // same list is in firestore.rules (isFeedbackAdmin); tools/test-feedback.mjs
   // checks the two match.
-  adminUids: ['REPLACE_WITH_ADMIN_UID'],
+  adminUids: ['N2tdF3DUzEY5YqJfhLJWpD9Qx1K2'],
 };
