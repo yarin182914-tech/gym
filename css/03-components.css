@@ -2906,10 +2906,23 @@ th {
   height: 32px;
 }
 
+/* Two fields side by side. An open picker's panel (the time wheels) spans
+   both columns: squeezed into one, it pushed past the screen's edge on a
+   phone (feedback 2026-11-15). minmax(0, …) keeps the panel from widening
+   its column; the second column's panel starts under the first. */
 .sleep-clocks {
+  --clocks-gap: 10px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 var(--clocks-gap);
+}
+
+.sleep-clocks .picker-panel {
+  width: calc(200% + var(--clocks-gap));
+}
+
+.sleep-clocks > :nth-child(2) .picker-panel {
+  margin-inline-start: calc(-100% - var(--clocks-gap));
 }
 
 .sleep-clocks .sheet-field-label {
