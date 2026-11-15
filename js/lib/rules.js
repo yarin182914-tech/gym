@@ -78,6 +78,9 @@ export const STEPS_IMPORT = {
   maxSteps: 100000,
   // How far back `date` may go; today is 0. Never in the future.
   maxDaysBack: 7,
+  // A shortcut that sends a list (today and yesterday in one run) keeps
+  // only days up to this many back; an older first day may be partial.
+  batchDaysBack: 1,
   // The day `date` defaults to, and the window it's checked against.
   timeZone: 'Asia/Jerusalem',
   // "חיבורים" hints that something's wrong after this long with no import.

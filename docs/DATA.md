@@ -1286,11 +1286,17 @@ SHA-256 hex of `<secret>` is stored, as the doc id. Created and revoked
 **`POST /api/steps`** (a Vercel function, `api/steps.js`) —
 `Authorization: Bearer gymi.<uid>.<secret>`, JSON body
 `{ "steps": 12450, "date": "2026-11-10" }` (`date` optional, today in
-Israel by default, up to 7 days back). The same rules as the in-app import
-below: steps only ever go up, and `stepsKcal` / `totalOutKcal` are
-recomputed; it writes `dailyActivity/{date}` with `source: "shortcut"`.
-Answers `{ ok, saved, steps, date, message }`, the message in Hebrew. Needs
-the `FIREBASE_SA_JSON` environment variable on Vercel.
+Israel by default, up to 7 days back). Or a list, today and yesterday in
+one run: `{ "steps": "4210\n9750", "date": "2026-11-15\n2026-11-14" }`
+(lines of text as iOS sends a list, or JSON arrays; the counts must match).
+From a list only days up to `STEPS_IMPORT.batchDaysBack` (1) back are kept,
+since an older first day may be partial, and repeats of a day add up. The
+same rules as the in-app import below: steps only ever go up, and
+`stepsKcal` / `totalOutKcal` are recomputed; it writes
+`dailyActivity/{date}` with `source: "shortcut"`. Answers
+`{ ok, saved, steps, date, days: [{ date, steps, saved }], message }`, the
+message in Hebrew (on a bad request it echoes what arrived). Needs the
+`FIREBASE_SA_JSON` environment variable on Vercel.
 
 ---
 

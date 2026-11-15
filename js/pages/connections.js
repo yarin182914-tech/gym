@@ -200,7 +200,7 @@ function renderSteps() {
       iconName: 'smartphone',
       title: 'צעדים מהאייפון',
       status: stepsStatusLine(),
-      pitch: 'הצעדים של היום נכנסים לבד, בלי להקליד.',
+      pitch: 'הצעדים נכנסים לבד, בלי להקליד.',
       connected: !loaded || !!lastImport,
       open,
     })}
@@ -218,7 +218,7 @@ function stepsBody() {
     : `<button type="button" class="btn btn-primary btn-block" disabled>${icon('download', { className: 'icon--sm' })} הוספת הקיצור</button>
        <p class="text-muted connection-note">הקישור לקיצור יתווסף בקרוב.</p>`;
   return `
-      <p class="text-muted connection-desc">קיצור באייפון קורא את הצעדים של היום מאפליקציית הבריאות ושולח אותם לג׳יני. הרגל הצעדים והשריפה היומית מתעדכנים לבד.</p>
+      <p class="text-muted connection-desc">קיצור באייפון קורא את הצעדים מאפליקציית הבריאות ושולח אותם לג׳יני. הרגל הצעדים והשריפה היומית מתעדכנים לבד.</p>
       ${iosLangSwitch(lang)}
       <div class="connection-silent" data-silent></div>
       ${STEPS_IMPORT.silentShortcutUrl ? '<div data-build hidden></div>' : `
@@ -309,6 +309,7 @@ function howTo() {
     </ol>
     <ul class="connection-notes text-muted">
       ${STEPS_IMPORT.silentShortcutUrl ? '' : '<li>האוטומציה פותחת את Safari לרגע ושומרת. בפעם הראשונה צריך להתחבר עם גוגל גם ב-Safari.</li>'}
+      ${STEPS_IMPORT.silentShortcutUrl ? '<li>בכל הרצה נשלחים הצעדים של היום וגם של אתמול, כך שגם מה שהלכת אחרי ההרצה נספר למחרת.</li>' : ''}
       <li>אם הטלפון נעול בשעה הזאת, האוטומציה עלולה לא לרוץ. אפשר תמיד להריץ את הקיצור ידנית: לחיצה עליו ב${chip(L.shortcutsApp)}, או מהווידג׳ט במסך הבית.</li>
     </ul>`;
 }
@@ -388,9 +389,13 @@ function oneTap(L) {
     return `${install('התקנת הקיצור', 'btn-primary')}
       <p class="text-muted connection-note">לוחצים, ומפתח אישי מועתק לבד. בשלב הבא מוסיפים את הקיצור ומדביקים.</p>`;
   }
-  const used = stepsKey.lastUsedAt ? `נשלח לאחרונה ${formatDayMonthHe(toDate(stepsKey.lastUsedAt))} ב-${formatTimeHe(toDate(stepsKey.lastUsedAt))}` : 'עוד לא נשלח בו כלום';
+  // "מחובר" only once the server has accepted a send with this key; until
+  // then the key exists but the shortcut may not be set up right.
+  const status = stepsKey.lastUsedAt
+    ? `<span class="status-dot status-dot--on"></span>הקיצור מחובר · נשלח לאחרונה ${formatDayMonthHe(toDate(stepsKey.lastUsedAt))} ב-${formatTimeHe(toDate(stepsKey.lastUsedAt))}`
+    : '<span class="status-dot"></span>יש מפתח · עוד לא נשלח כלום. כדאי להריץ את הקיצור פעם אחת.';
   return `
-    <p class="connection-key-status"><span class="status-dot status-dot--on"></span>הקיצור מחובר · ${used}</p>
+    <p class="connection-key-status">${status}</p>
     ${install('התקנה מחדש (טלפון חדש)', 'btn-outline')}
     <p class="text-muted connection-note">התקנה מחדש יוצרת מפתח חדש, והקיצור הישן מפסיק לשלוח.</p>`;
 }
