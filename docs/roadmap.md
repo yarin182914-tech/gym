@@ -198,7 +198,7 @@ Growth review, phase "עכשיו". Spec: `docs/specs/first-screen.md`. After M0a
 ## M15 ☐ Polish the existing screens (feedback page first) — `feature/m15-polish`
 Asked by ירין 2026-11-12: before new features, fix what exists. Start with the feedback page ("דף המשוב") as the example of a screen that needs work, then screen by screen (this replaces M4c's follow-up M4d). One PR per screen or two is fine (M15a, M15b…).
 
-### M15a ☐ The feedback page — private, tidy and quick — `feature/m15a-feedback-page`
+### M15a ◐ The feedback page — private, tidy and quick — `feature/m15a-feedback-page`
 Asked by ירין 2026-11-12, settled 2026-11-15. Spec: `docs/specs/feedback-page.md`.
 - Data: `siteFeedback` gets `closedAt`; `author` comes from the Google name. **`firestore.rules` changes:** only the author and the admin read an item; only the admin changes status; the author edits or deletes while it is "new". ירין deploys the rules right before the merge.
 - UI: a short form (text + type buttons, no name field) with a thank-you; a user sees only "המשובים שלי" folded, done items gone after 7 days; ירין sees "פתוחים" and a folded "סגורים". `privacy.html` says feedback is seen only by its writer and the developer.

@@ -1,5 +1,5 @@
 # דף המשוב — פרטי, מסודר ומהיר
-Milestone: M15a · Branch: feature/m15a-feedback-page · Status: draft
+Milestone: M15a · Branch: feature/m15a-feedback-page · Status: built 2026-11-15, PR open
 Requested by ירין on 2026-11-12: "לפני פיצ׳רים חדשים, לתקן את מה שקיים … להתחיל מדף המשוב". Answers on 2026-11-15:
 - Who sees what: "אנשים לא יכולים לראות את המשובים - אני יכול כמנהל האפליקצייה לראות בלבד - מי ששולח זה רושם לו הודעה של תודה ששלחת ומשאיר רק אצלו מקופל את המשובים שלו עם סטטוס ביצוע - מה שכבר בוצע יכול לרדת מהתצוגה אצל המשתמש. אצלי אני רואה הכל".
 - Closed items: folded at the bottom. A user's done item disappears from their view after 7 days.
@@ -95,5 +95,11 @@ This takes the feedback part out of M9s ("the feedback board readable and editab
 - הכל נראה טוב ב־390px, RTL, בכל ערכות הצבעים, בלי שגיאות בקונסול.
 - `tools/test-feedback.mjs` עובר (חלוקה לפתוחים/סגורים, הסתרה אחרי 7 ימים, מי יכול לערוך, התאמת רשימת המנהלים לכללים).
 
+## מה נבנה בפועל (2026-11-15)
+- הכל כמו למעלה. כותרת "משוב" לא חוזרת בתוך הכרטיס, כי היא כבר בראש המסך.
+- `?dev` מציג את הדף של משתמש רגיל, ו־`?dev&admin` את הדף של ירין, עם משובים לדוגמה (`js/dev/seed.js`).
+- אייקון מנעול חדש ב־`js/ui/icon.js`, ומטמון האפליקציה עולה ל־v12.
+- הקובץ `docs/specs/first-screen.md` עדיין מצטט את שורת הפרטיות הישנה. זה תיעוד של M0b כפי שנבנה, ולכן לא שיניתי אותו.
+
 ## שאלות פתוחות
-- (אין. הכל נענה ב־2026-11-15.)
+- ה־uid של ירין עוד לא בקוד. `FEEDBACK.adminUids` ו־`firestore.rules` מחזיקים `REPLACE_WITH_ADMIN_UID` עד שירין יאשר את המזהה, ולפני הפריסה של הכללים.
