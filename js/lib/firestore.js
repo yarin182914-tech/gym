@@ -24,7 +24,8 @@ import {
 import { lastPerformanceIn, exerciseHistoryIn, workoutDayKey } from './workout-types.js';
 import { bodyKgOn as bodyKgFrom, dayWorkoutKcal, workoutKcalPatch } from './workout-kcal.js';
 import { normalizeExerciseName, findByName } from './exercise-names.js';
-import { WRITE_WAIT_MS } from './rules.js';
+import { WRITE_WAIT_MS, FEEDBACK } from './rules.js';
+import { statusChange, isAdminUid } from './feedback.js';
 import { queueCalendarSync } from './calendar-sync.js';
 
 // Writes land in the persistent local cache at once and sync by themselves,
@@ -843,17 +844,16 @@ export async function deleteMcpKey(hash) {
 }
 
 // ---------- site feedback ----------
-// A shared board, not per-user data — unlike everything above this, these
-// documents live at the top-level siteFeedback/ collection instead of under
-// users/{uid}/, so every signed-in user reads and writes the same list. See
-// firestore.rules for the matching access rule. Deliberately no query
-// caching like allWorkouts() below has: that exists to stop one screen from
-// re-fetching the same collection dozens of times in parallel (Dashboard's
-// PR list did exactly that), which doesn't apply here — this is read once
-// per page visit by the one screen that shows it.
+// Top-level siteFeedback/ (not under users/{uid}) so the admin can read
+// every item in one list. Since M15a it is private: firestore.rules lets an
+// item be read by its author and the admin only, so a user's read must ask
+// for their own items (`mine`) or Firestore refuses the whole query. The
+// user query has no orderBy on purpose: equality + orderBy on another field
+// would need a composite index, and one person's list is small enough to
+// sort on the phone (js/lib/feedback.js splitFeedback).
 
 export async function createFeedback({ text, author, category }) {
-  if (!useCloud) return devCreateFeedback({ text, author, category, authorUid: currentUid() });
+  if (!useCloud) return devCreateFeedback({ text, author, category, authorUid: DEV_FEEDBACK_UID });
   const uid = uidOrThrow();
   const ref = collection(db, 'siteFeedback');
   const docRef = await addDoc(ref, {
@@ -862,32 +862,65 @@ export async function createFeedback({ text, author, category }) {
     authorUid: uid,
     category: category ?? 'other',
     status: 'new',
+    closedAt: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
   return docRef.id;
 }
 
-// Newest first.
-export async function listFeedback(max = 200) {
-  if (!useCloud) return devListFeedback(max);
+// mine: only the signed-in user's items (anyone who is not the admin must
+// pass it). Admin: newest first.
+export async function listFeedback({ mine = false, max = FEEDBACK.listMax } = {}) {
+  if (!useCloud) return devListFeedback({ authorUid: mine ? DEV_FEEDBACK_UID : null, max });
   const ref = collection(db, 'siteFeedback');
-  const q = query(ref, orderBy('createdAt', 'desc'), limit(max));
+  const q = mine
+    ? query(ref, where('authorUid', '==', uidOrThrow()), limit(max))
+    : query(ref, orderBy('createdAt', 'desc'), limit(max));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
-// `patch` is any subset of { text, author, category, status } — covers
-// editing the text, recategorizing, and changing status through the same
-// one function, all of which bump updatedAt.
-export async function updateFeedback(feedbackId, patch) {
+// The author's edit: text and category only (firestore.rules allows no
+// other field from the author, and only while the item is 'new').
+export async function updateFeedback(feedbackId, { text, category }) {
+  const patch = {};
+  if (text !== undefined) patch.text = text;
+  if (category !== undefined) patch.category = category;
   if (!useCloud) return devUpdateFeedback(feedbackId, patch);
   await updateDoc(doc(db, 'siteFeedback', feedbackId), { ...patch, updatedAt: serverTimestamp() });
+}
+
+// Admin only. closedAt follows the status (js/lib/feedback.js statusChange).
+export async function setFeedbackStatus(feedbackId, status) {
+  const change = statusChange(status);
+  if (!useCloud) {
+    return devUpdateFeedback(feedbackId, { ...change, closedAt: change.closedAt ? new Date().toISOString() : null });
+  }
+  await updateDoc(doc(db, 'siteFeedback', feedbackId), {
+    status: change.status,
+    closedAt: change.closedAt ? serverTimestamp() : null,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function deleteFeedback(feedbackId) {
   if (!useCloud) return devDeleteFeedback(feedbackId);
   await deleteDoc(doc(db, 'siteFeedback', feedbackId));
+}
+
+// Who the feedback page treats as signed in, and whether as the admin.
+// The ?dev sandbox has no Google account: it is 'dev-user', and `?dev&admin`
+// shows the admin's page.
+export const DEV_FEEDBACK_UID = 'dev-user';
+
+export function feedbackViewer() {
+  if (!useCloud) {
+    const admin = new URLSearchParams(location.search).has('admin');
+    return { uid: DEV_FEEDBACK_UID, admin };
+  }
+  const uid = currentUid();
+  return { uid, admin: isAdminUid(uid) };
 }
 
 // Plan persistence (getActivePlan/savePlan) and the profile helpers

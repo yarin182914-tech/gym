@@ -27,12 +27,34 @@ service cloud.firestore {
       allow update: if false;
     }
 
-    // Site feedback is a shared board, not per-user data — any signed-in
-    // user of the app may read every entry and add their own; editing an
-    // existing entry (status/text) is also open to any signed-in user for
-    // now, since this is a small internal tool, not multi-tenant content.
+    // Site feedback (M15a, docs/specs/feedback-page.md): private to its
+    // author and the admin. Anyone signed in may send one, as themselves.
+    // Only the admin changes status; the author may fix or delete an item
+    // while it is still 'new'. The admin list is FEEDBACK.adminUids in
+    // js/lib/rules.js (tools/test-feedback.mjs checks they match). A uid is
+    // not a secret.
     match /siteFeedback/{feedbackId} {
-      allow read, write: if request.auth != null;
+      function isFeedbackAdmin() {
+        return request.auth != null
+          && request.auth.uid in ['REPLACE_WITH_ADMIN_UID'];
+      }
+      function isAuthor() {
+        return request.auth != null && resource.data.authorUid == request.auth.uid;
+      }
+      allow read: if isFeedbackAdmin() || isAuthor();
+      allow create: if request.auth != null
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.status == 'new'
+        && request.resource.data.get('closedAt', null) == null
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 4000;
+      allow update: if isFeedbackAdmin()
+        || (isAuthor()
+          && resource.data.status == 'new'
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['text', 'category', 'updatedAt']));
+      allow delete: if isFeedbackAdmin()
+        || (isAuthor() && resource.data.status == 'new');
     }
   }
 }

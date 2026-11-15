@@ -143,6 +143,23 @@ export async function seedDevStoreIfEmpty() {
     },
     updatedAt: daysAgo(1),
   }];
+  // Feedback (M15a): the sandbox user's own items ('dev-user', see
+  // feedbackViewer in js/lib/firestore.js) and other people's, so `?dev`
+  // shows "המשובים שלי" and `?dev&admin` shows the admin's full board. One
+  // own item closed 10 days ago is already gone from the user's list.
+  const fb = (id, authorUid, author, category, status, text, created, closed = null) => ({
+    id, text, author, authorUid, category, status,
+    closedAt: closed === null ? null : daysAgo(closed),
+    createdAt: daysAgo(created), updatedAt: daysAgo(closed ?? created),
+  });
+  state.feedback = [
+    fb('fb1', 'dev-user', 'אורח', 'bug', 'new', 'כפתור סיום האימון לפעמים לא מגיב באינטרנט חלש', 0),
+    fb('fb2', 'dev-user', 'אורח', 'feature', 'in_progress', 'הייתי רוצה לראות גרף משקל שבועי', 4),
+    fb('fb3', 'dev-user', 'אורח', 'ui', 'done', 'הטקסט בכרטיס השינה קטן מדי', 6, 2),
+    fb('fb4', 'dev-user', 'אורח', 'ux', 'done', 'קשה למצוא את ההגדרות של התזונה', 15, 10),
+    fb('fb5', 'friend-1', 'מאיה', 'ux', 'new', 'לא הבנתי איפה רושמים ארוחה שכבר אכלתי אתמול', 1),
+    fb('fb6', 'friend-1', 'מאיה', 'feature', 'dismissed', 'אפשר מצב כהה עוד יותר?', 9, 8),
+  ];
   state.user = { ...state.user, habitsSeeded: true, rewardsStartDate: yesterday };
   localStorage.setItem('gym-dev-store', JSON.stringify(state));
   console.info('[dev] seeded sandbox with', WORKOUTS.length, 'workouts');
