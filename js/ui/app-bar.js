@@ -15,7 +15,7 @@ import { openBottomSheet } from './bottom-sheet.js';
 import { openFeedbackSheet } from './feedback-sheet.js';
 import { isStandalone, installApp } from './install-banner.js';
 import { navigate, onRouteChange } from '../lib/router.js';
-import { getUserSettings } from '../lib/firestore.js';
+import { getUserSettings, feedbackViewer } from '../lib/firestore.js';
 import { greeting, firstName, shortDate } from '../lib/today-rings.js';
 import { auth } from '../firebase-config.js';
 
@@ -131,7 +131,7 @@ function openProfileSheet() {
           ${item('data-connections', 'plug', 'חיבורים', 'צעדים מהאייפון ומקורות נוספים')}
           ${isStandalone() ? '' : item('data-install', 'download', 'התקנת האפליקציה', 'פתיחה במסך מלא, בלי שורת הכתובת')}
           ${item('data-feedback-new', 'message-square', 'שליחת משוב')}
-          ${item('data-feedback-list', 'sticky-note', 'כל המשובים')}
+          ${item('data-feedback-list', 'sticky-note', feedbackViewer().admin ? 'כל המשובים' : 'המשובים שלי')}
         </div>`;
       mountThemeSwitch(body.querySelector('[data-theme-slot]'));
       body.querySelector('[data-plan]').addEventListener('click', () => {

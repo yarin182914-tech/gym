@@ -1275,6 +1275,160 @@ th {
   color: var(--text-muted);
 }
 
+/* ===== Feedback page and form (M15a, js/pages/feedback.js) ===== */
+.feedback-status {
+  gap: 4px;
+}
+
+.feedback-intro {
+  text-align: center;
+}
+
+.feedback-intro-text {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.feedback-section {
+  margin-bottom: var(--space-3);
+}
+
+.feedback-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.feedback-list[hidden] {
+  display: none;
+}
+
+.feedback-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+/* Closed items step back; never red (hard rule 10). */
+.feedback-item--done,
+.feedback-item--dismissed {
+  background: transparent;
+}
+
+.feedback-item-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: 6px;
+}
+
+.feedback-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.feedback-item-text {
+  margin: 0;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.feedback-item--done .feedback-item-text,
+.feedback-item--dismissed .feedback-item-text {
+  color: var(--text-muted);
+}
+
+.feedback-empty {
+  margin: var(--space-2) 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.feedback-fold {
+  margin-bottom: var(--space-3);
+}
+
+.feedback-fold-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-1);
+  margin-bottom: var(--space-2);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.feedback-fold-title {
+  font-weight: var(--weight-semibold);
+}
+
+.feedback-fold-count {
+  flex: 1;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.feedback-fold-chevron {
+  display: inline-flex;
+  color: var(--text-muted);
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.feedback-fold-head[aria-expanded="true"] .feedback-fold-chevron {
+  transform: rotate(180deg);
+}
+
+.feedback-sheet-title {
+  margin: 0 0 14px;
+  color: var(--text);
+}
+
+.feedback-text {
+  width: 100%;
+  resize: vertical;
+}
+
+.feedback-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.feedback-private {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: var(--space-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.feedback-status-pick {
+  margin-bottom: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feedback-fold-chevron {
+    transition: none;
+  }
+}
+
 /* ===== PR badge celebration ===== */
 .pr-badge--celebrate {
   animation: pr-badge-celebrate var(--motion-slow) ease;

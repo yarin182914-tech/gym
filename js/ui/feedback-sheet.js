@@ -1,58 +1,52 @@
-// Add/edit form for one site-feedback item — a bottom sheet, same shell as
-// every other quick-entry flow in this app (js/ui/bottom-sheet.js). Shared
-// by two callers that must stay identical: the dedicated Feedback page's
-// own "+" button, and "שליחת משוב" in the app bar's settings (app-bar.js),
-// which opens it from wherever the user happens to be. One form, one save path.
+// Send or fix one feedback item — a bottom sheet, opened from the feedback
+// page and from "שליחת משוב" in the profile sheet (app-bar.js), so it can
+// be reached from any screen. One form, one save path.
+//
+// M15a: text + a type picked from small buttons; the name comes from the
+// Google account (only the admin sees it). Editing changes text and type
+// only — firestore.rules lets the author do nothing else, and only while
+// the item is still new.
 
 import { esc } from '../core/dom.js';
 import { openBottomSheet } from './bottom-sheet.js';
 import { showToast } from './toast.js';
 import { icon } from './icon.js';
 import { createFeedback, updateFeedback } from '../lib/firestore.js';
+import { FEEDBACK_CATEGORIES } from '../lib/feedback.js';
+import { FEEDBACK } from '../lib/rules.js';
 import { auth } from '../firebase-config.js';
 
-// Stable id (never shown to users as text elsewhere) + display label, same
-// shape as SET_TYPES in lib/format.js — a future reader (human or Claude)
-// can rely on the id staying constant even if the Hebrew label is reworded.
-export const FEEDBACK_CATEGORIES = [
-  { id: 'bug', label: 'באג' },
-  { id: 'ux', label: 'חוויית משתמש' },
-  { id: 'ui', label: 'עיצוב' },
-  { id: 'feature', label: 'פיצ׳ר חדש' },
-  { id: 'suggestion', label: 'הצעה' },
-  { id: 'other', label: 'אחר' },
-];
+export { FEEDBACK_CATEGORIES };
 
-export function categoryLabel(id) {
-  return FEEDBACK_CATEGORIES.find((c) => c.id === id)?.label || 'אחר';
+function typeChips(active) {
+  return FEEDBACK_CATEGORIES.map((c) => `
+    <button type="button" class="pill${c.id === active ? ' active' : ''}" data-fb-type="${c.id}" aria-pressed="${c.id === active}">${esc(c.label)}</button>`).join('');
 }
 
-// item: pass an existing feedback record to edit it in place; omit to
-// create a new one. onSaved: called after a successful save (create or
-// edit) so the caller can refresh its own list — this module has no
-// opinion on where the item ends up displayed.
+// item: an existing item to fix; omit to send a new one. onSaved: called
+// after a successful save so the caller can refresh its own list.
 export function openFeedbackSheet({ item = null, onSaved } = {}) {
   const isEdit = !!item;
+  // An old item may carry a type the form no longer offers ('suggestion'):
+  // it shows as "רעיון", and stays as it is unless another type is picked.
+  let category = item?.category || 'other';
+  const shown = category === 'suggestion' ? 'feature' : category;
 
   openBottomSheet({
-    ariaLabel: isEdit ? 'עריכת משוב' : 'משוב חדש על האתר',
+    ariaLabel: isEdit ? 'תיקון משוב' : 'משוב על ג׳יני',
     render(body, sheetApi) {
-      const defaultAuthor = item ? (item.author || '') : (auth?.currentUser?.displayName || '');
-
       body.innerHTML = `
-        <h3 style="margin:0 0 14px; color:var(--text);">${isEdit ? 'עריכת משוב' : 'משוב חדש על האתר'}</h3>
+        <h3 class="feedback-sheet-title">${isEdit ? 'תיקון משוב' : 'משוב על ג׳יני'}</h3>
 
-        <div class="sheet-field-label">מה שמת לב אליו?</div>
-        <textarea data-role="fb-text" rows="4" class="search-bar" style="width:100%; resize:vertical;"
+        <label class="sheet-field-label" for="fb-text">מה שמת לב אליו?</label>
+        <textarea id="fb-text" data-role="fb-text" rows="4" class="search-bar feedback-text"
+          maxlength="${FEEDBACK.textMax}"
           placeholder="לדוגמה: כפתור סיום האימון לפעמים לא מגיב">${esc(item?.text || '')}</textarea>
 
-        <div class="sheet-field-label">קטגוריה</div>
-        <select data-role="fb-category" class="search-bar">
-          ${FEEDBACK_CATEGORIES.map((c) => `<option value="${c.id}" ${(item?.category || 'other') === c.id ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}
-        </select>
+        <div class="sheet-field-label" id="fb-type-label">סוג</div>
+        <div class="feedback-types" role="group" aria-labelledby="fb-type-label">${typeChips(shown)}</div>
 
-        <div class="sheet-field-label">שם (אופציונלי)</div>
-        <input type="text" data-role="fb-author" class="search-bar" value="${esc(defaultAuthor)}" placeholder="איך לקרוא לך?">
+        <p class="feedback-private">${icon('lock', { className: 'icon--sm' })} רק המפתח של ג׳יני רואה את זה.</p>
 
         <div class="sheet-actions">
           <button type="button" class="btn btn-secondary" data-role="fb-cancel">ביטול</button>
@@ -64,30 +58,42 @@ export function openFeedbackSheet({ item = null, onSaved } = {}) {
       const submitBtn = body.querySelector('[data-role="fb-submit"]');
       textEl.focus();
 
+      body.querySelectorAll('[data-fb-type]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          category = btn.dataset.fbType;
+          body.querySelectorAll('[data-fb-type]').forEach((b) => {
+            const on = b === btn;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-pressed', String(on));
+          });
+        });
+      });
+
       body.querySelector('[data-role="fb-cancel"]').addEventListener('click', () => sheetApi.close());
 
       submitBtn.addEventListener('click', async () => {
         const text = textEl.value.trim();
         if (!text) { textEl.focus(); return; }
-        const category = body.querySelector('[data-role="fb-category"]').value;
-        const author = body.querySelector('[data-role="fb-author"]').value.trim();
 
         submitBtn.disabled = true;
         submitBtn.classList.add('btn--loading');
         try {
           if (isEdit) {
-            await updateFeedback(item.id, { text, category, author });
+            await updateFeedback(item.id, { text, category });
           } else {
+            const author = auth?.currentUser?.displayName || '';
             await createFeedback({ text, category, author });
           }
           sheetApi.close();
-          showToast(`${icon('check', { className: 'icon--sm' })} ${isEdit ? 'המשוב עודכן' : 'תודה, המשוב נשמר'}`);
+          showToast(isEdit
+            ? `${icon('check', { className: 'icon--sm' })} המשוב עודכן`
+            : `${icon('heart', { className: 'icon--sm' })} תודה ששלחת! זה עוזר לשפר את ג׳יני`);
           onSaved?.();
         } catch (err) {
           console.error('feedback save failed', err);
           submitBtn.disabled = false;
           submitBtn.classList.remove('btn--loading');
-          showToast('שגיאה בשמירת המשוב — נסה שוב');
+          showToast('לא נשמר, נסו שוב');
         }
       });
     },
