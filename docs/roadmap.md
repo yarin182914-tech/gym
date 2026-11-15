@@ -79,6 +79,11 @@ No plan chapter; ירין asked 2026-11-10 to solve every open item on the in-ap
 - **A note per exercise (7.11).** Some machines differ (seat height, handle, which machine). New optional `note` on the `exerciseLibrary` entry, edited in the exercise edit sheet and shown under the exercise name during a workout and in "last time". Document in DATA.md.
 - **See that a workout is running in the background (9.11).** A web app can't show an iPhone Live Activity. Fix: (1) a sticky "אימון פעיל · 32:10" pill above the bottom nav on every screen, tap → back to the workout; (2) app-icon badge via `navigator.setAppBadge(1)` while a live workout is open (works for the home-screen app on iOS 16.4+ once notification permission exists, so it lights up fully after M9); cleared on finish/delete.
 - Done when: each item is reproduced before and checked after on the preview at 390px; a unit test covers the warm-up → working prefill; DATA.md documents `exerciseLibrary.note`.
+- **Not built (found 2026-11-15):** the "אימון פעיל" pill and the app-icon badge (→ M15c), and the cache-first service worker (it still waits up to 1.2 s for the network; → M10d). The warm-up, typing and note fixes are live.
+
+## M3g ☑ Feedback fixes in the workout screen — `feature/m3g-feedback-fixes`
+Asked by ירין 2026-11-13 on the feedback board, merged 2026-11-14 (PR #37; added here 2026-11-15, it was missing).
+- A newly added exercise scrolls into view; workout types show only before the first exercise; the confirm dialog always opens above bottom sheets.
 
 ## M4 ☑ Points, levels and reward moments — `feature/m4-rewards`
 Plan: "שלב 2: תכנית התגמול" (all subsections except "לאורך זמן").
@@ -198,11 +203,23 @@ Growth review, phase "עכשיו". Spec: `docs/specs/first-screen.md`. After M0a
 ## M15 ☐ Polish the existing screens (feedback page first) — `feature/m15-polish`
 Asked by ירין 2026-11-12: before new features, fix what exists. Start with the feedback page ("דף המשוב") as the example of a screen that needs work, then screen by screen (this replaces M4c's follow-up M4d). One PR per screen or two is fine (M15a, M15b…).
 
-### M15a ◐ The feedback page — private, tidy and quick — `feature/m15a-feedback-page`
+### M15a ☑ The feedback page — private, tidy and quick — `feature/m15a-feedback-page`
 Asked by ירין 2026-11-12, settled 2026-11-15. Spec: `docs/specs/feedback-page.md`.
 - Data: `siteFeedback` gets `closedAt`; `author` comes from the Google name. **`firestore.rules` changes:** only the author and the admin read an item; only the admin changes status; the author edits or deletes while it is "new". ירין deploys the rules right before the merge.
 - UI: a short form (text + type buttons, no name field) with a thank-you; a user sees only "המשובים שלי" folded, done items gone after 7 days; ירין sees "פתוחים" and a folded "סגורים". `privacy.html` says feedback is seen only by its writer and the developer.
 - Done when: a second account can't read or change anyone else's feedback (also directly against Firestore), sending works offline, and the page looks right at 390px in every theme.
+
+### M15b ◐ Feedback fixes — the PR in "last time" and the sleep clock — `feature/m15b-feedback-fixes`
+Asked by ירין 2026-11-15: "תחלץ את כל המשובים ותרשום לי מה אתה מבין ומה אתה ממליץ", then "כן, לבנות". Small fix, spec in the PR.
+- The PR in the "last time" popup compares only workouts logged like the last one (per side vs total, as the trophy does), and a workout whose sets are all warm-ups (the old bug fixed in M3d) counts all its sets. Logic moved to `js/lib/exercise-pr.js` with `tools/test-exercise-pr.mjs`. No data rewritten.
+- Sleep: an open time picker spans both clocks instead of running off a narrow screen (card, night sheet, settings, habit wizard).
+- Steps: checked only. Since M3e the iPhone shortcut wrote once (2026-11-12, 09:24); every other day came from the coach.
+- Done when: on ירין's data no exercise shows a PR below last time (checked on all 30), and the wake-time wheel stays on screen at 340px and 390px in every theme.
+
+### M15c ☐ The workout screen — `feature/m15c-workout-screen`
+Asked by ירין 2026-11-10 on the feedback board: "שיתחיל בכלל בהוספת סוג האימון ומשם לתרגילים … לייצר לוגיקה הגיונית של תהליכיות בהתחלת אימון".
+- UI: starting a workout picks its kind first (strength, run, a session…), then the exercises for that kind; strength no longer fills the screen above the other kinds. Plus M3d's unbuilt "אימון פעיל" pill above the nav on every screen (tap → back to the workout) and the app-icon badge.
+- Done when: starting each kind of workout takes the fewest taps, and a running workout is visible from every screen, at 390px in every theme.
 
 ## M16 ☐ Open ג׳ימי to Maya — `feature/m16-maya`
 Asked by ירין 2026-11-12: Maya is the first user after ירין. Her own ג׳ימי user (Google sign-in already works for any account; rules isolate `users/{uid}`), with ירין's personal leftovers out of her way (the 1950 base burn, `weddingDate`, ירין-only links) and a short first-run setup (the minimum of M10). Her Claude: the connector key from "חיבורים" (M11) on her own phone, plus a "ניהול חיים" project per the plan's "קלוד כעוזר אישי" (the part of M12 she needs). Check first: how Maya's Claude account works (ירין asked if she can use his paid plan; answered in the build thread).
