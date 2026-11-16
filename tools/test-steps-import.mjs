@@ -7,7 +7,7 @@
 
 process.env.TZ = 'Asia/Jerusalem';
 
-const { parseImport, mergeSteps, israelDateKey } = await import('../js/lib/steps-import.js');
+const { parseImport, parseStepsBody, mergeSteps, israelDateKey } = await import('../js/lib/steps-import.js');
 const { normalizeHabit, habitContext, entryFor, EXAMPLE_HABITS } = await import('../js/lib/habits.js');
 const { ACTIVITY, STEPS_IMPORT } = await import('../js/lib/rules.js');
 
@@ -71,6 +71,32 @@ check('the same number writes nothing', mergeSteps({ steps: 12000 }, 12000), nul
 check('zero on a new day writes nothing', mergeSteps(null, 0), null);
 const once = { ...coachDay, ...mergeSteps(coachDay, 9000) };
 check('same URL twice = same result', mergeSteps(once, 9000), null);
+
+console.log('\nthe body of POST /api/steps (one day, or today and yesterday)');
+const body = (b) => parseStepsBody(b, TODAY);
+check('one number, no date → today', body({ steps: 12450 }), { days: [{ steps: 12450, date: TODAY }] });
+check('one number as text with a decimal', body({ steps: '9,750.6', date: '2026-11-05' }), { days: [{ steps: 9750, date: '2026-11-05' }] });
+check('one day still allows a week back', body({ steps: 100, date: '2026-11-02' }), { days: [{ steps: 100, date: '2026-11-02' }] });
+check('one day, too far back', body({ steps: 100, date: '2026-11-01' }), { error: 'date' });
+check('missing steps', body({}), { error: 'steps' });
+check('lines of text: today and yesterday', body({ steps: '4210\n9750', date: '2026-11-09\n2026-11-08' }),
+  { days: [{ date: TODAY, steps: 4210 }, { date: '2026-11-08', steps: 9750 }] });
+check('Windows line ends and separators', body({ steps: '9,750\r\n4,210', date: '2026-11-08\r\n2026-11-09' }),
+  { days: [{ date: TODAY, steps: 4210 }, { date: '2026-11-08', steps: 9750 }] });
+check('JSON arrays', body({ steps: [9750.4, 4210], date: ['2026-11-08', '2026-11-09'] }),
+  { days: [{ date: TODAY, steps: 4210 }, { date: '2026-11-08', steps: 9750 }] });
+check('dates split by commas', body({ steps: '9750\n4210', date: '2026-11-08, 2026-11-09' }),
+  { days: [{ date: TODAY, steps: 4210 }, { date: '2026-11-08', steps: 9750 }] });
+check('a partial older day is dropped', body({ steps: '300\n9750\n4210', date: '2026-11-07\n2026-11-08\n2026-11-09' }),
+  { days: [{ date: TODAY, steps: 4210 }, { date: '2026-11-08', steps: 9750 }] });
+check('a whole week: only today and yesterday', body({ steps: '1\n2\n3\n4\n5\n6\n7', date: '2026-11-03\n2026-11-04\n2026-11-05\n2026-11-06\n2026-11-07\n2026-11-08\n2026-11-09' }),
+  { days: [{ date: TODAY, steps: 7 }, { date: '2026-11-08', steps: 6 }] });
+check('ungrouped samples of a day add up', body({ steps: '1000\n2000\n500', date: '2026-11-09\n2026-11-09\n2026-11-08' }),
+  { days: [{ date: TODAY, steps: 3000 }, { date: '2026-11-08', steps: 500 }] });
+check('only old days → nothing to save', body({ steps: '1\n2', date: '2026-11-01\n2026-11-02' }), { error: 'date' });
+check('counts that don\'t match', body({ steps: '4210\n9750', date: TODAY }), { error: 'date' });
+check('a future day in a list', body({ steps: '1\n2', date: '2026-11-09\n2026-11-10' }), { error: 'date' });
+check('a bad number in a list', body({ steps: '4210\nabc', date: '2026-11-09\n2026-11-08' }), { error: 'steps' });
 
 console.log('the "צעדים" habit picks the import up');
 const stepsHabit = normalizeHabit({ id: 'h-steps', ...EXAMPLE_HABITS.find((h) => h.unit === 'צעדים') });

@@ -61,6 +61,13 @@ Asked by ירין 2026-11-11 ("שהקיצור של הצעדים ייעשה או�
 - Instagram time (2026-11-11, ירין: "משהו דומה לשימוש באינסטגרם"): Screen Time can't be read, so "opened"/"closed" automations post to `POST /api/usage`; the minutes fill the Instagram part of the limit habit. `appUsage`, `appSessions` in DATA.md.
 - Any app, per user (2026-11-11, ירין: "יש אנשים שירצו למדוד עוד דברים ועוד אפליקציות"): one shared shortcut "ג׳ימי זמן באפליקציה" takes the automation's text (`<app> נפתח/נסגר`); on חיבורים the user picks ready-made apps or types any name (`usageApps` on the user doc), and gets two automations per app. Once ירין shares the shortcut's iCloud link → `USAGE.shortcut.url` for one-tap install.
 
+## M3h ◐ The steps shortcut, fixed: today and yesterday — `feature/m3h-steps-shortcut`
+Asked by ירין 2026-11-15 ("בוא נעבור על האוטומציה של הצעדים באייפון", then "היום ואתמול"). Since M3e the shared silent shortcut never sent a key: its `Authorization` header was empty (the key sat in an unlinked "מלל" action), and it read the last 7 days but sent one date. Small fix, spec in the PR.
+- `POST /api/steps` also takes a list (`parseStepsBody` in `js/lib/steps-import.js`): the shortcut reads the last 2 days grouped by day and sends today and yesterday in one run, so the evening's late steps land the next day. One number still works for older shortcuts.
+- ירין rebuilt the shared shortcut on the phone (key in "מלל" linked to the header, Start Date "בטווח של" 2 days, steps as text), tested it on the preview on 2026-11-16 (today's steps saved), and shared a new iCloud link → `STEPS_IMPORT.silentShortcutUrl`. Vercel previews now have `FIREBASE_SA_JSON`, so `api/` changes can be tested before merge.
+- "חיבורים" says "הקיצור מחובר" only after the server accepted a send; before that a grey "עוד לא נשלח כלום".
+- Done when: one run from ירין's phone writes today and yesterday, the shared link installs a shortcut that works with just the pasted key, and the tests cover text lines, arrays, a partial older day and mismatched counts.
+
 ## M3b ☑ Workout types (functional, CrossFit, Pilates…) — `feature/m3b-workout-types`
 Plan: "סוגי אימון: פונקציונלי, קרוספיט, פילאטיס ועוד". Independent of M1–M3; can be pulled earlier.
 - New exercise kind `session` next to `strength` and `cardio` inside the existing `workouts` doc (old workouts untouched): `{ kind: 'session', typeId, name, durationSec, rpe (1–10), avgHr?, place?, fields: {…type-specific}, notes }`. A workout can mix kinds (e.g. CrossFit with a strength part).

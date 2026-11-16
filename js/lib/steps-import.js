@@ -1,4 +1,4 @@
-// Steps from the iPhone: an iOS Shortcut reads today's steps from Apple
+// Steps from the iPhone: an iOS Shortcut reads the steps from Apple
 // Health and opens #/import?steps=N&date=yyyy-mm-dd (js/pages/import.js).
 // Pure functions — no DOM, no Firestore — so tools/test-steps-import.mjs
 // can run them under Node. Limits come from STEPS_IMPORT in rules.js.
@@ -76,4 +76,44 @@ export function mergeSteps(existing, steps) {
     source: 'shortcut',
     ...(existing ? {} : { note: '' }),
   };
+}
+
+// Items of a list the shortcut sent: a JSON array, or the text iOS makes
+// of a list (one item per line). Steps keep "9,750" whole, so only line
+// breaks split them; dates may also be split by commas or spaces.
+function listOf(value, splitter) {
+  if (Array.isArray(value)) return value.map((v) => String(v ?? '').trim()).filter(Boolean);
+  if (value === undefined || value === null) return [];
+  return String(value).split(splitter).map((v) => v.trim()).filter(Boolean);
+}
+
+// The body of POST /api/steps → { days: [{ date, steps }] } or
+// { error: 'steps' | 'date' }. One number (with an optional date) works as
+// before. A list of numbers with a matching list of dates (the shortcut
+// reads the last couple of days, grouped by day) keeps only the days from
+// batchDaysBack days ago to today — an older first day may be partial —
+// and adds up repeats of a day (samples that weren't grouped).
+export function parseStepsBody(body, today = israelDateKey()) {
+  const stepsList = listOf(body?.steps, /\r?\n/);
+  const dateList = listOf(body?.date, /[\s,;]+/);
+  const one = (steps, date) => parseImport({ steps: String(steps).split('.')[0], date: date || '' }, today);
+
+  if (stepsList.length <= 1 && dateList.length <= 1) {
+    const parsed = one(stepsList[0] ?? '', dateList[0]);
+    return parsed.error ? parsed : { days: [parsed] };
+  }
+  if (stepsList.length !== dateList.length) return { error: 'date' };
+
+  const byDate = new Map();
+  for (let i = 0; i < stepsList.length; i++) {
+    const back = daysBefore(dateList[i], today);
+    if (back === null || back < 0) return { error: 'date' };
+    if (back > STEPS_IMPORT.batchDaysBack) continue;
+    const parsed = one(stepsList[i], dateList[i]);
+    if (parsed.error) return parsed;
+    byDate.set(parsed.date, (byDate.get(parsed.date) || 0) + parsed.steps);
+  }
+  if (!byDate.size) return { error: 'date' };
+  const days = [...byDate].map(([date, steps]) => ({ date, steps: Math.min(steps, STEPS_IMPORT.maxSteps) }));
+  return { days: days.sort((a, b) => b.date.localeCompare(a.date)) };
 }

@@ -78,6 +78,9 @@ export const STEPS_IMPORT = {
   maxSteps: 100000,
   // How far back `date` may go; today is 0. Never in the future.
   maxDaysBack: 7,
+  // A shortcut that sends a list (today and yesterday in one run) keeps
+  // only days up to this many back; an older first day may be partial.
+  batchDaysBack: 1,
   // The day `date` defaults to, and the window it's checked against.
   timeZone: 'Asia/Jerusalem',
   // "חיבורים" hints that something's wrong after this long with no import.
@@ -92,7 +95,10 @@ export const STEPS_IMPORT = {
   // The silent shortcut (posts to /api/steps), shared from iCloud with an
   // import question that asks for the personal key. ירין publishes it once;
   // while it's empty, "חיבורים" shows the build-it-yourself steps instead.
-  silentShortcutUrl: 'https://www.icloud.com/shortcuts/9554d3d8965744319559cd1bc51cd7cd',
+  // Since M3h (2026-11-16) it reads the last 2 days grouped by day and
+  // sends today and yesterday as lines of text; the key sits in a "מלל"
+  // action linked to the Authorization header.
+  silentShortcutUrl: 'https://www.icloud.com/shortcuts/6565b111459443e88b13d1602d99a54f',
   // Suggested time for the daily automation (shown in the how-to).
   automationTime: '21:00',
 };
