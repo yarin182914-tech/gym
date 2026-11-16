@@ -67,6 +67,11 @@ Asked by ירין 2026-11-16 on the feedback board, mid-workout: "כאשר אנ�
 - Drag: while a handle is held every card folds to one title row, the dragged card stays under the finger, passed cards slide aside, several swaps per move, auto-scroll near the edges, numbers follow the new order, and the order is saved on drop.
 - Done when: on ירין's iPhone adding an exercise keeps the page where it was, and dragging an exercise across a long workout is one smooth move.
 
+## M15d ☑ No zoom-in on the iPhone — `feature/m15d-ios-zoom`
+Asked by ירין 2026-11-15 on the feedback board: "תוך כדי אימון … הוא נכנס למסך עם זום אין שאני צריך לעשות זום אווט בעצמי". Small fix, spec in the PR.
+- iOS zooms in when a typing field under 16px gets focus (the exercise note was 14px) and keeps the zoom after the app is reopened. The viewport gets `maximum-scale=1` on iPhone/iPad only (pinch zoom still works there; Android keeps pinch zoom), and the note field is 16px.
+- Done when: tapping the exercise note mid-workout on ירין's iPhone doesn't zoom, and leaving and reopening the app keeps the normal size.
+
 ## M3h ☑ The steps shortcut, fixed: today and yesterday — `feature/m3h-steps-shortcut`
 Asked by ירין 2026-11-15 ("בוא נעבור על האוטומציה של הצעדים באייפון", then "היום ואתמול"). Since M3e the shared silent shortcut never sent a key: its `Authorization` header was empty (the key sat in an unlinked "מלל" action), and it read the last 7 days but sent one date. Small fix, spec in the PR.
 - `POST /api/steps` also takes a list (`parseStepsBody` in `js/lib/steps-import.js`): the shortcut reads the last 2 days grouped by day and sends today and yesterday in one run, so the evening's late steps land the next day. One number still works for older shortcuts.

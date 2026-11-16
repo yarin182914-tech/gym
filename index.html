@@ -3,6 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+  // iPhone/iPad zoom the page in when a typing field under 16px gets focus,
+  // and the zoom stays after leaving and reopening the app. maximum-scale
+  // stops that; pinch zoom still works there. Not on Android, where it
+  // would block pinch zoom.
+  if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    document.querySelector('meta[name=viewport]').content += ', maximum-scale=1';
+  }
+</script>
 <title>ג׳יני</title>
 <meta name="theme-color" content="#16130f">
 <!-- Blocking on purpose: sets the colour theme before first paint. -->
