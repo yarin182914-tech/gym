@@ -119,7 +119,7 @@ the nutrition screen and the target line on its trend chart. Days with no
 |---|---|---|
 | `date` | string | Same `yyyy-mm-dd` as the doc id |
 | `steps` | number | Steps that day (iPhone), `0` if unknown |
-| `baseKcal` | number | Resting + daily life, currently `1950` (Mifflin BMR × 1.2) |
+| `baseKcal` | number | Resting + daily life (Mifflin BMR × 1.2): a new day takes the user's own `baseKcal` from the user doc (M16a), else `1950`; the doc then keeps it |
 | `stepsKcal` | number | `round(steps × 0.04)` |
 | `workoutKcal` | number | The day's workouts, summed by the app — **never write it** (below); `0` if none |
 | `totalOutKcal` | number | `baseKcal + stepsKcal + workoutKcal` — what the app shows |
@@ -128,8 +128,16 @@ the nutrition screen and the target line on its trend chart. Days with no
 | `source` | string | `coach` (written from outside) · `manual` (typed in the app) · `shortcut` (steps from the iPhone, see below) · `workouts` (a day the app created only for a workout's burn) |
 
 All the kcal fields are integers. Keep `totalOutKcal` equal to the sum —
-the app trusts it as-is. `baseKcal` and the `0.04` per step live in
-`ACTIVITY` in `js/lib/rules.js`.
+the app trusts it as-is. The default `baseKcal` and the `0.04` per step
+live in `ACTIVITY` in `js/lib/rules.js`.
+
+**A new day's `baseKcal`** (M16a) is the user doc's `baseKcal` when it has
+one, else `1950` — for every writer: the app, `POST /api/steps`, and the
+coach. An existing doc keeps the base it was saved with; a doc without
+`baseKcal` counts as `1950`. The one exception: when the user saves "הגוף
+שלי" or types a new "שריפה בסיסית", **today's** doc moves to the new base
+(`baseKcal` and `totalOutKcal`), but only if its `totalOutKcal` was exactly
+the old base + `stepsKcal` + `workoutKcal`. Earlier days never change.
 
 **`workoutKcal` has one source: the app.** Every time a workout is saved,
 edited or deleted, the app adds up the `kcal` of all that day's workouts
@@ -148,6 +156,8 @@ workout; its burn follows the next time the app opens it (or write its
    (and `loggedAt`, `source: "coach"`), where
    `totalOutKcal = baseKcal + stepsKcal + workoutKcal` using the doc's own
    `baseKcal` (default `1950`) and **existing** `workoutKcal` (default `0`).
+   A day with no doc yet starts from the user doc's `baseKcal` (default
+   `1950`); `get_profile` returns it.
 3. Never replace the whole doc — a workout saved the same day would lose
    its burn.
 
@@ -168,7 +178,8 @@ https://gym-yarin9.vercel.app/#/import?steps=12450&date=2026-11-09
 - Anything else → a toast, nothing written.
 
 The app **merges** into the day's doc (`set` with merge), keeping `note`
-and the doc's own `baseKcal` / `workoutKcal` (defaults `1950` / `0`), and
+and the doc's own `baseKcal` / `workoutKcal` (defaults `1950` / `0`; a new
+day takes the user doc's `baseKcal`), and
 recomputes `stepsKcal` and `totalOutKcal`. **Steps never go down**: a
 number at or below what's stored writes nothing, so a midday run can't
 undo the evening's count and the same URL twice changes nothing. Signed
@@ -190,14 +201,32 @@ sign-in. The "חיבורים" screen shows the newest `loggedAt` among
 | Field | Type | Notes |
 |---|---|---|
 | `calorieDeficit` | number | kcal to stay under the day's burn: the target is `totalOutKcal − calorieDeficit`. `250` when missing; `0` allowed. |
-| `calorieTarget` | number | Calorie target for days with no `dailyActivity` doc. `2000` when missing. |
-| `proteinTarget` | number | Daily protein, grams. `120` when missing (`NUTRITION` in `js/lib/rules.js`). |
+| `calorieTarget` | number | Calorie target for days with no `dailyActivity` doc. `2000` when missing. "הגוף שלי" sets it to BMR × 1.375 rounded to 50, less `calorieDeficit`. |
+| `proteinTarget` | number | Daily protein, grams. `120` when missing (`NUTRITION` in `js/lib/rules.js`). "הגוף שלי" sets it to weight × 1.6, rounded to 5. |
+| `baseKcal` | number | The user's own resting + daily-life burn (M16a): every new `dailyActivity` doc starts from it. Missing → `1950` (`ACTIVITY.baseKcal`; ירין has none). Set by "הגוף שלי" (BMR × 1.2) or typed as "שריפה בסיסית" in "יעדים". |
 | `carbsTarget` | number | Daily carbs, grams. `250` when missing. |
 | `fatTarget` | number | Daily fat, grams. `65` when missing. |
 | `usageApps` | string[] | Apps the user measures with the iPhone shortcut (names, e.g. `["אינסטגרם", "Strava"]`), see App usage. Missing → the apps that already sent minutes today. Written by the app. |
 
 All integers, all set in the app's "יעדים" sheet (tap the line under the
 calorie ring on the nutrition screen), which writes them with `merge`.
+
+Body (M16a, `docs/specs/body-burn.md`) — the "הגוף שלי" sheet, opened from
+a card on Today (new accounts only) and from "חישוב מהגוף" in "יעדים". One
+save writes `body`, `baseKcal`, `calorieTarget` and `proteinTarget`
+together (formulas: `BODY` in `js/lib/rules.js`, `js/lib/body-burn.js`).
+Written by the app; the coach reads them through `get_profile`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `body` | map | `{ weightKg: number (1 decimal), heightCm: number, birthYear: number, sex: 'female' \| 'male', updatedAt: Timestamp }`. Age is kept as `birthYear` (Israel-time year − age) so it doesn't go stale. Missing → never filled. |
+| `bodyCardSnoozedAt` | Timestamp | "לא עכשיו" on Today's card; the card comes back `BODY.snoozeDays` (3) later. |
+
+```json
+// users/{uid} (part)
+{ "body": { "weightKg": 60, "heightCm": 165, "birthYear": 1996, "sex": "female", "updatedAt": "serverTimestamp()" },
+  "baseKcal": 1584, "calorieTarget": 1550, "proteinTarget": 95 }
+```
 
 Sleep settings (set in the sleep card's ⚙ sheet; see "Sleep" below for how
 they're applied):
