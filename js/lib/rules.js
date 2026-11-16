@@ -98,7 +98,7 @@ export const STEPS_IMPORT = {
   // Since M3h (2026-11-16) it reads the last 2 days grouped by day and
   // sends today and yesterday as lines of text; the key sits in a "מלל"
   // action linked to the Authorization header.
-  silentShortcutUrl: 'https://www.icloud.com/shortcuts/46c65b3a3bec46c1bcc887ab64a54640',
+  silentShortcutUrl: 'https://www.icloud.com/shortcuts/6565b111459443e88b13d1602d99a54f',
   // Suggested time for the daily automation (shown in the how-to).
   automationTime: '21:00',
 };
