@@ -2401,15 +2401,21 @@ async function requestDeleteExercise(ex) {
 // under the finger, the cards it passes slide out of its way, and the list
 // scrolls by itself near the top or bottom edge. session.exercises and
 // #exercise-list's DOM order swap together the moment the dragged card's
-// middle passes a neighbour's, so the two never disagree.
+// middle passes a neighbour's, so the two never disagree. The neighbour is
+// what moves in the DOM: moving the dragged card itself dropped the
+// pointer capture on its handle, which froze the drag on the iPhone.
 const DRAG_EDGE_PX = 80; // how close to an edge auto-scroll starts
 const DRAG_SCROLL_MAX = 14; // px per frame at the very edge
 const DRAG_SLIDE_MS = 160;
 
 function wireExerciseDragHandle(handleEl, ex, cardEl) {
+  // iOS: never let a touch on the handle scroll the page instead.
+  handleEl.addEventListener('touchmove', (e) => { if (exerciseDrag) e.preventDefault(); }, { passive: false });
+
   handleEl.addEventListener('pointerdown', (e) => {
+    if (exerciseDrag) return;
     e.preventDefault();
-    handleEl.setPointerCapture(e.pointerId);
+    try { handleEl.setPointerCapture(e.pointerId); } catch { /* the window listens anyway */ }
     const list = container.querySelector('#exercise-list');
     // Fold the cards, then scroll so the grabbed card is still under the finger.
     const topBefore = cardEl.getBoundingClientRect().top;
@@ -2418,17 +2424,25 @@ function wireExerciseDragHandle(handleEl, ex, cardEl) {
     const top = cardEl.getBoundingClientRect().top;
     exerciseDrag = { exUid: ex._uid, pointerId: e.pointerId, cardEl, list, grabOffsetY: e.clientY - top, clientY: e.clientY, raf: 0 };
     cardEl.classList.add('exercise-card--dragging');
+    // The window hears the finger wherever it goes, so a lost capture (iPhone)
+    // can never leave the list stuck folded mid-drag (feedback 16.11).
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
   });
 
-  handleEl.addEventListener('pointermove', (e) => {
+  function onMove(e) {
     if (!exerciseDrag || exerciseDrag.pointerId !== e.pointerId) return;
     exerciseDrag.clientY = e.clientY;
     followPointer();
     keepAutoScrolling();
-  });
+  }
 
   function endDrag(e) {
     if (!exerciseDrag || exerciseDrag.pointerId !== e.pointerId) return;
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', endDrag);
+    window.removeEventListener('pointercancel', endDrag);
     const { list, raf } = exerciseDrag;
     cancelAnimationFrame(raf);
     cardEl.style.transform = '';
@@ -2442,8 +2456,6 @@ function wireExerciseDragHandle(handleEl, ex, cardEl) {
     renumberExercises();
     persistSession();
   }
-  handleEl.addEventListener('pointerup', endDrag);
-  handleEl.addEventListener('pointercancel', endDrag);
 }
 
 // Puts the dragged card under the finger and swaps it past every neighbour
@@ -2469,11 +2481,11 @@ function followPointer() {
     if (prevEl && mid < midOf(prevEl)) {
       [session.exercises[idx - 1], session.exercises[idx]] = [session.exercises[idx], session.exercises[idx - 1]];
       passed = prevEl;
-      slideAside(passed, () => list.insertBefore(cardEl, prevEl));
+      slideAside(passed, () => list.insertBefore(prevEl, cardEl.nextSibling));
     } else if (nextEl && mid > midOf(nextEl)) {
       [session.exercises[idx], session.exercises[idx + 1]] = [session.exercises[idx + 1], session.exercises[idx]];
       passed = nextEl;
-      slideAside(passed, () => list.insertBefore(cardEl, nextEl.nextSibling));
+      slideAside(passed, () => list.insertBefore(nextEl, cardEl));
     }
     if (!passed) break;
     place();
