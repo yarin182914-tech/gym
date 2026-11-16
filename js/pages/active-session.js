@@ -91,7 +91,8 @@ let exerciseRefs = new Map();
 // is currently open before opening another avoids stacking scroll listeners.
 let openWheelCloser = null;
 
-// { exUid, pointerId, cardEl, grabStartClientY } while a drag handle is held.
+// { exUid, pointerId, cardEl, list, grabOffsetY, clientY, raf } while a drag
+// handle is held.
 // session.exercises and #exercise-list's DOM order are kept in sync on every
 // swap during the drag itself (not just on drop), so there's never a moment
 // where the two disagree.
@@ -510,8 +511,17 @@ function wireSessionTabs() {
     btn.addEventListener('click', () => switchToSession(sessions.find((s) => s.id === btn.dataset.sessionTab)));
   });
   container.querySelector('#add-session-btn')?.addEventListener('click', openNewSessionSheet);
-  // Keep the tab on screen in view when the strip scrolls sideways.
-  container.querySelector('.session-tab--active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  // Keep the tab on screen in view when the strip scrolls sideways — the
+  // strip only: scrollIntoView also scrolled the page up to the tabs on
+  // every render, e.g. when adding an exercise (feedback 13.11, 16.11).
+  const strip = container.querySelector('.session-tabs');
+  const active = container.querySelector('.session-tab--active');
+  if (strip && active) {
+    const s = strip.getBoundingClientRect();
+    const a = active.getBoundingClientRect();
+    if (a.left < s.left) strip.scrollLeft -= s.left - a.left;
+    else if (a.right > s.right) strip.scrollLeft += a.right - s.right;
+  }
 }
 
 // Shows another open workout. The one being left keeps everything as is,
@@ -2386,61 +2396,144 @@ async function requestDeleteExercise(ex) {
   render();
 }
 
-// Playlist-style reordering: the dragged card follows the pointer via a
-// transform, and the moment its midpoint crosses a neighbor's midpoint,
-// session.exercises and #exercise-list's DOM order both update immediately
-// (not just on release) — so the two never have a chance to disagree, and
-// there's nothing separate to "commit" on pointerup.
+// Playlist-style reordering, like a music app (feedback 16.11): while a
+// handle is held every card folds to its title row, the dragged card stays
+// under the finger, the cards it passes slide out of its way, and the list
+// scrolls by itself near the top or bottom edge. session.exercises and
+// #exercise-list's DOM order swap together the moment the dragged card's
+// middle passes a neighbour's, so the two never disagree.
+const DRAG_EDGE_PX = 80; // how close to an edge auto-scroll starts
+const DRAG_SCROLL_MAX = 14; // px per frame at the very edge
+const DRAG_SLIDE_MS = 160;
+
 function wireExerciseDragHandle(handleEl, ex, cardEl) {
   handleEl.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     handleEl.setPointerCapture(e.pointerId);
-    exerciseDrag = { exUid: ex._uid, pointerId: e.pointerId, cardEl, grabStartClientY: e.clientY };
+    const list = container.querySelector('#exercise-list');
+    // Fold the cards, then scroll so the grabbed card is still under the finger.
+    const topBefore = cardEl.getBoundingClientRect().top;
+    list.classList.add('exercise-list--reordering');
+    window.scrollBy(0, cardEl.getBoundingClientRect().top - topBefore);
+    const top = cardEl.getBoundingClientRect().top;
+    exerciseDrag = { exUid: ex._uid, pointerId: e.pointerId, cardEl, list, grabOffsetY: e.clientY - top, clientY: e.clientY, raf: 0 };
     cardEl.classList.add('exercise-card--dragging');
   });
 
   handleEl.addEventListener('pointermove', (e) => {
     if (!exerciseDrag || exerciseDrag.pointerId !== e.pointerId) return;
-    cardEl.style.transform = `translateY(${e.clientY - exerciseDrag.grabStartClientY}px)`;
-
-    const list = container.querySelector('#exercise-list');
-    const idx = session.exercises.indexOf(ex);
-    const draggedMidY = cardEl.getBoundingClientRect().top + cardEl.offsetHeight / 2;
-
-    const prevEx = session.exercises[idx - 1];
-    const prevEl = prevEx && exerciseRefs.get(prevEx._uid)?.root;
-    if (prevEl) {
-      const prevRect = prevEl.getBoundingClientRect();
-      if (draggedMidY < prevRect.top + prevRect.height / 2) {
-        [session.exercises[idx - 1], session.exercises[idx]] = [session.exercises[idx], session.exercises[idx - 1]];
-        list.insertBefore(cardEl, prevEl);
-        cardEl.style.transform = '';
-        exerciseDrag.grabStartClientY = e.clientY;
-        return;
-      }
-    }
-
-    const nextEx = session.exercises[idx + 1];
-    const nextEl = nextEx && exerciseRefs.get(nextEx._uid)?.root;
-    if (nextEl) {
-      const nextRect = nextEl.getBoundingClientRect();
-      if (draggedMidY > nextRect.top + nextRect.height / 2) {
-        [session.exercises[idx], session.exercises[idx + 1]] = [session.exercises[idx + 1], session.exercises[idx]];
-        list.insertBefore(cardEl, nextEl.nextSibling);
-        cardEl.style.transform = '';
-        exerciseDrag.grabStartClientY = e.clientY;
-      }
-    }
+    exerciseDrag.clientY = e.clientY;
+    followPointer();
+    keepAutoScrolling();
   });
 
   function endDrag(e) {
     if (!exerciseDrag || exerciseDrag.pointerId !== e.pointerId) return;
+    const { list, raf } = exerciseDrag;
+    cancelAnimationFrame(raf);
     cardEl.style.transform = '';
+    delete cardEl.dataset.dragY;
     cardEl.classList.remove('exercise-card--dragging');
     exerciseDrag = null;
+    // Unfold with the dropped card where it was let go.
+    const topBefore = cardEl.getBoundingClientRect().top;
+    list.classList.remove('exercise-list--reordering');
+    window.scrollBy(0, cardEl.getBoundingClientRect().top - topBefore);
+    renumberExercises();
+    persistSession();
   }
   handleEl.addEventListener('pointerup', endDrag);
   handleEl.addEventListener('pointercancel', endDrag);
+}
+
+// Puts the dragged card under the finger and swaps it past every neighbour
+// whose middle it has crossed (several at once on a fast drag).
+function followPointer() {
+  const drag = exerciseDrag;
+  if (!drag) return;
+  const { cardEl, list } = drag;
+  const ex = session.exercises.find((x) => x._uid === drag.exUid);
+  const place = () => {
+    const slotTop = cardEl.getBoundingClientRect().top - (parseFloat(cardEl.dataset.dragY) || 0);
+    const y = drag.clientY - drag.grabOffsetY - slotTop;
+    cardEl.dataset.dragY = String(y);
+    cardEl.style.transform = `translateY(${y}px)`;
+  };
+  place();
+  for (let guard = 0; guard < session.exercises.length; guard++) {
+    const idx = session.exercises.indexOf(ex);
+    const mid = cardEl.getBoundingClientRect().top + cardEl.offsetHeight / 2;
+    const prevEl = idx > 0 && exerciseRefs.get(session.exercises[idx - 1]._uid)?.root;
+    const nextEl = idx < session.exercises.length - 1 && exerciseRefs.get(session.exercises[idx + 1]._uid)?.root;
+    let passed = null;
+    if (prevEl && mid < midOf(prevEl)) {
+      [session.exercises[idx - 1], session.exercises[idx]] = [session.exercises[idx], session.exercises[idx - 1]];
+      passed = prevEl;
+      slideAside(passed, () => list.insertBefore(cardEl, prevEl));
+    } else if (nextEl && mid > midOf(nextEl)) {
+      [session.exercises[idx], session.exercises[idx + 1]] = [session.exercises[idx + 1], session.exercises[idx]];
+      passed = nextEl;
+      slideAside(passed, () => list.insertBefore(cardEl, nextEl.nextSibling));
+    }
+    if (!passed) break;
+    place();
+  }
+}
+
+// A neighbour's middle, ignoring a slide still in progress.
+function midOf(el) {
+  const r = el.getBoundingClientRect();
+  return r.top - (parseFloat(el.dataset.slideY) || 0) + r.height / 2;
+}
+
+// Moves the DOM, then animates the passed card from its old spot to its
+// new one, so it slides instead of jumping.
+function slideAside(el, moveDom) {
+  const before = el.getBoundingClientRect().top - (parseFloat(el.dataset.slideY) || 0);
+  moveDom();
+  const after = el.getBoundingClientRect().top - (parseFloat(el.dataset.slideY) || 0);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  el.style.transition = 'none';
+  el.dataset.slideY = String(before - after);
+  el.style.transform = `translateY(${before - after}px)`;
+  requestAnimationFrame(() => {
+    el.style.transition = `transform ${DRAG_SLIDE_MS}ms ease`;
+    el.dataset.slideY = '0';
+    el.style.transform = '';
+    setTimeout(() => { if (el.dataset.slideY === '0') el.style.transition = ''; }, DRAG_SLIDE_MS + 20);
+  });
+}
+
+// Near the top or bottom edge the page scrolls by itself, faster the closer
+// the finger is, and the dragged card keeps following the finger.
+function keepAutoScrolling() {
+  const drag = exerciseDrag;
+  if (!drag || drag.raf) return;
+  const step = () => {
+    drag.raf = 0;
+    if (exerciseDrag !== drag) return;
+    const nav = document.querySelector('.bottom-nav');
+    const bottomEdge = (nav ? nav.getBoundingClientRect().top : window.innerHeight) - DRAG_EDGE_PX;
+    const topEdge = DRAG_EDGE_PX;
+    let speed = 0;
+    if (drag.clientY > bottomEdge) speed = Math.min(1, (drag.clientY - bottomEdge) / DRAG_EDGE_PX);
+    else if (drag.clientY < topEdge) speed = -Math.min(1, (topEdge - drag.clientY) / DRAG_EDGE_PX);
+    if (!speed) return;
+    const before = window.scrollY;
+    window.scrollBy(0, Math.round(speed * DRAG_SCROLL_MAX));
+    if (window.scrollY === before) return;
+    followPointer();
+    drag.raf = requestAnimationFrame(step);
+  };
+  drag.raf = requestAnimationFrame(step);
+}
+
+// "01", "02"… follow the new order.
+function renumberExercises() {
+  session.exercises.forEach((x, i) => {
+    const num = exerciseRefs.get(x._uid)?.root?.querySelector('[data-role="exercise-num"]');
+    if (num) num.textContent = String(i + 1).padStart(2, '0');
+  });
 }
 
 // Deleting a set that hasChildren also removes its stages — leaving them

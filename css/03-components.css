@@ -1053,9 +1053,50 @@ th {
 }
 
 .exercise-card--dragging {
+  position: relative;
   cursor: grabbing;
   box-shadow: var(--shadow-lg);
   z-index: 5;
+}
+
+/* While an exercise is dragged every card folds to its title row, so the
+   list moves like a playlist (feedback 16.11). The header row carries an
+   inline margin, hence !important. */
+.exercise-list--reordering > .card > :not(:first-child) {
+  display: none;
+}
+
+.exercise-list--reordering > .card > :first-child {
+  margin-bottom: 0 !important;
+}
+
+.exercise-list--reordering {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* A folded row is the handle, the number and the name on one line. */
+.exercise-list--reordering > .card {
+  padding-block: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+/* A folded row is the handle, the number and the name on one line. */
+.exercise-list--reordering > .card > :first-child > button:not([data-role="drag-handle"]),
+.exercise-list--reordering .exercise-meta {
+  display: none;
+}
+
+.exercise-list--reordering .exercise-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Cards may be see-through in some themes; the one being dragged hides
+   whatever it passes over. */
+.card.exercise-card--dragging {
+  background: var(--surface-raised);
 }
 
 .set-row-notes {

@@ -61,7 +61,13 @@ Asked by ירין 2026-11-11 ("שהקיצור של הצעדים ייעשה או�
 - Instagram time (2026-11-11, ירין: "משהו דומה לשימוש באינסטגרם"): Screen Time can't be read, so "opened"/"closed" automations post to `POST /api/usage`; the minutes fill the Instagram part of the limit habit. `appUsage`, `appSessions` in DATA.md.
 - Any app, per user (2026-11-11, ירין: "יש אנשים שירצו למדוד עוד דברים ועוד אפליקציות"): one shared shortcut "ג׳ימי זמן באפליקציה" takes the automation's text (`<app> נפתח/נסגר`); on חיבורים the user picks ready-made apps or types any name (`usageApps` on the user doc), and gets two automations per app. Once ירין shares the shortcut's iCloud link → `USAGE.shortcut.url` for one-tap install.
 
-## M3h ◐ The steps shortcut, fixed: today and yesterday — `feature/m3h-steps-shortcut`
+## M15e ◐ Workout screen: smooth drag, no jump on add — `feature/m15e-workout-drag`
+Asked by ירין 2026-11-16 on the feedback board, mid-workout: "כאשר אני גורר תרגיל למעלה הפעולה תקועה … רוצה כמו בספוטיפיי חלק ונוח ומדויק" and "העמוד קופץ למעלה כשאני מוסיף תרגיל חדש". Small fix, spec in the PR.
+- Jump: every full render scrolled the page up to the workout tabs (`scrollIntoView` on the active tab moved the page, not just the strip). Now only the strip scrolls sideways.
+- Drag: while a handle is held every card folds to one title row, the dragged card stays under the finger, passed cards slide aside, several swaps per move, auto-scroll near the edges, numbers follow the new order, and the order is saved on drop.
+- Done when: on ירין's iPhone adding an exercise keeps the page where it was, and dragging an exercise across a long workout is one smooth move.
+
+## M3h ☑ The steps shortcut, fixed: today and yesterday — `feature/m3h-steps-shortcut`
 Asked by ירין 2026-11-15 ("בוא נעבור על האוטומציה של הצעדים באייפון", then "היום ואתמול"). Since M3e the shared silent shortcut never sent a key: its `Authorization` header was empty (the key sat in an unlinked "מלל" action), and it read the last 7 days but sent one date. Small fix, spec in the PR.
 - `POST /api/steps` also takes a list (`parseStepsBody` in `js/lib/steps-import.js`): the shortcut reads the last 2 days grouped by day and sends today and yesterday in one run, so the evening's late steps land the next day. One number still works for older shortcuts.
 - ירין rebuilt the shared shortcut on the phone (key in "מלל" linked to the header, Start Date "בטווח של" 2 days, steps as text), tested it on the preview on 2026-11-16 (today's steps saved), and shared a new iCloud link → `STEPS_IMPORT.silentShortcutUrl`. Vercel previews now have `FIREBASE_SA_JSON`, so `api/` changes can be tested before merge.
