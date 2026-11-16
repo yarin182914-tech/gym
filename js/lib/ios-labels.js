@@ -31,6 +31,8 @@ export const IOS_LABELS = {
     findHealth: 'חיפוש דגימות בריאות',
     steps: 'צעדים',
     startDate: 'תאריך התחלה',
+    // The "is in the last" date condition, as ירין's phone shows it (16.11).
+    inTheLast: 'בטווח של',
     today: 'היום',
     groupBy: 'קיבוץ לפי',
     day: 'יום',
@@ -93,6 +95,7 @@ export const IOS_LABELS = {
     findHealth: 'Find Health Samples',
     steps: 'Steps',
     startDate: 'Start Date',
+    inTheLast: 'is in the last',
     today: 'Today',
     groupBy: 'Group By',
     day: 'Day',
