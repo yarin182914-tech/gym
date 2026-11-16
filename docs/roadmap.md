@@ -61,7 +61,13 @@ Asked by ירין 2026-11-11 ("שהקיצור של הצעדים ייעשה או�
 - Instagram time (2026-11-11, ירין: "משהו דומה לשימוש באינסטגרם"): Screen Time can't be read, so "opened"/"closed" automations post to `POST /api/usage`; the minutes fill the Instagram part of the limit habit. `appUsage`, `appSessions` in DATA.md.
 - Any app, per user (2026-11-11, ירין: "יש אנשים שירצו למדוד עוד דברים ועוד אפליקציות"): one shared shortcut "ג׳ימי זמן באפליקציה" takes the automation's text (`<app> נפתח/נסגר`); on חיבורים the user picks ready-made apps or types any name (`usageApps` on the user doc), and gets two automations per app. Once ירין shares the shortcut's iCloud link → `USAGE.shortcut.url` for one-tap install.
 
-## M15d ◐ No zoom-in on the iPhone — `feature/m15d-ios-zoom`
+## M15e ◐ Workout screen: smooth drag, no jump on add — `feature/m15e-workout-drag`
+Asked by ירין 2026-11-16 on the feedback board, mid-workout: "כאשר אני גורר תרגיל למעלה הפעולה תקועה … רוצה כמו בספוטיפיי חלק ונוח ומדויק" and "העמוד קופץ למעלה כשאני מוסיף תרגיל חדש". Small fix, spec in the PR.
+- Jump: every full render scrolled the page up to the workout tabs (`scrollIntoView` on the active tab moved the page, not just the strip). Now only the strip scrolls sideways.
+- Drag: while a handle is held every card folds to one title row, the dragged card stays under the finger, passed cards slide aside, several swaps per move, auto-scroll near the edges, numbers follow the new order, and the order is saved on drop.
+- Done when: on ירין's iPhone adding an exercise keeps the page where it was, and dragging an exercise across a long workout is one smooth move.
+
+## M15d ☑ No zoom-in on the iPhone — `feature/m15d-ios-zoom`
 Asked by ירין 2026-11-15 on the feedback board: "תוך כדי אימון … הוא נכנס למסך עם זום אין שאני צריך לעשות זום אווט בעצמי". Small fix, spec in the PR.
 - iOS zooms in when a typing field under 16px gets focus (the exercise note was 14px) and keeps the zoom after the app is reopened. The viewport gets `maximum-scale=1` on iPhone/iPad only (pinch zoom still works there; Android keeps pinch zoom), and the note field is 16px.
 - Done when: tapping the exercise note mid-workout on ירין's iPhone doesn't zoom, and leaving and reopening the app keeps the normal size.
