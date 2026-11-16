@@ -57,10 +57,13 @@ export function parseImport(query, today = israelDateKey()) {
 // evening's number), so the same or a lower count changes nothing — which
 // also makes running the same URL twice harmless. The kcal fields are
 // recomputed from the day's own base and workout, so the sum stays true.
-export function mergeSteps(existing, steps) {
+// `newBase` is the user's own baseKcal (users/{uid}, M16a) — used only for
+// a day with no doc yet; an existing doc keeps the base it was saved with.
+export function mergeSteps(existing, steps, newBase = ACTIVITY.baseKcal) {
   const stored = Number(existing?.steps) || 0;
   if (steps <= stored) return null;
-  const baseKcal = Number.isFinite(existing?.baseKcal) ? existing.baseKcal : ACTIVITY.baseKcal;
+  const baseKcal = Number.isFinite(existing?.baseKcal) ? existing.baseKcal
+    : existing ? ACTIVITY.baseKcal : newBase;
   // An older doc may carry only totalOutKcal: recover its workout part
   // from the old total so the strength workout isn't lost.
   const workoutKcal = Number.isFinite(existing?.workoutKcal) ? existing.workoutKcal

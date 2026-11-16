@@ -66,6 +66,9 @@ check('keeps the day\'s base and workout', mergeSteps(coachDay, 9000), {
 });
 check('legacy doc with only totalOutKcal keeps its workout part',
   mergeSteps({ steps: 5000, totalOutKcal: ACTIVITY.baseKcal + 5000 * ACTIVITY.kcalPerStep + 300 }, 10000).workoutKcal, 300);
+check('new day starts from the user own base (M16a)', mergeSteps(null, 10000, 1584).baseKcal, 1584);
+check('an existing day keeps its base, not the user new one', mergeSteps(coachDay, 9000, 1584).baseKcal, 1800);
+check('an old doc without baseKcal stays on the default', mergeSteps({ steps: 1000 }, 2000, 1584).baseKcal, base);
 check('a lower number never overwrites', mergeSteps({ steps: 12000 }, 6000), null);
 check('the same number writes nothing', mergeSteps({ steps: 12000 }, 12000), null);
 check('zero on a new day writes nothing', mergeSteps(null, 0), null);

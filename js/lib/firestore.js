@@ -23,6 +23,7 @@ import {
 } from './dev-store.js';
 import { lastPerformanceIn, exerciseHistoryIn, workoutDayKey } from './workout-types.js';
 import { bodyKgOn as bodyKgFrom, dayWorkoutKcal, workoutKcalPatch } from './workout-kcal.js';
+import { userBaseKcal } from './body-burn.js';
 import { normalizeExerciseName, findByName } from './exercise-names.js';
 import { WRITE_WAIT_MS, FEEDBACK } from './rules.js';
 import { statusChange, isAdminUid } from './feedback.js';
@@ -165,10 +166,10 @@ export function syncWorkoutKcal(dateKeys) {
   const keys = [...new Set((dateKeys || []).filter(Boolean))];
   return Promise.all(keys.map(async (key) => {
     try {
-      const [workouts, weights, existing] = await Promise.all([
-        allWorkouts(), weighInUpTo(key), getDailyActivity(key),
+      const [workouts, weights, existing, user] = await Promise.all([
+        allWorkouts(), weighInUpTo(key), getDailyActivity(key), getUserSettings(),
       ]);
-      const patch = workoutKcalPatch(key, existing, dayWorkoutKcal(workouts, key, weights));
+      const patch = workoutKcalPatch(key, existing, dayWorkoutKcal(workouts, key, weights), userBaseKcal(user));
       if (patch?.set) await setDailyActivity(key, patch.set);
       else if (patch?.merge) await mergeDailyActivity(key, patch.merge, { stamp: false });
     } catch (err) {

@@ -15,6 +15,7 @@
 
 import { begin, reply, touchKey, FieldValue } from './_shared.js';
 import { parseStepsBody, mergeSteps, israelDateKey } from '../js/lib/steps-import.js';
+import { userBaseKcal } from '../js/lib/body-burn.js';
 
 const fmt = (n) => Number(n).toLocaleString('en-US');
 
@@ -50,9 +51,11 @@ export default async function handler(req, res) {
   try {
     const days = await store.runTransaction(async (tx) => {
       const refs = parsed.days.map((d) => userRef.collection('dailyActivity').doc(d.date));
-      const snaps = await Promise.all(refs.map((ref) => tx.get(ref)));
+      const [userSnap, ...snaps] = await Promise.all([tx.get(userRef), ...refs.map((ref) => tx.get(ref))]);
+      // A new day starts from the user's own base burn (M16a), else 1950.
+      const base = userBaseKcal(userSnap.exists ? userSnap.data() : null);
       return parsed.days.map((d, i) => {
-        const patch = mergeSteps(snaps[i].exists ? snaps[i].data() : null, d.steps);
+        const patch = mergeSteps(snaps[i].exists ? snaps[i].data() : null, d.steps, base);
         if (patch) tx.set(refs[i], { ...patch, date: d.date, loggedAt: FieldValue.serverTimestamp() }, { merge: true });
         return { ...d, saved: !!patch };
       });

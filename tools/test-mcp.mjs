@@ -198,6 +198,12 @@ await run(s, 'log_daily_activity', { date: '2026-11-09', steps: 5000 });
 check('new day doc', s.docs.get('users/user-a/dailyActivity/2026-11-09'),
   { date: '2026-11-09', steps: 5000, stepsKcal: 200, totalOutKcal: 2150, loggedAt: 'SERVER_TS', source: 'coach', baseKcal: 1950, workoutKcal: 0, note: '' });
 
+s = makeStore({ 'users/user-a': { baseKcal: 1584 } });
+await run(s, 'log_daily_activity', { date: '2026-11-09', steps: 5000 });
+check('new day takes the user own base (M16a)', s.docs.get('users/user-a/dailyActivity/2026-11-09').totalOutKcal, 1584 + 200);
+check('get_profile shows the base burn', (await run(s, 'get_profile', {})).baseKcal, 1584);
+check('get_profile: no body yet → null', (await run(s, 'get_profile', {})).body, null);
+
 // ---------- reads ----------
 
 s = makeStore({

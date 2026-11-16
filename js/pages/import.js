@@ -8,7 +8,8 @@
 // boot by js/app.js) and runs right after it.
 
 import { beginMount, isStale } from '../core/page.js';
-import { getDailyActivity, mergeDailyActivity } from '../lib/firestore.js';
+import { getDailyActivity, mergeDailyActivity, getUserSettings } from '../lib/firestore.js';
+import { userBaseKcal } from '../lib/body-burn.js';
 import { parseImport, mergeSteps, israelDateKey } from '../lib/steps-import.js';
 import { routeParams } from '../lib/router.js';
 import { formatDayMonthHe, parseDateInputValue } from '../lib/format.js';
@@ -81,8 +82,8 @@ async function runImport(query) {
   const parsed = query ? parseImport(query) : { error: 'steps' };
   if (parsed.error) return ERRORS[parsed.error];
   try {
-    const existing = await getDailyActivity(parsed.date);
-    const patch = mergeSteps(existing, parsed.steps);
+    const [existing, user] = await Promise.all([getDailyActivity(parsed.date), getUserSettings()]);
+    const patch = mergeSteps(existing, parsed.steps, userBaseKcal(user));
     if (patch) {
       const write = mergeDailyActivity(parsed.date, patch);
       write.catch((err) => console.error('[import] sync failed', err));

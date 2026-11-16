@@ -17,6 +17,7 @@ import {
 import { nutritionGoals, weeklyWorkoutGoal, rewardsSummary } from '../../js/lib/rewards.js';
 import { totalOut, stepsKcal } from '../../js/lib/daily-activity.js';
 import { israelDateKey } from '../../js/lib/steps-import.js';
+import { userBaseKcal } from '../../js/lib/body-burn.js';
 import { workoutKind } from '../../js/lib/workout-types.js';
 import { validateArgs } from './schema.js';
 
@@ -259,6 +260,11 @@ async function getPoints({ days }, ctx) {
   };
 }
 
+// The user doc's body map without its Timestamp.
+function plainBody(b) {
+  return { weightKg: b.weightKg ?? null, heightCm: b.heightCm ?? null, birthYear: b.birthYear ?? null, sex: b.sex ?? null };
+}
+
 async function getProfile(_args, ctx) {
   const [userDoc, library] = await Promise.all([
     ctx.store.userDoc(ctx.uid),
@@ -267,6 +273,10 @@ async function getProfile(_args, ctx) {
   return {
     today: israelDateKey(ctx.now),
     nutrition: nutritionGoals(userDoc),
+    // Resting + daily-life burn new days start from, and the answers it
+    // came from (null until the user fills "הגוף שלי").
+    baseKcal: userBaseKcal(userDoc),
+    body: userDoc.body ? plainBody(userDoc.body) : null,
     sleep: sleepSettings(userDoc),
     weeklyWorkoutGoal: weeklyWorkoutGoal(userDoc),
     rewardGoal: userDoc.rewardGoal ?? null,
@@ -432,7 +442,9 @@ async function logDailyActivity(args, ctx) {
   if (existing && Number(existing.steps) > args.steps && !args.replace) {
     fail(`${args.date} already has ${existing.steps} steps (more than ${args.steps}). Steps don't go down unless the user asks — then call again with replace: true.`);
   }
-  const base = existing?.baseKcal ?? ACTIVITY.baseKcal;
+  // An existing day keeps its base; a new one starts from the user's own
+  // (M16a, the "הגוף שלי" sheet), else the default 1950.
+  const base = existing ? (existing.baseKcal ?? ACTIVITY.baseKcal) : userBaseKcal(await ctx.store.userDoc(ctx.uid));
   const workoutKcal = existing?.workoutKcal ?? 0; // the app's own; never written here
   const sk = stepsKcal(args.steps);
   const patch = {
@@ -514,7 +526,7 @@ export const TOOLS = [
   {
     name: 'get_profile',
     title: 'פרופיל',
-    description: 'The user\'s targets and settings: calories, deficit, protein, sleep rules, weekly workout goal, chosen reward, and exact exercise names. Also today\'s Israel date.',
+    description: 'The user\'s targets and settings: calories, deficit, protein, base burn (baseKcal) and the body answers it came from, sleep rules, weekly workout goal, chosen reward, and exact exercise names. Also today\'s Israel date.',
     inputSchema: obj({}),
     annotations: READ,
     run: getProfile,
