@@ -4456,7 +4456,8 @@ body.keyboard-open .fab,
   background: none;
   color: var(--text);
   font: inherit;
-  font-size: var(--text-sm);
+  /* 16px: anything smaller makes the iPhone zoom in on focus. */
+  font-size: var(--text-md);
   outline: none;
 }
 
