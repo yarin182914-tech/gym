@@ -1,7 +1,7 @@
 import { renderPlateDial } from '../lib/plate-dial.js';
 import {
   addNutritionEntry, listNutritionEntries, updateNutritionEntry, deleteNutritionEntry, listBodyWeights,
-  setDailyActivity, getDailyActivity, listDailyActivity, getUserSettings, updateUserSettings,
+  setDailyActivity, getDailyActivity, listDailyActivity, getUserSettings, updateUserSettings, rebaseDay,
 } from '../lib/firestore.js';
 import { analyzeFoodPhoto } from '../lib/nutrition-ai.js';
 import { esc } from '../core/dom.js';
@@ -24,6 +24,8 @@ import { handleQuickActions } from '../ui/quick-add.js';
 import { NUTRITION } from '../lib/rules.js';
 import { nutritionGoals } from '../lib/rewards.js';
 import { countHe } from '../lib/plural.js';
+import { userBaseKcal } from '../lib/body-burn.js';
+import { openBodySheet } from '../ui/body-sheet.js';
 
 // The daily goals, all editable in the "יעדים" sheet and kept on the user
 // doc (users/{uid}) under these same names; defaults in NUTRITION
@@ -72,6 +74,9 @@ let weightTrend = null;
 let weightsForTrend = [];
 let activities = []; // dailyActivity docs, newest day first
 let goals = { ...DEFAULT_GOALS };
+// The user's own base burn for days with no dailyActivity yet (M16a), or
+// the default 1950. An existing day keeps the base it was saved with.
+let baseKcal = BASE_KCAL;
 // The day the ring, the macro bars and the meal list show ('yyyy-mm-dd').
 // Today on every visit; the day bar steps back through earlier ones.
 let selectedDay = todayKey();
@@ -123,6 +128,7 @@ export async function mountNutrition(rootEl) {
   entries = loaded;
   activities = acts;
   goals = goalsFrom(settings);
+  baseKcal = userBaseKcal(settings);
   weightsForTrend = weights;
   let wasWeighed = weighedToday();
   bodyWeightCard = createBodyWeightCard(weights, {
@@ -250,7 +256,7 @@ function openActivitySheet() {
     render(body, sheetApi) {
       body.innerHTML = `
         <h3 style="margin:0 0 6px; color:var(--text);">פעילות · ${esc(friendlyDate(day))}</h3>
-        <p class="text-muted" style="font-size:0.8rem; margin:0 0 14px;">שריפה בסיסית ${fmt(existing?.baseKcal ?? BASE_KCAL)} קל' ביום, ועליה הצעדים והאימון.</p>
+        <p class="text-muted" style="font-size:0.8rem; margin:0 0 14px;">שריפה בסיסית ${fmt(existing ? existing.baseKcal ?? BASE_KCAL : baseKcal)} קל' ביום, ועליה הצעדים והאימון.</p>
         <div class="sheet-field-label">צעדים</div>
         <input type="number" inputmode="numeric" min="0" dir="ltr" class="search-bar num" data-act-steps value="${esc(draft.steps)}" placeholder="0" style="margin-bottom:10px;">
         <div class="sheet-field-label">אימון (קל')</div>
@@ -268,7 +274,7 @@ function openActivitySheet() {
         const data = buildActivity(day, {
           steps: num('[data-act-steps]'),
           workoutKcal: fresh?.workoutKcal ?? workoutKcal,
-          baseKcal: existing?.baseKcal ?? BASE_KCAL,
+          baseKcal: existing ? existing.baseKcal ?? BASE_KCAL : baseKcal,
           note: existing?.note || '',
         });
         data.source = 'manual';
@@ -299,10 +305,28 @@ const GOAL_FIELDS = [
   { key: 'fatTarget', label: 'שומן', unit: 'g' },
 ];
 
+// The user's own base burn (users/{uid}.baseKcal, M16a): typed here, or
+// worked out by "חישוב מהגוף" (js/ui/body-sheet.js).
+const BASE_FIELD = { key: 'baseKcal', label: 'שריפה בסיסית', unit: "קל'" };
+
+// After "הגוף שלי" saved: the goals and today's burn as they now are.
+async function reloadGoals() {
+  const [settings, acts] = await Promise.all([
+    getUserSettings().catch(() => null),
+    listDailyActivity(60).catch(() => null),
+  ]);
+  if (settings) {
+    goals = goalsFrom(settings);
+    baseKcal = userBaseKcal(settings);
+  }
+  if (acts) activities = acts;
+  render();
+}
+
 // The ring's "יעדים" button: every daily goal — the calorie deficit, the
 // fallback calorie target, and the three macros — in one sheet.
 function openTargetSheet() {
-  const draft = { ...goals };
+  const draft = { ...goals, baseKcal };
   const out = totalOut(activityOn(selectedDay));
   openBottomSheet({
     ariaLabel: 'יעדים',
@@ -316,13 +340,17 @@ function openTargetSheet() {
         <h3 style="margin:0 0 6px; color:var(--text);">יעדים</h3>
         <p class="text-muted" style="font-size:0.8rem; margin:0;">יעד הקלוריות של יום הוא השריפה שלו פחות הגירעון. כשהשריפה עוד לא הוזנה, היעד הוא היעד הקבוע.</p>
         ${out === null ? '' : `<p class="text-muted" style="font-size:0.8rem; margin:4px 0 0;">${esc(friendlyDate(selectedDay))}: שריפה <span class="num">${fmt(out)}</span> · יעד <span class="num">${fmt(calorieTargetFor(selectedDay))}</span> קל'</p>`}
+        <div class="nut-base-row">
+          ${field(BASE_FIELD)}
+          <button type="button" class="btn btn-outline nut-base-calc" data-body-calc>חישוב מהגוף</button>
+        </div>
         <div class="nut-macro-grid">${GOAL_FIELDS.slice(0, 2).map(field).join('')}</div>
         <div class="nut-macro-grid nut-macro-grid--3">${GOAL_FIELDS.slice(2).map(field).join('')}</div>
         <div class="sheet-actions">
           <button type="button" class="btn btn-secondary" data-target-cancel>ביטול</button>
           <button type="button" class="btn btn-primary" data-target-save>שמירה</button>
         </div>`;
-      for (const f of GOAL_FIELDS) {
+      for (const f of [BASE_FIELD, ...GOAL_FIELDS]) {
         mountNumericField(body.querySelector(`[data-goal="${f.key}"]`), {
           value: draft[f.key],
           unitLabel: f.unit,
@@ -332,6 +360,12 @@ function openTargetSheet() {
         });
       }
       body.querySelector('[data-target-cancel]').addEventListener('click', () => sheetApi.close());
+      // "הגוף שלי" works out the base and the targets; this sheet closes
+      // and the screen shows what it saved.
+      body.querySelector('[data-body-calc]').addEventListener('click', () => {
+        sheetApi.close();
+        openBodySheet({ onSaved: () => reloadGoals() });
+      });
       body.querySelector('[data-target-save]').addEventListener('click', async () => {
         const next = {};
         for (const f of GOAL_FIELDS) next[f.key] = Math.round(draft[f.key] || 0);
@@ -340,8 +374,21 @@ function openTargetSheet() {
           showToast(`יש להזין ${missing.label}`);
           return;
         }
+        const newBase = Math.round(draft.baseKcal || 0);
+        if (!newBase) {
+          showToast(`יש להזין ${BASE_FIELD.label}`);
+          return;
+        }
+        // The base is written only when it changed, so ירין's 1950 stays a
+        // default rather than becoming a stored number.
+        const baseChanged = newBase !== baseKcal;
         try {
-          await updateUserSettings(next);
+          await updateUserSettings(baseChanged ? { ...next, baseKcal: newBase } : next);
+          if (baseChanged) {
+            baseKcal = newBase;
+            const patch = await rebaseDay(todayKey(), newBase);
+            if (patch) activities = activities.map((a) => (a.date === todayKey() ? { ...a, ...patch } : a));
+          }
         } catch (err) {
           console.error('[nutrition] goals save failed', err);
           showToast('השמירה נכשלה — נסה שוב');

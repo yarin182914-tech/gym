@@ -41,6 +41,12 @@ import { esc } from '../core/dom.js';
 import { navigate } from '../lib/router.js';
 import { handleQuickActions } from '../ui/quick-add.js';
 import { mountTodayTasks } from '../ui/today-tasks.js';
+import { openBodySheet } from '../ui/body-sheet.js';
+import { showBodyCard } from '../lib/body-burn.js';
+import { snoozeBodyCard } from '../lib/firestore.js';
+import { israelDateKey } from '../lib/steps-import.js';
+import { accountCreatedAt } from '../auth.js';
+import { useCloud } from '../firebase-config.js';
 
 const LEVEL_TEXT = { full: 'מלא', short: 'מקוצר', none: 'פחות מהמקוצר, לא נורא' };
 
@@ -205,7 +211,8 @@ function renderTop() {
   const yesterday = shiftDays(key, -1);
   const showSummary = rewardsState() && rewardsUserDoc().rewardsSeen?.daySummary !== yesterday;
   host.innerHTML = levelCard(key) + ringsRow(key)
-    + (showSummary ? daySummaryHtml(rewardsLedger(), yesterday, { open: summaryOpen }) : '') + nextStep(key);
+    + (showSummary ? daySummaryHtml(rewardsLedger(), yesterday, { open: summaryOpen }) : '') + nextStep(key)
+    + bodyCard();
   host.querySelector('[data-level]').addEventListener('click', () => navigate('dashboard'));
   host.querySelectorAll('[data-ring]').forEach((el) => el.addEventListener('click', () => navigate(el.dataset.ring)));
   host.querySelector('[data-day-summary-toggle]')?.addEventListener('click', () => {
@@ -214,6 +221,20 @@ function renderTop() {
   });
   host.querySelector('[data-day-summary-close]')?.addEventListener('click', () => {
     markSeen({ daySummary: yesterday });
+    renderTop();
+  });
+  host.querySelector('[data-body-open]')?.addEventListener('click', () => {
+    openBodySheet({
+      onSaved(saved) {
+        userDoc = { ...userDoc, ...saved };
+        // Today's ring follows the new base (the sheet moved today's burn).
+        listDailyActivity(HABITS.logDaysToLoad).then((list) => { activities = list; renderTop(); }).catch(() => renderTop());
+      },
+    });
+  });
+  host.querySelector('[data-body-later]')?.addEventListener('click', () => {
+    userDoc = { ...userDoc, bodyCardSnoozedAt: new Date().toISOString() };
+    snoozeBodyCard().catch(logFailed('body card snooze'));
     renderTop();
   });
   host.querySelector('[data-next]')?.addEventListener('click', (e) => {
@@ -357,6 +378,26 @@ function nextStep(key) {
     </div>`;
   }
   return '';
+}
+
+// "כמה אתם שורפים ביום?" (M16a, docs/specs/body-burn.md): a new account
+// that hasn't filled "הגוף שלי" yet. ירין's older account never sees it.
+// In ?dev there's no Google account, so the card behaves as for a new one.
+function bodyCard() {
+  const created = useCloud ? accountCreatedAt() : new Date();
+  const snoozed = userDoc.bodyCardSnoozedAt;
+  const snoozedAtMs = snoozed?.toMillis ? snoozed.toMillis() : snoozed ? Date.parse(snoozed) : null;
+  if (!showBodyCard({ user: userDoc, createdKey: created ? israelDateKey(created) : '', snoozedAtMs })) return '';
+  return `
+    <div class="card today-next today-body">
+      <span class="today-next-icon">${icon('flame')}</span>
+      <span class="today-next-text">
+        <span class="today-next-title">כמה אתם שורפים ביום?</span>
+        <span class="today-next-sub">ארבע שאלות, ושריפה ויעדים שמתאימים לכם.</span>
+        <button type="button" class="today-body-later" data-body-later>לא עכשיו</button>
+      </span>
+      <button type="button" class="btn btn-primary today-body-go" data-body-open>למלא</button>
+    </div>`;
 }
 
 // ---------- habits ----------
