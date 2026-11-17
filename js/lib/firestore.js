@@ -23,6 +23,7 @@ import {
 } from './dev-store.js';
 import { lastPerformanceIn, exerciseHistoryIn, workoutDayKey } from './workout-types.js';
 import { bodyKgOn as bodyKgFrom, dayWorkoutKcal, workoutKcalPatch } from './workout-kcal.js';
+import { userBaseKcal, rebaseActivity } from './body-burn.js';
 import { normalizeExerciseName, findByName } from './exercise-names.js';
 import { WRITE_WAIT_MS, FEEDBACK } from './rules.js';
 import { statusChange, isAdminUid } from './feedback.js';
@@ -87,6 +88,30 @@ export async function getUserSettings() {
 export async function updateUserSettings(patch) {
   if (!useCloud) return devUpdateUserSettings(patch);
   await setDoc(doc(db, 'users', uidOrThrow()), patch, { merge: true });
+}
+
+// "לא עכשיו" on Today's "הגוף שלי" card: it comes back BODY.snoozeDays later.
+export async function snoozeBodyCard() {
+  await updateUserSettings({ bodyCardSnoozedAt: useCloud ? serverTimestamp() : new Date().toISOString() });
+}
+
+// The "הגוף שלי" sheet (M16a, docs/specs/body-burn.md): the answers, the
+// base burn and the two targets on the user doc, and today's dailyActivity
+// moved to the new base when it was worked out from the old one (earlier
+// days keep theirs). `body` is bodyDoc() from js/lib/body-burn.js.
+export async function saveBodyProfile({ body, baseKcal, calorieTarget, proteinTarget }, dayKey) {
+  const updatedAt = useCloud ? serverTimestamp() : new Date().toISOString();
+  await updateUserSettings({ body: { ...body, updatedAt }, baseKcal, calorieTarget, proteinTarget });
+  await rebaseDay(dayKey, baseKcal);
+}
+
+// A new base burn (the sheet, or "שריפה בסיסית" typed in "יעדים") also
+// moves that day's dailyActivity, if it was worked out from the old base.
+export async function rebaseDay(dayKey, baseKcal) {
+  const day = await getDailyActivity(dayKey).catch(() => null);
+  const patch = rebaseActivity(day, baseKcal);
+  if (patch) await mergeDailyActivity(dayKey, patch, { stamp: false });
+  return patch;
 }
 
 // ---------- workouts ----------
@@ -165,10 +190,10 @@ export function syncWorkoutKcal(dateKeys) {
   const keys = [...new Set((dateKeys || []).filter(Boolean))];
   return Promise.all(keys.map(async (key) => {
     try {
-      const [workouts, weights, existing] = await Promise.all([
-        allWorkouts(), weighInUpTo(key), getDailyActivity(key),
+      const [workouts, weights, existing, user] = await Promise.all([
+        allWorkouts(), weighInUpTo(key), getDailyActivity(key), getUserSettings(),
       ]);
-      const patch = workoutKcalPatch(key, existing, dayWorkoutKcal(workouts, key, weights));
+      const patch = workoutKcalPatch(key, existing, dayWorkoutKcal(workouts, key, weights), userBaseKcal(user));
       if (patch?.set) await setDailyActivity(key, patch.set);
       else if (patch?.merge) await mergeDailyActivity(key, patch.merge, { stamp: false });
     } catch (err) {

@@ -228,7 +228,7 @@ Asked by ירין 2026-11-12, settled 2026-11-15. Spec: `docs/specs/feedback-pag
 - UI: a short form (text + type buttons, no name field) with a thank-you; a user sees only "המשובים שלי" folded, done items gone after 7 days; ירין sees "פתוחים" and a folded "סגורים". `privacy.html` says feedback is seen only by its writer and the developer.
 - Done when: a second account can't read or change anyone else's feedback (also directly against Firestore), sending works offline, and the page looks right at 390px in every theme.
 
-### M15b ◐ Feedback fixes — the PR in "last time" and the sleep clock — `feature/m15b-feedback-fixes`
+### M15b ☑ Feedback fixes — the PR in "last time" and the sleep clock — `feature/m15b-feedback-fixes`
 Asked by ירין 2026-11-15: "תחלץ את כל המשובים ותרשום לי מה אתה מבין ומה אתה ממליץ", then "כן, לבנות". Small fix, spec in the PR.
 - The PR in the "last time" popup compares only workouts logged like the last one (per side vs total, as the trophy does), and a workout whose sets are all warm-ups (the old bug fixed in M3d) counts all its sets. Logic moved to `js/lib/exercise-pr.js` with `tools/test-exercise-pr.mjs`. No data rewritten.
 - Sleep: an open time picker spans both clocks instead of running off a narrow screen (card, night sheet, settings, habit wizard).
@@ -248,6 +248,16 @@ Asked by ירין 2026-11-12: Maya is the first user after ירין. Her own ג�
   - Her Claude: her own free Claude account (personal, not ירין's), with her own ג׳ימי key. Free allows one custom connector, which is enough; she uses it as a coach, not to maintain the app. Check in the build whether the connector works inside a project on the free plan, and how far the free message cap goes.
   - Areas: everything on, like ירין (the switches come in M10).
   - Burn and targets: a short form (weight, height, age, sex) → Mifflin-St Jeor base burn and calorie/protein targets on the user doc, each editable by hand; the same form is reused by M10's signup. Replaces the fixed 1950 for her (old docs and ירין keep theirs).
+- **Split by ירין 2026-11-16** into two PRs:
+
+### M16a ◐ Personal burn and targets — `feature/m16a-body-burn`
+Asked by ירין 2026-11-16. Spec: `docs/specs/body-burn.md`.
+- Data: `body` (`weightKg`, `heightCm`, `birthYear`, `sex`, `updatedAt`), `baseKcal` and `bodyCardSnoozedAt` on the user doc; new `dailyActivity` docs (app, `/api/steps`, MCP) take the user's `baseKcal`, missing → 1950. No `firestore.rules` change.
+- UI: a skippable Today card for accounts created from 2026-11-14 (ירין doesn't see it, no goal question), and a "הגוף שלי" sheet also opened from "יעדים", which gains a hand-editable "שריפה בסיסית".
+- Done when: a new account's form gives its own burn and protein target, new days from the iPhone and the coach use it, ירין stays on 1950, offline and at 390px in every theme.
+
+### M16b ☐ Maya's Claude — `feature/m16b-maya-claude`
+The rest of M16: her free Claude account with her own ג׳יני key, and the part of M12 she needs (a "ניהול חיים" project and its instructions). Check first whether the connector works inside a project on the free plan.
 
 ## M9s ☐ Security before friends — `feature/m9s-hardening`
 Growth review, phase "עכשיו".

@@ -68,8 +68,33 @@ export const TODAY = {
 // daily life — Mifflin-St Jeor BMR × 1.2, sedentary — until M10 makes it
 // personal. Each saved day keeps the base it was saved with.
 export const ACTIVITY = {
+  // The default for anyone without a personal baseKcal on the user doc
+  // (M16a: the "הגוף שלי" sheet). ירין stays on this number.
   baseKcal: 1950,
   kcalPerStep: 0.04,
+};
+
+// Personal burn and targets from the "הגוף שלי" sheet (M16a,
+// docs/specs/body-burn.md). BMR is Mifflin-St Jeor.
+export const BODY = {
+  // baseKcal = BMR × this (sedentary; steps and workouts are added on top).
+  baseFactor: 1.2,
+  // calorieTarget for days with no burn logged = BMR × this (lightly
+  // active), rounded to 50, less the user's calorieDeficit.
+  noBurnFactor: 1.375,
+  // proteinTarget = body weight × this, rounded to 5 g.
+  proteinPerKg: 1.6,
+  // Accepted answers; outside them the sheet asks again (in grey).
+  limits: {
+    weightKg: [30, 250],
+    heightCm: [120, 230],
+    age: [14, 100],
+  },
+  // The Today card shows only for accounts created on or after this date
+  // (Firebase Auth creationTime, Israel time), so ירין doesn't get it.
+  cardFromDate: '2026-11-14',
+  // "לא עכשיו" hides the card for this many days.
+  snoozeDays: 3,
 };
 
 // Steps from the iPhone: an iOS Shortcut opens #/import?steps=N&date=…

@@ -6800,3 +6800,107 @@ body.keyboard-open .active-workout-pill,
   border-top: 1px solid var(--border);
   padding-top: var(--space-2);
 }
+
+/* "הגוף שלי" (M16a, js/ui/body-sheet.js): four answers → a personal burn.
+   Only theme tokens; the result box is the accent's dim fill. */
+.body-sheet-title {
+  margin: 0 0 4px;
+  color: var(--text);
+}
+
+.body-sheet-lead,
+.body-note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.body-note {
+  margin-top: 8px;
+  font-size: var(--text-xs);
+}
+
+.body-field {
+  display: block;
+  min-width: 0;
+}
+
+.body-unit {
+  text-transform: none;
+}
+
+.body-input {
+  text-align: center;
+  padding: 0 8px;
+}
+
+.body-sex {
+  display: flex;
+  gap: 8px;
+}
+
+.body-sex .pill {
+  flex: 1;
+  min-height: var(--control-h);
+  font-size: var(--text-sm);
+}
+
+.body-result {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: var(--space-3);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--accent-dim);
+  color: var(--text);
+  font-weight: var(--weight-semibold);
+}
+
+.body-result .num {
+  color: var(--gold);
+}
+
+.body-check {
+  font-weight: normal;
+  color: var(--text-muted);
+}
+
+/* Today's "כמה אתם שורפים ביום?" card: the next-step look, plus a quiet
+   "לא עכשיו" under the text. */
+.today-body {
+  position: relative;
+}
+
+.today-body-later {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.today-body-go {
+  flex: none;
+  min-height: 36px;
+  padding: 0 16px;
+}
+
+/* "יעדים": the base burn with "חישוב מהגוף" beside it (M16a). */
+.nut-base-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 0 12px;
+}
+
+.nut-base-calc {
+  min-height: var(--control-h);
+  padding: 0 14px;
+  font-size: var(--text-sm);
+}

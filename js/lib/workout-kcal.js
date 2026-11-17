@@ -101,12 +101,13 @@ export function dayWorkoutKcal(workouts, dateKey, weights) {
 
 // What to write to dailyActivity/{dateKey}: { merge: fields } for an
 // existing doc (steps, base and note stay), { set: doc } for a new day, or
-// null when nothing changes — including no doc and no burn.
-export function workoutKcalPatch(dateKey, existing, kcal) {
+// null when nothing changes — including no doc and no burn. `newBase` is
+// the user's own baseKcal (M16a), used only when the day has no doc yet.
+export function workoutKcalPatch(dateKey, existing, kcal, newBase = ACTIVITY.baseKcal) {
   const workoutKcal = Math.round(kcal || 0);
   if (!existing) {
     if (!workoutKcal) return null;
-    return { set: { ...buildActivity(dateKey, { workoutKcal }), source: 'workouts' } };
+    return { set: { ...buildActivity(dateKey, { workoutKcal, baseKcal: newBase }), source: 'workouts' } };
   }
   const baseKcal = Number.isFinite(existing.baseKcal) ? existing.baseKcal : ACTIVITY.baseKcal;
   const sk = Number.isFinite(existing.stepsKcal) ? existing.stepsKcal : stepsKcal(existing.steps);

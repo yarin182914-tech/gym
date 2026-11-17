@@ -23,3 +23,11 @@ export function onAuthChange(callback) {
 export function currentUid() {
   return auth?.currentUser ? auth.currentUser.uid : null;
 }
+
+// When this Google account first signed in (Firebase Auth), or null — the
+// "הגוף שלי" card on Today shows only for accounts from BODY.cardFromDate.
+export function accountCreatedAt() {
+  const t = auth?.currentUser?.metadata?.creationTime;
+  const d = t ? new Date(t) : null;
+  return d && !Number.isNaN(d.getTime()) ? d : null;
+}
