@@ -235,10 +235,11 @@ Asked by ירין 2026-11-15: "תחלץ את כל המשובים ותרשום ל
 - Steps: checked only. Since M3e the iPhone shortcut wrote once (2026-11-12, 09:24); every other day came from the coach.
 - Done when: on ירין's data no exercise shows a PR below last time (checked on all 30), and the wake-time wheel stays on screen at 340px and 390px in every theme.
 
-### M15c ☐ The workout screen — `feature/m15c-workout-screen`
-Asked by ירין 2026-11-10 on the feedback board: "שיתחיל בכלל בהוספת סוג האימון ומשם לתרגילים … לייצר לוגיקה הגיונית של תהליכיות בהתחלת אימון".
-- UI: starting a workout picks its kind first (strength, run, a session…), then the exercises for that kind; strength no longer fills the screen above the other kinds. Plus M3d's unbuilt "אימון פעיל" pill above the nav on every screen (tap → back to the workout) and the app-icon badge.
-- Done when: starting each kind of workout takes the fewest taps, and a running workout is visible from every screen, at 390px in every theme.
+### M15c ◐ The workout screen — `feature/m15c-workout-screen`
+Asked by ירין 2026-11-10 on the feedback board: "שיתחיל בכלל בהוספת סוג האימון ומשם לתרגילים … לייצר לוגיקה הגיונית של תהליכיות בהתחלת אימון". Settled 2026-11-16. Spec: `docs/specs/workout-start.md`.
+- Data: none (the open workouts already live in `localStorage`). No `firestore.rules` change.
+- UI: the empty workout screen is "איזה אימון היום?": כוח and אירובי as big buttons (one tap opens that list), the other types as small buttons (one tap adds the type), "+ סוג משלך", and "הוספת אימון שכבר בוצע". "אימון נוסף" and the + button's "אימון" use the same chooser. Plus M3d's unbuilt "אימון פעיל" pill above the nav on every other screen, only for a live workout (tap → back to the workout), and the app-icon badge.
+- Done when: each kind is one tap from the empty screen, a live workout shows the pill on every other screen and it disappears on finish, a backdated or edited workout shows none, offline and at 390px in every theme.
 
 ## M16 ☐ Open ג׳ימי to Maya — `feature/m16-maya`
 Asked by ירין 2026-11-12: Maya is the first user after ירין. Her own ג׳ימי user (Google sign-in already works for any account; rules isolate `users/{uid}`), with ירין's personal leftovers out of her way (the 1950 base burn, `weddingDate`, ירין-only links) and a short first-run setup (the minimum of M10). Her Claude: the connector key from "חיבורים" (M11) on her own phone, plus a "ניהול חיים" project per the plan's "קלוד כעוזר אישי" (the part of M12 she needs). Check first: how Maya's Claude account works (ירין asked if she can use his paid plan; answered in the build thread).
