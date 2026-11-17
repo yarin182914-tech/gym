@@ -2182,6 +2182,54 @@ th {
   margin-inline-start: 3px;
 }
 
+/* ===== "איזה אימון היום?" — the kind a new workout starts from (M15c) ===== */
+.kind-chooser-big {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.kind-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 96px;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+  transition: transform var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+
+.kind-btn .icon {
+  width: 30px;
+  height: 30px;
+  color: var(--accent);
+}
+
+.kind-btn:active {
+  transform: scale(0.97);
+  border-color: var(--accent);
+}
+
+.kind-chooser .pill {
+  min-height: var(--control-h);
+  padding: 6px 14px;
+  font-size: var(--text-sm);
+}
+
+.kind-chooser-past {
+  margin-top: var(--space-3);
+}
+
 /* ===== Active session header: date/time + delete ===== */
 .session-head {
   display: flex;
@@ -3988,6 +4036,53 @@ body:has(.sheet-overlay, .modal-overlay, .install-banner, [data-meal-form]) .fab
 body.keyboard-open .fab,
 #app.hidden ~ .fab {
   display: none;
+}
+
+/* ----- "אימון פעיל" (js/ui/active-workout-pill.js, M15c) ----- */
+/* Centred above the nav, level with the + button and clear of it, and
+   out of the way by the same rules. */
+.active-workout-pill {
+  --pill-h: 40px;
+  position: fixed;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: max-content;
+  bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-4) + (var(--fab-size) - var(--pill-h)) / 2);
+  z-index: 55; /* with the + button: above .bottom-nav (50), under overlays */
+  height: var(--pill-h);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  box-shadow: var(--elev-2);
+  cursor: pointer;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.active-workout-pill[hidden],
+body:has(.sheet-overlay, .modal-overlay, .install-banner, [data-meal-form]) .active-workout-pill,
+body.keyboard-open .active-workout-pill,
+#app.hidden ~ .active-workout-pill {
+  display: none;
+}
+
+.active-workout-pill:active {
+  transform: scale(0.96);
+}
+
+@media (min-width: 900px) {
+  /* Centred in the content, beside the 200px sidebar nav. */
+  .active-workout-pill {
+    inset-inline-end: 200px;
+    bottom: calc(var(--space-6) + (var(--fab-size) - var(--pill-h)) / 2);
+  }
 }
 
 /* The screen's own action: one wide row above the grid (M14a). */

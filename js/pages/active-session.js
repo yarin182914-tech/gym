@@ -42,6 +42,8 @@ import { workoutKcal } from '../lib/workout-kcal.js';
 import { WORKOUTS } from '../lib/rules.js';
 import { mountSessionForm } from '../ui/session-form.js';
 import { openWorkoutTypeSheet } from '../ui/workout-type-sheet.js';
+import { SESSIONS_CHANGED_EVENT } from '../ui/active-workout-pill.js';
+import { ACTIVE_SESSIONS_KEY } from '../lib/active-workout.js';
 
 let container = null;
 let library = [];
@@ -72,7 +74,7 @@ let finishingWorkout = false; // guards finishWorkout() against double-submissio
 // resetting to nothing. Resumable regardless of how old a draft is —
 // deliberately no age cutoff: a workout left open for a day or two is
 // exactly the case this exists for, not a reason to discard it.
-const SESSIONS_STORAGE_KEY = 'gym-active-sessions-v2';
+const SESSIONS_STORAGE_KEY = ACTIVE_SESSIONS_KEY; // 'gym-active-sessions-v2'
 // Before tabs: a single workout, under its own key — moved into the list on
 // first load.
 const LEGACY_SESSION_STORAGE_KEY = 'gym-active-session-v1';
@@ -132,12 +134,16 @@ export async function mountActiveSession(rootEl) {
   });
 }
 
-// A new workout, started now, with the exercise picker open.
+// The + button's "אימון": the kind chooser, nothing started until a kind
+// is picked (M15c) — on the empty screen, or in "אימון נוסף" beside the
+// workouts already open.
 function startQuickWorkout() {
-  const before = session;
-  startWorkout();
-  if (session === before) return; // MAX_SESSIONS — startWorkout said so
-  container?.querySelector('#add-exercise-btn')?.click();
+  if (session) {
+    openNewSessionSheet();
+    return;
+  }
+  render();
+  window.scrollTo(0, 0);
 }
 
 // A new workout, started now, with a walk ready to fill in — the same
@@ -157,7 +163,8 @@ async function loadLibrary(token) {
   listWorkoutTypes()
     .then((types) => {
       workoutTypes = types;
-      if (!isStale(token) && picker.open) render();
+      // The empty screen's chooser lists them too.
+      if (!isStale(token) && (picker.open || !session)) render();
     })
     .catch((err) => console.error('workout types load failed', err));
   try {
@@ -213,6 +220,7 @@ function persistSession() {
     }
   } catch { /* storage full/blocked — the workouts just won't survive a reload */ }
   updateNavBadge();
+  window.dispatchEvent(new Event(SESSIONS_CHANGED_EVENT)); // the "אימון פעיל" pill
 }
 
 function newSessionId() {
@@ -383,14 +391,11 @@ function render() {
     container.innerHTML = `
       ${workoutSwitch('session')}
       ${planCardVisible() ? '<div id="plan-slot"></div>' : ''}
-      <div class="card" style="text-align:center;">
-        <h2>מוכן להתחיל?</h2>
-        <p class="text-muted">לחיצה תתחיל מעקב אחר האימון.</p>
-        <button class="btn btn-primary btn-block" id="start-workout-btn">התחלת אימון</button>
-        <button class="btn btn-secondary btn-block" id="start-past-workout-btn" style="margin-top:8px;">הוספת אימון שכבר בוצע</button>
+      <div class="card">
+        <h2 style="margin-top:0;">איזה אימון היום?</h2>
+        ${kindChooserHtml()}
       </div>`;
-    container.querySelector('#start-workout-btn').addEventListener('click', () => startWorkout());
-    container.querySelector('#start-past-workout-btn').addEventListener('click', openPastWorkoutSheet);
+    wireKindChooser(container);
     container.querySelector('#plan-slot')?.replaceWith(planCardEl);
     restoreScroll();
     return;
@@ -575,20 +580,75 @@ function openNewSessionSheet() {
     ariaLabel: 'אימון נוסף',
     render(body, sheetApi) {
       body.innerHTML = `
-        <h3 style="margin:0 0 14px; color:var(--text);">אימון נוסף</h3>
+        <h3 style="margin:0 0 6px; color:var(--text);">אימון נוסף</h3>
         <p class="text-muted" style="font-size:0.8rem; margin:0 0 14px;">האימונים הפתוחים נשארים כמו שהם — עוברים ביניהם בלשוניות למעלה.</p>
-        <button type="button" class="btn btn-primary btn-block" data-new-live>התחלת אימון</button>
-        <button type="button" class="btn btn-secondary btn-block" data-new-past style="margin-top:8px;">הוספת אימון שכבר בוצע</button>`;
-      body.querySelector('[data-new-live]').addEventListener('click', () => {
-        sheetApi.close();
-        startWorkout();
-      });
-      body.querySelector('[data-new-past]').addEventListener('click', () => {
-        sheetApi.close();
-        openPastWorkoutSheet();
-      });
+        ${kindChooserHtml()}`;
+      wireKindChooser(body, () => sheetApi.close());
     },
   });
+}
+
+// ---------- "איזה אימון היום?" — the kind first (M15c, feedback 10.11) ----------
+//
+// On the empty screen and in "אימון נוסף": כוח and אירובי start a workout
+// with that list open, any other type starts one with the type already in
+// it, "+ סוג משלך" builds a type and starts with it. Nothing is created
+// before a kind is picked.
+
+function kindChooserHtml() {
+  return `
+    <div class="kind-chooser">
+      <div class="kind-chooser-big">
+        <button type="button" class="kind-btn" data-start-kind="strength">${icon('dumbbell')}<span>כוח</span></button>
+        <button type="button" class="kind-btn" data-start-kind="cardio">${icon('run')}<span>אירובי</span></button>
+      </div>
+      <div class="pill-row-label">אימון אחר</div>
+      <div class="pill-row">
+        ${typeLibrary(workoutTypes).map((e) => `<button type="button" class="pill" data-start-type="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
+        <button type="button" class="pill" data-start-new-type>+ סוג משלך</button>
+      </div>
+      <button type="button" class="btn btn-secondary btn-block kind-chooser-past" data-start-past>הוספת אימון שכבר בוצע</button>
+    </div>`;
+}
+
+// before(): closes the sheet the chooser sits in, if any.
+function wireKindChooser(root, before = () => {}) {
+  root.querySelectorAll('[data-start-kind]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      before();
+      startWithKind(btn.dataset.startKind);
+    });
+  });
+  root.querySelectorAll('[data-start-type]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const lib = typeLibrary(workoutTypes).find((e) => e.id === btn.dataset.startType);
+      if (!lib) return;
+      before();
+      if (beginLiveWorkout()) addExerciseToSession(lib);
+    });
+  });
+  root.querySelector('[data-start-new-type]')?.addEventListener('click', () => {
+    before();
+    openTypeSheet(null, { startNew: true });
+  });
+  root.querySelector('[data-start-past]')?.addEventListener('click', () => {
+    before();
+    openPastWorkoutSheet();
+  });
+}
+
+// A new live workout; false when MAX_SESSIONS are open (startWorkout said so).
+function beginLiveWorkout() {
+  const before = session;
+  startWorkout();
+  return session !== before;
+}
+
+function startWithKind(mode) {
+  if (!beginLiveWorkout()) return;
+  picker = { open: true, query: '', category: null, mode };
+  render();
+  loadRecentExercises();
 }
 
 // "אימון" in the bottom nav shows how many workouts are open, once there's
@@ -848,7 +908,7 @@ function pickableExercises() {
 
 // "סוג משלך" — a new type, or one of the user's own to edit. A new one is
 // added to the workout straight away.
-function openTypeSheet(doc = null) {
+function openTypeSheet(doc = null, { startNew = false } = {}) {
   openWorkoutTypeSheet(doc, {
     order: workoutTypes.length,
     onSaved: (saved) => {
@@ -858,7 +918,11 @@ function openTypeSheet(doc = null) {
         return;
       }
       const lib = typeLibrary(workoutTypes).find((t) => t.docId === saved.id);
-      if (lib && session) addExerciseToSession(lib);
+      // From "איזה אימון היום?": the new type starts a workout of its own.
+      if (lib && startNew) {
+        if (beginLiveWorkout()) addExerciseToSession(lib);
+      } else if (lib && session) addExerciseToSession(lib);
+      else render(); // the empty screen's chooser lists the new type
     },
     onDeleted: (id) => {
       workoutTypes = workoutTypes.filter((t) => t.id !== id);
@@ -912,7 +976,7 @@ function renderPicker() {
         <button class="pill ${mode === 'strength' ? 'active' : ''}" data-picker-mode="strength">כוח</button>
         <button class="pill ${mode === 'cardio' ? 'active' : ''}" data-picker-mode="cardio">אירובי</button>
       </div>
-      ${session.exercises.length === 0 ? `
+      ${session.exercises.length === 0 && !mode ? `
         <div class="pill-row-label">אימון אחר — נכנס ישר</div>
         <div class="pill-row">
           ${typeLibrary(workoutTypes).map((e) => `<button class="pill" data-pick="${esc(e.id)}">${esc(e.name)}</button>`).join('')}
