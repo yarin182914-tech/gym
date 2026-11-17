@@ -18,6 +18,7 @@ import { mountImport, stashImportFromUrl, hasPendingImport } from './pages/impor
 import { mountConnections, unmountConnections } from './pages/connections.js';
 import { mountLibrary, unmountLibrary } from './pages/library.js';
 import { mountQuickAdd } from './ui/quick-add.js';
+import { mountActiveWorkoutPill } from './ui/active-workout-pill.js';
 import { captureInstallPrompt, notifyAppEntered } from './ui/install-banner.js';
 import { mountAppBar } from './ui/app-bar.js';
 import { mountWelcome } from './ui/welcome.js';
@@ -72,6 +73,7 @@ async function enterApp() {
   notifyAppEntered();
   mountAppBar(appRoot);
   mountQuickAdd();
+  mountActiveWorkoutPill();
   await ensureUserDoc();
   // Points: scores the days since the last visit, then every save; the
   // moments ("+10", confetti, level-up) follow each pass.
