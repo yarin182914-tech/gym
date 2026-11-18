@@ -97,6 +97,19 @@ export const BODY = {
   snoozeDays: 3,
 };
 
+// The first-login questionnaire (M10a, docs/specs/onboarding.md).
+export const ONBOARDING = {
+  // It opens by itself only for accounts created on or after this date
+  // (Israel time), like the "הגוף שלי" card — so ירין doesn't get it.
+  fromDate: BODY.cardFromDate,
+  // "לא עכשיו" on Today's "להמשיך את השאלון" card hides it this many days.
+  snoozeDays: 3,
+  // Habits offered in one tap (ids from js/lib/habit-templates.js).
+  quickHabits: ['water', 'reading', 'meditation', 'morning', 'screen', 'phone-bed', 'instagram'],
+  // The most habits the questionnaire adds in one go.
+  maxHabits: 5,
+};
+
 // Steps from the iPhone: an iOS Shortcut opens #/import?steps=N&date=…
 // (js/pages/import.js) and the "חיבורים" page explains how to set it up.
 export const STEPS_IMPORT = {
@@ -221,7 +234,11 @@ export const NUTRITION = {
     carbsTarget: 250,
     fatTarget: 65,
   },
+  // Meals a day that score, for a user who hasn't chosen their own
+  // (users/{uid}.mealsPerDay, M10a). ירין's plan: lunch and dinner.
   maxMeals: 2,
+  // What "ארוחות ביום" accepts (the questionnaire and "יעדים").
+  mealsRange: [1, 6],
 };
 
 // Bad habits (M5, plan: "הרגלים רעים: אשף גמילה"). A day is clean only

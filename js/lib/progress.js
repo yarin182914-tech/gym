@@ -76,7 +76,8 @@ export function dayCell(row, key, ctx, today) {
   if (row.id === 'meals') {
     if (!meals.length) return { status: 'none', value: 0 };
     const n = meals.length;
-    return { status: n <= NUTRITION.maxMeals ? 'full' : n <= NUTRITION.maxMeals + 1 ? 'close' : 'miss', value: n };
+    const max = ctx.maxMeals ?? NUTRITION.maxMeals;
+    return { status: n <= max ? 'full' : n <= max + 1 ? 'close' : 'miss', value: n };
   }
   const grades = nutritionGrades(key, ctx);
   if (!grades) return { status: 'none', value: null };
@@ -123,7 +124,7 @@ export function rowSummary(row, days, ctx, today) {
     const avg = hours.length ? hours.reduce((s, v) => s + v, 0) / hours.length : 0;
     return `${count(['full', 'close'])} לילות ביעד${avg ? ` · ממוצע ${formatDuration(avg * 60)}` : ''}`;
   }
-  if (row.id === 'meals') return `${count(['full'])} ימים עד ${NUTRITION.maxMeals} ארוחות`;
+  if (row.id === 'meals') return `${count(['full'])} ימים עד ${ctx.maxMeals ?? NUTRITION.maxMeals} ארוחות`;
   if (row.id === 'protein') return `${count(['full'])} ימים ביעד ${fmt(ctx.goals.proteinTarget)}g`;
   if (row.id === 'calories') return `${count(['full'])} ימים ביעד`;
   return `${count(['full', 'close'])} מתוך ${cells.filter((c) => c.status !== 'rest').length}`;
