@@ -15,7 +15,7 @@ import {
   clockOf, formatDuration, shiftDays, parseKey, dateKey,
 } from '../lib/sleep.js';
 import { mountTimeField } from './date-time-picker.js';
-import { mountNumericField } from './numeric-input.js';
+import { mountSleepFields, sleepPatch } from './sleep-fields.js';
 import { openBottomSheet } from './bottom-sheet.js';
 import { openNightSheet, saveNight, nightPreview, nightName, DURATION_TEXT } from './night-sheet.js';
 import { showToast } from './toast.js';
@@ -24,7 +24,6 @@ import { esc } from '../core/dom.js';
 import { countHe } from '../lib/plural.js';
 
 const WEEKDAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
-const WEEKDAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const todayKey = () => dateKey(new Date());
 
 const ON_TIME_TEXT = { full: 'נרדמת בזמן', close: 'קרוב לזמן', miss: 'מאוחר' };
@@ -165,51 +164,21 @@ export function createSleepCard(nights, userDoc, { onChange, onSettingsChange } 
     openBottomSheet({
       ariaLabel: 'הגדרות שינה',
       render(body, sheetApi) {
-        const flexPills = () => WEEKDAY_NAMES.map((name, i) => `
-          <button type="button" class="pill${draft.sleepFlexibleNights.includes(i) ? ' active' : ''}" data-flex="${i}" aria-pressed="${draft.sleepFlexibleNights.includes(i)}">${WEEKDAY_LETTERS[i]}׳</button>`).join('');
         body.innerHTML = `
           <h3 style="margin:0 0 4px; color:var(--text);">הגדרות שינה</h3>
-          <div class="sleep-clocks">
-            <div><div class="sheet-field-label">יעד שינה</div><div data-s-target></div></div>
-            <div><div class="sheet-field-label">לכל המאוחר</div><div data-s-latest></div></div>
-          </div>
-          <div class="sleep-clocks">
-            <div><div class="sheet-field-label">שעת קימה רגילה</div><div data-s-wake></div></div>
-            <div><div class="sheet-field-label">מינימום שעות</div><div data-s-min></div></div>
-          </div>
-          <div class="sheet-field-label">לילות גמישים (לפי ערב) — נספר רק המשך</div>
-          <div class="pill-row" data-s-flex>${flexPills()}</div>
+          <div data-s-fields></div>
           <div class="sheet-actions">
             <button type="button" class="btn btn-secondary" data-s-cancel>ביטול</button>
             <button type="button" class="btn btn-primary" data-s-save>שמירה</button>
           </div>`;
-        mountTimeField(body.querySelector('[data-s-target]'), { value: draft.sleepBedtimeTarget, clearable: false, ariaLabel: 'יעד שינה', onChange: (v) => { draft.sleepBedtimeTarget = v; } });
-        mountTimeField(body.querySelector('[data-s-latest]'), { value: draft.sleepBedtimeLatest, clearable: false, ariaLabel: 'שעת שינה מקסימלית', onChange: (v) => { draft.sleepBedtimeLatest = v; } });
-        mountTimeField(body.querySelector('[data-s-wake]'), { value: draft.sleepWakeTime, clearable: false, ariaLabel: 'שעת קימה רגילה', onChange: (v) => { draft.sleepWakeTime = v; } });
-        mountNumericField(body.querySelector('[data-s-min]'), { value: draft.sleepMinHours, unitLabel: 'שעות', ariaLabel: 'מינימום שעות שינה', onCommit: (v) => { draft.sleepMinHours = v; } });
-        const flexEl = body.querySelector('[data-s-flex]');
-        flexEl.addEventListener('click', (e) => {
-          const btn = e.target.closest('[data-flex]');
-          if (!btn) return;
-          const day = Number(btn.dataset.flex);
-          const set = new Set(draft.sleepFlexibleNights);
-          if (set.has(day)) set.delete(day); else set.add(day);
-          draft.sleepFlexibleNights = [...set].sort();
-          flexEl.innerHTML = flexPills();
-        });
+        mountSleepFields(body.querySelector('[data-s-fields]'), draft);
         body.querySelector('[data-s-cancel]').addEventListener('click', () => sheetApi.close());
         body.querySelector('[data-s-save]').addEventListener('click', async () => {
-          if (!draft.sleepMinHours) {
+          const patch = sleepPatch(draft);
+          if (!patch) {
             showToast('יש להזין מינימום שעות');
             return;
           }
-          const patch = {
-            sleepBedtimeTarget: draft.sleepBedtimeTarget,
-            sleepBedtimeLatest: draft.sleepBedtimeLatest,
-            sleepWakeTime: draft.sleepWakeTime,
-            sleepMinHours: draft.sleepMinHours,
-            sleepFlexibleNights: draft.sleepFlexibleNights,
-          };
           try {
             await updateUserSettings(patch);
           } catch (err) {

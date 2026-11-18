@@ -1,28 +1,16 @@
 // "הגוף שלי" — four answers (weight, height, age, sex) → a personal base
 // burn and calorie/protein targets (M16a, docs/specs/body-burn.md). Opened
-// from Today's card and from "יעדים" on the nutrition screen; M10's signup
-// will reuse it. The numbers are worked out in js/lib/body-burn.js.
+// from Today's card and from "יעדים" on the nutrition screen. The fields
+// themselves are js/ui/body-fields.js, shared with the first-login
+// questionnaire (M10a); the numbers are worked out in js/lib/body-burn.js.
 
-import { esc } from '../core/dom.js';
 import { openBottomSheet } from './bottom-sheet.js';
 import { showToast } from './toast.js';
 import { getUserSettings, bodyKgOn, saveBodyProfile } from '../lib/firestore.js';
-import { answersFrom, bodyDoc, bodyTargets, invalidFields } from '../lib/body-burn.js';
+import { answersFrom, bodyDoc } from '../lib/body-burn.js';
+import { mountBodyFields } from './body-fields.js';
 import { israelDateKey } from '../lib/steps-import.js';
 import { NUTRITION } from '../lib/rules.js';
-
-const FIELDS = [
-  { key: 'weightKg', label: 'משקל', unit: 'ק״ג' },
-  { key: 'heightCm', label: 'גובה', unit: 'ס״מ' },
-  { key: 'age', label: 'גיל', unit: 'שנים' },
-];
-const SEXES = [
-  { id: 'female', label: 'אישה' },
-  { id: 'male', label: 'גבר' },
-];
-const NAMES = { weightKg: 'משקל', heightCm: 'גובה', age: 'גיל', sex: 'מין' };
-
-const fmt = (n) => Math.round(n).toLocaleString('he-IL');
 
 // onSaved(saved): after a successful save, with what was written
 // ({ body, baseKcal, calorieTarget, proteinTarget }).
@@ -44,69 +32,20 @@ export async function openBodySheet({ onSaved } = {}) {
       body.innerHTML = `
         <h3 class="body-sheet-title">הגוף שלי</h3>
         <p class="body-sheet-lead">ארבע שאלות, ומהן שריפה ויעדים שמתאימים לכם.</p>
-        <div class="nut-macro-grid nut-macro-grid--3">
-          ${FIELDS.map((f) => `
-            <label class="body-field">
-              <span class="sheet-field-label">${f.label} <span class="body-unit">(${f.unit})</span></span>
-              <input type="text" inputmode="decimal" dir="ltr" autocomplete="off" class="search-bar num body-input"
-                data-body="${f.key}" value="${esc(answers[f.key])}" aria-label="${f.label} ב${f.unit}">
-            </label>`).join('')}
-        </div>
-        <div class="sheet-field-label" id="body-sex-label">מין</div>
-        <div class="body-sex" role="group" aria-labelledby="body-sex-label">
-          ${SEXES.map((s) => `<button type="button" class="pill${answers.sex === s.id ? ' active' : ''}" data-sex="${s.id}" aria-pressed="${answers.sex === s.id}">${s.label}</button>`).join('')}
-        </div>
-        <div class="body-result" data-body-result aria-live="polite"></div>
-        <p class="body-note">מחושב בנוסחת Mifflin-St Jeor. אימונים וצעדים נוספים על זה בכל יום.</p>
+        <div data-body-fields></div>
         <div class="sheet-actions">
           <button type="button" class="btn btn-secondary" data-body-cancel>ביטול</button>
           <button type="button" class="btn btn-primary" data-body-save>שמירה</button>
         </div>`;
 
-      const resultEl = body.querySelector('[data-body-result]');
-      let tried = false; // after a save attempt, name what's missing
-      const showResult = () => {
-        const t = bodyTargets(answers, deficit);
-        if (t) {
-          resultEl.innerHTML = `
-            <span>שריפה בסיסית <span class="num">${fmt(t.baseKcal)}</span> קל׳ ביום</span>
-            <span>יעד חלבון <span class="num">${fmt(t.proteinTarget)}</span> גרם</span>`;
-          return;
-        }
-        const bad = invalidFields(answers);
-        resultEl.innerHTML = tried
-          ? `<span class="body-check">כדאי לבדוק: ${bad.map((k) => NAMES[k]).join(', ')}</span>`
-          : '<span class="body-check">מלאו את כל השדות, והשריפה תופיע כאן.</span>';
-      };
-      showResult();
-
-      body.querySelectorAll('[data-body]').forEach((input) => {
-        input.addEventListener('input', () => {
-          answers[input.dataset.body] = input.value;
-          showResult();
-        });
-      });
-      body.querySelectorAll('[data-sex]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          answers.sex = btn.dataset.sex;
-          body.querySelectorAll('[data-sex]').forEach((b) => {
-            const on = b === btn;
-            b.classList.toggle('active', on);
-            b.setAttribute('aria-pressed', String(on));
-          });
-          showResult();
-        });
-      });
+      const fields = mountBodyFields(body.querySelector('[data-body-fields]'), answers, { deficit });
       body.querySelector('[data-body-cancel]').addEventListener('click', () => sheetApi.close());
 
       const saveBtn = body.querySelector('[data-body-save]');
       saveBtn.addEventListener('click', async () => {
-        const targets = bodyTargets(answers, deficit);
+        const targets = fields.targets();
         if (!targets) {
-          tried = true;
-          showResult();
-          const first = invalidFields(answers).find((k) => k !== 'sex');
-          if (first) body.querySelector(`[data-body="${first}"]`)?.focus();
+          fields.showProblems();
           return;
         }
         const saved = { body: bodyDoc(answers, year), ...targets };
