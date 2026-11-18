@@ -83,6 +83,8 @@ export async function openOnboarding({ only = null, persist = !isOlderAccount(),
   // Every write: the step's own fields and the progress, without waiting.
   const write = (fields = {}, { progress = !only } = {}) => {
     user = { ...user, ...fields };
+    // The summary reads "set up" from the data, as a run questionnaire.
+    if (progress) user.onboarding = { ...ob };
     const patch = { ...fields };
     if (progress && persist) patch.onboarding = { ...ob };
     if (!Object.keys(patch).length) return;
@@ -316,7 +318,8 @@ export async function openOnboarding({ only = null, persist = !isOlderAccount(),
           <input type="text" class="search-bar" maxlength="60" placeholder="הרגל משלך, למשל: 10 דקות מתיחות" aria-label="שם ההרגל" ${full ? 'disabled' : ''}>
           <button type="submit" class="btn btn-outline" ${full ? 'disabled' : ''}>הוספה</button>
         </form>
-        <button type="button" class="btn btn-outline onboarding-wizard-btn" data-ob-wizard ${full ? 'disabled' : ''}>${icon('sparkles', { className: 'icon--sm' })} עם כל השאלות (מומלץ להרגל שרוצים להיגמל ממנו)</button>
+        <button type="button" class="btn btn-outline onboarding-wizard-btn" data-ob-wizard ${full ? 'disabled' : ''}>${icon('sparkles', { className: 'icon--sm' })} הרגל עם כל השאלות</button>
+        <p class="onboarding-note">מומלץ במיוחד להרגל שרוצים להיגמל ממנו: מה מפעיל אותו, במה להחליף, ואיך להקשות עליו.</p>
         ${full ? `<p class="onboarding-note">אפשר עד ${ONBOARDING.maxHabits} בבת אחת. עוד הרגלים מוסיפים במסך "היום".</p>` : ''}`;
       el.querySelectorAll('[data-tpl]').forEach((b) => b.addEventListener('click', () => {
         if (picked.has(b.dataset.tpl)) picked.delete(b.dataset.tpl); else picked.add(b.dataset.tpl);

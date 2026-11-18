@@ -26,12 +26,14 @@ function scheduleText(h) {
 
 function measureText(h) {
   const unit = h.unit ? ` ${h.unit}` : '';
+  const n = (v) => (Number.isFinite(v) ? fmt(v) : v);
+  h = { ...h, full: n(h.full), short: Number.isFinite(h.short) ? fmt(h.short) : h.short };
   if (h.kind === 'bad') {
     if (h.measure === 'limit') return `עד ${h.full}${unit} ביום`;
     if (h.measure === 'slips') return 'כמה מעידות היו (0 = יום נקי)';
     return 'יום נקי: כן / לא';
   }
-  if (h.measure === 'quantity') return `${h.full}${unit}${Number.isFinite(h.short) ? ` (מקוצר: ${h.short}${unit})` : ''}`;
+  if (h.measure === 'quantity') return `${h.full}${unit}${h.short !== null && h.short !== undefined ? ` (מקוצר: ${h.short}${unit})` : ''}`;
   if (h.measure === 'limit') return `עד ${h.full}${unit}`;
   if (h.measure === 'steps') return h.steps.length ? `שגרה: ${h.steps.join(', ')}` : 'שגרה';
   if (h.autoSource) return `${h.full ?? ''}${unit}`.trim() || 'אוטומטי';
