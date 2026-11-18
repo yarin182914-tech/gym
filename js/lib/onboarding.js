@@ -9,6 +9,9 @@
 import { ONBOARDING, NUTRITION } from './rules.js';
 import { GOOD_TEMPLATES, BAD_TEMPLATES } from './habit-templates.js';
 import { BUILTIN_TYPES } from './workout-types.js';
+import { sleepSettings } from './sleep.js';
+import { nutritionGoals, mealsPerDay, weeklyWorkoutGoal } from './rewards.js';
+import { userBaseKcal } from './body-burn.js';
 
 export const STEPS = ['body', 'workouts', 'sleep', 'food', 'habits'];
 export const STEP_NAMES = { body: 'הגוף שלי', workouts: 'אימונים', sleep: 'שינה', food: 'אוכל', habits: 'הרגלים' };
@@ -87,6 +90,32 @@ export function markStep(skipped = [], step, { skip }) {
   const set = new Set(Array.isArray(skipped) ? skipped : []);
   if (skip) set.add(step); else set.delete(step);
   return STEPS.filter((s) => set.has(s));
+}
+
+const fmt = (n) => Math.round(n).toLocaleString('he-IL');
+
+// One short line per area for the last screen and "התכנית שלי", or ''
+// when the area isn't set up.
+export function stepSummary(step, user = {}, habits = []) {
+  if (!areasState(user, habits)[step]) return '';
+  if (step === 'body') {
+    const kg = user.body?.weightKg;
+    return `${Number.isFinite(kg) ? `${kg} ק״ג · ` : ''}שריפה בסיסית ${fmt(userBaseKcal(user))} קל׳`;
+  }
+  if (step === 'workouts') {
+    const kinds = workoutKindsOf(user).map(kindName);
+    return `${weeklyWorkoutGoal(user)} בשבוע${kinds.length ? ` · ${kinds.join(', ')}` : ''}`;
+  }
+  if (step === 'sleep') {
+    const s = sleepSettings(user);
+    return `לישון ב-${s.sleepBedtimeTarget}, לקום ב-${s.sleepWakeTime} · לפחות ${s.sleepMinHours} שעות`;
+  }
+  if (step === 'food') {
+    const g = nutritionGoals(user);
+    return `${mealsPerDay(user)} ארוחות · ${fmt(g.calorieTarget)} קל׳ · ${fmt(g.proteinTarget)} גרם חלבון`;
+  }
+  const names = (habits || []).filter((h) => h && h.active !== false).map((h) => h.name);
+  return names.length > 3 ? `${names.slice(0, 3).join(', ')} ועוד ${names.length - 3}` : names.join(', ');
 }
 
 // Meals a day from a form value, clamped to NUTRITION.mealsRange.

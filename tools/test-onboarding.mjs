@@ -80,6 +80,12 @@ check('empty name → null', O.quickHabit('   '), null);
 const bad = O.quickHabit(O.quickTemplates().find((t) => t.id === 'phone-bed'));
 check('a bad template stays bad', normalizeHabit(bad).kind, 'bad');
 
+console.log('one line per area');
+check('not set → empty', O.stepSummary('sleep', fresh, []), '');
+check('food line', O.stepSummary('food', { onboarding: {}, mealsPerDay: 3, calorieTarget: 1650, proteinTarget: 100 }, []), '3 ארוחות · 1,650 קל׳ · 100 גרם חלבון');
+check('workouts line', O.stepSummary('workouts', { onboarding: {}, weeklyWorkoutGoal: 4, workoutKinds: ['cardio'] }, []), '4 בשבוע · אירובי');
+check('habits line, long list', O.stepSummary('habits', {}, ['א', 'ב', 'ג', 'ד', 'ה'].map((name) => ({ name }))), 'א, ב, ג ועוד 2');
+
 console.log('the coach\'s page');
 const today = '2026-11-18';
 const maya = {

@@ -14,7 +14,9 @@ import { buildNight, evaluateNight, nightGrade, sleepSettings, parseKey, shiftDa
 import {
   normalizeHabit, entryFor, habitContext, isDue, isBad, levelFor, routineLevel, badDayLevel, slipsOf,
 } from '../../js/lib/habits.js';
-import { nutritionGoals, weeklyWorkoutGoal, rewardsSummary } from '../../js/lib/rewards.js';
+import { nutritionGoals, weeklyWorkoutGoal, rewardsSummary, mealsPerDay } from '../../js/lib/rewards.js';
+import { coachBrief } from '../../js/lib/coach-brief.js';
+import { areasState, workoutKindsOf } from '../../js/lib/onboarding.js';
 import { totalOut, stepsKcal } from '../../js/lib/daily-activity.js';
 import { israelDateKey } from '../../js/lib/steps-import.js';
 import { userBaseKcal } from '../../js/lib/body-burn.js';
@@ -279,8 +281,26 @@ async function getProfile(_args, ctx) {
     body: userDoc.body ? plainBody(userDoc.body) : null,
     sleep: sleepSettings(userDoc),
     weeklyWorkoutGoal: weeklyWorkoutGoal(userDoc),
+    // From the first-login questionnaire (M10a) and the screens since.
+    mealsPerDay: mealsPerDay(userDoc),
+    workoutKinds: workoutKindsOf(userDoc),
     rewardGoal: userDoc.rewardGoal ?? null,
     exerciseNames: library.map((e) => e.name).sort(),
+  };
+}
+
+// The instructions page (js/lib/coach-brief.js): what to ask about every
+// day and what to leave alone, from the user's own settings. Never stored.
+async function getBrief(_args, ctx) {
+  const [userDoc, habits] = await Promise.all([
+    ctx.store.userDoc(ctx.uid),
+    ctx.store.listAll(ctx.uid, 'habits'),
+  ]);
+  const today = israelDateKey(ctx.now);
+  return {
+    today,
+    areas: areasState(userDoc, habits.map(normalizeHabit)),
+    brief: coachBrief({ user: userDoc, habits, today }),
   };
 }
 
@@ -524,9 +544,17 @@ export const TOOLS = [
     run: getPoints,
   },
   {
+    name: 'get_brief',
+    title: 'דף הוראות',
+    description: 'Read first, at the start of every conversation: the user\'s own instructions page (Hebrew markdown) — what to log and ask about every day, what is not needed (areas they skipped or never set up: don\'t ask, don\'t remind), body and targets, and how to work. `areas` says which areas are set up. Built from their settings on every call.',
+    inputSchema: obj({}),
+    annotations: READ,
+    run: getBrief,
+  },
+  {
     name: 'get_profile',
     title: 'פרופיל',
-    description: 'The user\'s targets and settings: calories, deficit, protein, base burn (baseKcal) and the body answers it came from, sleep rules, weekly workout goal, chosen reward, and exact exercise names. Also today\'s Israel date.',
+    description: 'The user\'s targets and settings: calories, deficit, protein, meals a day, base burn (baseKcal) and the body answers it came from, sleep rules, weekly workout goal and kinds, chosen reward, and exact exercise names. Also today\'s Israel date. For what to ask about, read get_brief.',
     inputSchema: obj({}),
     annotations: READ,
     run: getProfile,
