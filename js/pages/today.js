@@ -22,7 +22,7 @@ import {
   partsMark, AUTO_STRENGTH,
 } from '../lib/habits.js';
 import { dateKey, shiftDays, parseKey, sleepSettings, nightRules, formatDuration } from '../lib/sleep.js';
-import { HABITS, BAD_HABITS, TODAY } from '../lib/rules.js';
+import { HABITS, BAD_HABITS, TODAY, ONBOARDING } from '../lib/rules.js';
 import { nutritionGoals, weeklyWorkoutGoal } from '../lib/rewards.js';
 import { todayRings, pointsStreak } from '../lib/today-rings.js';
 import { countHe } from '../lib/plural.js';
@@ -38,7 +38,7 @@ import { mountNumericField } from '../ui/numeric-input.js';
 import { showToast } from '../ui/toast.js';
 import { icon } from '../ui/icon.js';
 import { esc } from '../core/dom.js';
-import { navigate } from '../lib/router.js';
+import { navigate, refreshRoute } from '../lib/router.js';
 import { handleQuickActions } from '../ui/quick-add.js';
 import { mountTodayTasks } from '../ui/today-tasks.js';
 import { openBodySheet } from '../ui/body-sheet.js';
@@ -47,6 +47,8 @@ import { snoozeBodyCard } from '../lib/firestore.js';
 import { israelDateKey } from '../lib/steps-import.js';
 import { accountCreatedAt } from '../auth.js';
 import { useCloud } from '../firebase-config.js';
+import { showResumeCard } from '../lib/onboarding.js';
+import { openOnboarding, accountCreatedKey } from '../ui/onboarding.js';
 
 const LEVEL_TEXT = { full: 'מלא', short: 'מקוצר', none: 'פחות מהמקוצר, לא נורא' };
 
@@ -118,7 +120,8 @@ export async function mountToday(rootEl) {
   userDoc = settings || {};
   ctx = habitContext(logs, activities, workouts);
   if (loadedHabits && !settings.habitsSeeded) {
-    if (!loadedHabits.length) seedExamples();
+    // New accounts (M10a) choose their own habits in the questionnaire.
+    if (!loadedHabits.length && accountCreatedKey() < ONBOARDING.fromDate) seedExamples();
     updateUserSettings({ habitsSeeded: true }).catch(logFailed('habitsSeeded'));
   }
 
@@ -212,7 +215,7 @@ function renderTop() {
   const showSummary = rewardsState() && rewardsUserDoc().rewardsSeen?.daySummary !== yesterday;
   host.innerHTML = levelCard(key) + ringsRow(key)
     + (showSummary ? daySummaryHtml(rewardsLedger(), yesterday, { open: summaryOpen }) : '') + nextStep(key)
-    + bodyCard();
+    + resumeCard() + bodyCard();
   host.querySelector('[data-level]').addEventListener('click', () => navigate('dashboard'));
   host.querySelectorAll('[data-ring]').forEach((el) => el.addEventListener('click', () => navigate(el.dataset.ring)));
   host.querySelector('[data-day-summary-toggle]')?.addEventListener('click', () => {
@@ -231,6 +234,15 @@ function renderTop() {
         listDailyActivity(HABITS.logDaysToLoad).then((list) => { activities = list; renderTop(); }).catch(() => renderTop());
       },
     });
+  });
+  host.querySelector('[data-ob-resume]')?.addEventListener('click', () => {
+    openOnboarding({ onClose: refreshRoute });
+  });
+  host.querySelector('[data-ob-snooze]')?.addEventListener('click', () => {
+    const onboarding = { ...userDoc.onboarding, snoozedAt: new Date() };
+    userDoc = { ...userDoc, onboarding };
+    updateUserSettings({ onboarding }).catch(logFailed('onboarding snooze'));
+    renderTop();
   });
   host.querySelector('[data-body-later]')?.addEventListener('click', () => {
     userDoc = { ...userDoc, bodyCardSnoozedAt: new Date().toISOString() };
@@ -384,6 +396,9 @@ function nextStep(key) {
 // that hasn't filled "הגוף שלי" yet. ירין's older account never sees it.
 // In ?dev there's no Google account, so the card behaves as for a new one.
 function bodyCard() {
+  // The questionnaire asks the same: not while it's open, nor once skipped.
+  const ob = userDoc.onboarding;
+  if (ob && (!ob.doneAt || (ob.skipped || []).includes('body'))) return '';
   const created = useCloud ? accountCreatedAt() : new Date();
   const snoozed = userDoc.bodyCardSnoozedAt;
   const snoozedAtMs = snoozed?.toMillis ? snoozed.toMillis() : snoozed ? Date.parse(snoozed) : null;
@@ -397,6 +412,23 @@ function bodyCard() {
         <button type="button" class="today-body-later" data-body-later>לא עכשיו</button>
       </span>
       <button type="button" class="btn btn-primary today-body-go" data-body-open>למלא</button>
+    </div>`;
+}
+
+// "להמשיך את שאלון הפתיחה" (M10a): started, not finished, not snoozed.
+function resumeCard() {
+  const s = userDoc.onboarding?.snoozedAt;
+  const snoozedAtMs = s?.toMillis ? s.toMillis() : s ? new Date(s).getTime() : null;
+  if (!showResumeCard({ user: userDoc, snoozedAtMs })) return '';
+  return `
+    <div class="card today-next today-body">
+      <span class="today-next-icon">${icon('list-checks')}</span>
+      <span class="today-next-text">
+        <span class="today-next-title">להמשיך את שאלון הפתיחה?</span>
+        <span class="today-next-sub">עוד כמה שאלות קצרות, וג׳יני מותאמת אליכם.</span>
+        <button type="button" class="today-body-later" data-ob-snooze>לא עכשיו</button>
+      </span>
+      <button type="button" class="btn btn-primary today-body-go" data-ob-resume>להמשיך</button>
     </div>`;
 }
 

@@ -235,7 +235,7 @@ Asked by ירין 2026-11-15: "תחלץ את כל המשובים ותרשום ל
 - Steps: checked only. Since M3e the iPhone shortcut wrote once (2026-11-12, 09:24); every other day came from the coach.
 - Done when: on ירין's data no exercise shows a PR below last time (checked on all 30), and the wake-time wheel stays on screen at 340px and 390px in every theme.
 
-### M15c ◐ The workout screen — `feature/m15c-workout-screen`
+### M15c ☑ The workout screen — `feature/m15c-workout-screen`
 Asked by ירין 2026-11-10 on the feedback board: "שיתחיל בכלל בהוספת סוג האימון ומשם לתרגילים … לייצר לוגיקה הגיונית של תהליכיות בהתחלת אימון". Settled 2026-11-16. Spec: `docs/specs/workout-start.md`.
 - Data: none (the open workouts already live in `localStorage`). No `firestore.rules` change.
 - UI: the empty workout screen is "איזה אימון היום?": כוח and אירובי as big buttons (one tap opens that list), the other types as small buttons (one tap adds the type), "+ סוג משלך", and "הוספת אימון שכבר בוצע". "אימון נוסף" and the + button's "אימון" use the same chooser. Plus M3d's unbuilt "אימון פעיל" pill above the nav on every other screen, only for a live workout (tap → back to the workout), and the app-icon badge.
@@ -250,7 +250,7 @@ Asked by ירין 2026-11-12: Maya is the first user after ירין. Her own ג�
   - Burn and targets: a short form (weight, height, age, sex) → Mifflin-St Jeor base burn and calorie/protein targets on the user doc, each editable by hand; the same form is reused by M10's signup. Replaces the fixed 1950 for her (old docs and ירין keep theirs).
 - **Split by ירין 2026-11-16** into two PRs:
 
-### M16a ◐ Personal burn and targets — `feature/m16a-body-burn`
+### M16a ☑ Personal burn and targets — `feature/m16a-body-burn`
 Asked by ירין 2026-11-16. Spec: `docs/specs/body-burn.md`.
 - Data: `body` (`weightKg`, `heightCm`, `birthYear`, `sex`, `updatedAt`), `baseKcal` and `bodyCardSnoozedAt` on the user doc; new `dailyActivity` docs (app, `/api/steps`, MCP) take the user's `baseKcal`, missing → 1950. No `firestore.rules` change.
 - UI: a skippable Today card for accounts created from 2026-11-14 (ירין doesn't see it, no goal question), and a "הגוף שלי" sheet also opened from "יעדים", which gains a hand-editable "שריפה בסיסית".
@@ -258,6 +258,7 @@ Asked by ירין 2026-11-16. Spec: `docs/specs/body-burn.md`.
 
 ### M16b ☐ Maya's Claude — `feature/m16b-maya-claude`
 The rest of M16: her free Claude account with her own ג׳יני key, and the part of M12 she needs (a "ניהול חיים" project and its instructions). Check first whether the connector works inside a project on the free plan.
+- **ירין 2026-11-17:** the goal isn't to build the app for Maya but that she uses it like any user who isn't ירין. So the first-login questionnaire (M10a, then M10e) comes first, moved up from M10; her Claude reads what she answered through `get_brief` (M10a).
 
 ## M9s ☐ Security before friends — `feature/m9s-hardening`
 Growth review, phase "עכשיו".
@@ -274,6 +275,17 @@ Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). **Moved int
 - Email + password sign-in for friends without a Google account, any email provider (ירין 2026-11-11, again 2026-11-13: "עם כל סוגי המיילים"): already written in August as `signInWithEmail` / `signUpWithEmail` / `resetPassword` in `js/auth.js` on branch `phase-0-backup` (with its sign-in screen). Reuse it here instead of rewriting. The same branch has a CSV export (`js/lib/csv.js`, BOM for Hebrew in Excel) — a candidate for M10b.
 - Sign in with Apple: not in the pilot (ירין 2026-11-13). It needs an Apple Developer membership ($99 a year), which an App Store app would need anyway; add it when that is decided.
 - Done when: a new account answers the questionnaire in about 3 minutes, gets its own burn and targets, and Today shows only the areas it chose.
+- **Split by ירין 2026-11-17** ("שאלון התחברות מלא שמבין את הצרכים של המשתמש … אם הוא לא יגדיר משהו … הוא יכול להמשיך הלאה"), and moved up to right after M16a: M10a the basic questionnaire, then M10e areas, vision and a master plan. The feature switches stay in M8: a skipped area is simply not set up, the app looks the same. Email sign-in and minimal mode stay here.
+
+### M10a ◐ First-login questionnaire — the basics — `feature/m10a-onboarding`
+Asked by ירין 2026-11-17, settled 2026-11-18. Spec: `docs/specs/onboarding.md`.
+- Data: `onboarding` (`startedAt`, `step`, `skipped`, `doneAt`, `snoozedAt`), `mealsPerDay` and `workoutKinds` on the user doc; new habits with `source: 'onboarding'`. "Set up" is read from the data, never stored. No `firestore.rules` change.
+- UI: a full screen on a new account's first visit: welcome, body (M16a's fields), workouts a week and kinds, sleep, meals a day and targets, habits (one tap, a typed name, or the full wizard), a summary. Every step has "דלג", which writes nothing. "התכנית שלי" lists the five areas ("הוגדר" / "לא הוגדר") and opens the whole questionnaire or one step. A Today card resumes an unfinished one. New accounts get no example habits. "ארוחות ביום" in "יעדים"; the points follow it.
+- Coach: `get_brief`, a page worked out from the settings — what to log every day, what is not needed, body and targets; the connector's instructions say to read it first.
+- Done when: a new account answers in about 3 minutes, a skipped area stays "לא הוגדר" and its coach page says not to ask about it, saving it later from its own screen sets it up, 3 meals a day score 3, ירין's app and points don't change, offline and at 390px in every theme.
+
+### M10e ☐ Areas, vision and a master plan — `feature/m10e-life-plan`
+The second part of ירין's 2026-11-17 request, from the questionnaire's last screen and "התכנית שלי". Plan: "שאלון חיים ותכנית אב", levels 2–3: the life areas that matter, a vision per area, goals with horizons and A/B/C, weekly steps and habits, ready templates per area (`js/lib/plan-templates.js`), every question skippable. Data: `users/{uid}/lifePlan`. `get_brief` adds the goals.
 
 ## M10b ☐ Account and privacy — `feature/m10b-account`
 Growth review, phase "עכשיו". Health data is "especially sensitive" under Israel's privacy law (Amendment 13, in force since 2025-08-14).

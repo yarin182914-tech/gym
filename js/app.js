@@ -4,12 +4,14 @@ import { ensureUserDoc, getUserSettings } from './lib/firestore.js';
 import { setCalendarOn, flushCalendarSync } from './lib/calendar-sync.js';
 import { startRewards } from './lib/rewards-sync.js';
 import { mountRewardMoments } from './ui/reward-moments.js';
-import { registerRoute, startRouter } from './lib/router.js';
+import { registerRoute, startRouter, refreshRoute } from './lib/router.js';
+import { shouldAutoOpen } from './lib/onboarding.js';
+import { openOnboarding, accountCreatedKey } from './ui/onboarding.js';
 import { mountActiveSession, unmountActiveSession } from './pages/active-session.js';
 import { mountHistory, unmountHistory } from './pages/history.js';
 import { mountDashboard, unmountDashboard, mountWorkoutProgress, unmountWorkoutProgress } from './pages/dashboard.js';
 import { mountNutrition, unmountNutrition } from './pages/nutrition.js';
-import { mountPlan } from './pages/plan.js';
+import { mountPlan, unmountPlan } from './pages/plan.js';
 import { mountToday, unmountToday } from './pages/today.js';
 import { mountFeedback, unmountFeedback } from './pages/feedback.js';
 import { mountTasks, unmountTasks } from './pages/tasks.js';
@@ -60,7 +62,7 @@ registerRoute('dashboard', () => mountDashboard(appRoot), unmountDashboard);
 registerRoute('workout-progress', () => mountWorkoutProgress(appRoot), unmountWorkoutProgress);
 registerRoute('nutrition', () => mountNutrition(appRoot), unmountNutrition);
 registerRoute('sleep', () => mountSleep(appRoot), unmountSleep);
-registerRoute('plan', () => mountPlan(appRoot));
+registerRoute('plan', () => mountPlan(appRoot), unmountPlan);
 registerRoute('feedback', () => mountFeedback(appRoot), unmountFeedback);
 registerRoute('connections', () => mountConnections(appRoot), unmountConnections);
 registerRoute('import', () => mountImport(appRoot));
@@ -88,10 +90,17 @@ async function enterApp() {
     }).catch((err) => console.error('[calendar] status load failed', err));
   }
   // A stashed steps import runs first, whatever screen the hash says.
-  if (hasPendingImport() && !/^#\/import(\?|$)/.test(location.hash)) location.replace('#/import');
+  const importing = hasPendingImport();
+  if (importing && !/^#\/import(\?|$)/.test(location.hash)) location.replace('#/import');
   if (!routerStarted) {
     startRouter();
     routerStarted = true;
+  }
+  // A new account's first visit (M10a): the questionnaire, over the app.
+  if (!importing) {
+    getUserSettings().then((user) => {
+      if (shouldAutoOpen({ user, createdKey: accountCreatedKey() })) openOnboarding({ onClose: refreshRoute });
+    }).catch((err) => console.error('[onboarding] check failed', err));
   }
 }
 

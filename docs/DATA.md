@@ -206,6 +206,7 @@ sign-in. The "חיבורים" screen shows the newest `loggedAt` among
 | `baseKcal` | number | The user's own resting + daily-life burn (M16a): every new `dailyActivity` doc starts from it. Missing → `1950` (`ACTIVITY.baseKcal`; ירין has none). Set by "הגוף שלי" (BMR × 1.2) or typed as "שריפה בסיסית" in "יעדים". |
 | `carbsTarget` | number | Daily carbs, grams. `250` when missing. |
 | `fatTarget` | number | Daily fat, grams. `65` when missing. |
+| `mealsPerDay` | number | Meals a day in the user's plan (M10a), `1`–`6`: that many meals score their logging points and keep the day's meal count "on target". `2` when missing (`NUTRITION.maxMeals`; ירין has none). Set in the questionnaire's food step or "ארוחות ביום" in "יעדים" (written only when changed). |
 | `usageApps` | string[] | Apps the user measures with the iPhone shortcut (names, e.g. `["אינסטגרם", "Strava"]`), see App usage. Missing → the apps that already sent minutes today. Written by the app. |
 
 All integers, all set in the app's "יעדים" sheet (tap the line under the
@@ -244,7 +245,34 @@ Habits:
 
 | Field | Type | Notes |
 |---|---|---|
-| `habitsSeeded` | boolean | `true` once the app has created the three example habits (or found the user already had habits). Stops the examples coming back after they're deleted. Don't change it. |
+| `habitsSeeded` | boolean | `true` once the app has created the three example habits (or found the user already had habits). Stops the examples coming back after they're deleted. Don't change it. Since M10a an account created on or after `ONBOARDING.fromDate` gets no examples: the questionnaire sets it to `true` when it starts. |
+
+First-login questionnaire, "שאלון פתיחה" (M10a, `docs/specs/onboarding.md`).
+It opens by itself on the first visit of an account created on or after
+`ONBOARDING.fromDate` (2026-11-14), and from "התכנית שלי" for anyone. Each
+step writes the same fields its own screen does (`body`… through
+`saveBodyProfile`, `weeklyWorkoutGoal` + `workoutKinds`, the five sleep
+fields, `mealsPerDay` + `calorieTarget` + `proteinTarget`, new habits with
+`source: 'onboarding'`); **a skipped step writes nothing.** Written by the
+app only.
+
+| Field | Type | Notes |
+|---|---|---|
+| `onboarding` | map | `{ startedAt: Timestamp, step: 'body' \| 'workouts' \| 'sleep' \| 'food' \| 'habits', skipped: string[] (step ids), doneAt?: Timestamp, snoozedAt?: Timestamp }`. Missing = never ran (every account before M10a, ירין's included). `step` is where a reopened questionnaire resumes; `snoozedAt` is "לא עכשיו" on Today's "להמשיך את שאלון הפתיחה" card (back `ONBOARDING.snoozeDays` later). An older account gets the map only when it finishes. |
+| `workoutKinds` | string[] | The kinds the user trains (M10a): `strength`, `cardio`, or built-in session type ids (`functional`, `crossfit`, `pilates`, `yoga`, `swim`, `studio`, `sport`, `ski`). Information for the coach; nothing is scored from it. Missing = `[]`. |
+
+**"Set up" is read from the data, never stored** (`areasState` in
+`js/lib/onboarding.js`). With `onboarding` on the doc: body = `body` or
+`baseKcal`; workouts = `weeklyWorkoutGoal` or `workoutKinds`; sleep = any
+sleep field; food = `mealsPerDay` or `calorieDeficit` ("הגוף שלי" alone
+doesn't count); habits = an active habit. Without it (older accounts) every
+area but habits counts as set up, as before. So saving an area later from
+its own screen (the sleep ⚙, "יעדים") sets it up too.
+
+The coach reads all of this as one page through the MCP tool `get_brief`
+(`js/lib/coach-brief.js`): what to ask about every day, what is not needed
+(not set up: don't ask, don't remind), body and targets. Worked out on every
+call, never stored.
 
 Points (M4 — see Points ledger). Only `weeklyWorkoutGoal` and
 `rewardGoal` are the user's to set; the `rewards…` fields are the app's
@@ -620,8 +648,9 @@ How a night is judged (js/lib/sleep.js, numbers in js/lib/rules.js):
 ## Habits — `users/{uid}/habits/{auto}`
 
 One document per habit — what it is and what counts as done. Shown on the
-"היום" screen, where it's marked. A new user gets three example habits
-(`source: 'example'`) they can edit or delete.
+"היום" screen, where it's marked. An account from before M10a got three
+example habits (`source: 'example'`) it can edit or delete; a newer one
+picks its own in the questionnaire (`source: 'onboarding'`).
 
 | Field | Type | Notes |
 |---|---|---|
@@ -1059,7 +1088,8 @@ only ever touches `users/{thatUid}/…`.
 
 **What the connector can do** (`api/_lib/tools.js`) — read: `get_today`,
 `get_habits`, `get_sleep`, `get_meals`, `get_workouts`, `get_weights`,
-`get_points`, `get_profile`, `get_changes`; write: `log_meal`,
+`get_points`, `get_profile`, `get_brief` (the instructions page, M10a),
+`get_changes`; write: `log_meal`,
 `log_weight`, `log_sleep`, `mark_habit`, `log_daily_activity`. The writes
 produce exactly the documents described in this file, with
 `source: 'coach'`, for a date at most 14 days back and never in the future.

@@ -33,6 +33,14 @@ export function navigate(name) {
   location.hash = `#/${name}`;
 }
 
+let rerun = null;
+
+// Mounts the current screen again, e.g. after the first-login
+// questionnaire (js/ui/onboarding.js) closed over it with new settings.
+export function refreshRoute() {
+  rerun?.();
+}
+
 export function startRouter() {
   let firstRender = true;
 
@@ -71,6 +79,11 @@ export function startRouter() {
     firstRender = false;
   };
 
+  rerun = () => {
+    if (active?.unmount) active.unmount();
+    active = null;
+    go();
+  };
   window.addEventListener('hashchange', go);
   go();
 }

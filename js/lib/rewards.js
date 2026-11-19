@@ -68,6 +68,14 @@ export function nutritionGoals(userDoc = {}) {
   return result;
 }
 
+// Meals a day that score (users/{uid}.mealsPerDay, M10a); missing or out
+// of range → NUTRITION.maxMeals.
+export function mealsPerDay(userDoc = {}) {
+  const n = Number(userDoc?.mealsPerDay);
+  const [lo, hi] = NUTRITION.mealsRange;
+  return Number.isInteger(n) && n >= lo && n <= hi ? n : NUTRITION.maxMeals;
+}
+
 export function weeklyWorkoutGoal(userDoc = {}) {
   const n = Number(userDoc.weeklyWorkoutGoal);
   return Number.isInteger(n) && n >= 1 && n <= 7 ? n : REWARDS.weeklyWorkoutGoal;
@@ -103,6 +111,7 @@ export function buildContext(data) {
     sleep: sleepSettings(data.userDoc || {}),
     goals: nutritionGoals(data.userDoc || {}),
     workoutGoal: weeklyWorkoutGoal(data.userDoc || {}),
+    maxMeals: mealsPerDay(data.userDoc || {}),
     nights: new Map((data.nights || []).map((n) => [n.date, n])),
     today,
     // Every active habit (the progress rows); good and bad apart for scoring.
@@ -217,7 +226,8 @@ export function nutritionGrades(key, ctx) {
   else if (eaten <= target * (1 + b.caloriesCloseOver)) calories = 'close';
   const proteinGrade = protein >= goals.proteinTarget ? 'full' : protein >= goals.proteinTarget * b.proteinClose ? 'close' : 'miss';
   const n = meals.length;
-  const mealCount = n <= NUTRITION.maxMeals ? 'full' : n <= NUTRITION.maxMeals + b.mealsCloseExtra ? 'close' : 'miss';
+  const max = ctx.maxMeals ?? NUTRITION.maxMeals;
+  const mealCount = n <= max ? 'full' : n <= max + b.mealsCloseExtra ? 'close' : 'miss';
   return { calories, protein: proteinGrade, mealCount, eaten, target, proteinG: protein, meals: n };
 }
 
@@ -252,7 +262,7 @@ export function scoreDay(key, ctx, { closed }) {
   }
 
   // Meals: 5 for each logged, up to the day's planned meals.
-  (ctx.meals.get(key) || []).slice(0, NUTRITION.maxMeals).forEach((m) => {
+  (ctx.meals.get(key) || []).slice(0, ctx.maxMeals ?? NUTRITION.maxMeals).forEach((m) => {
     out.push(award(key, 'meal-log', { ref: m.id, raw: P.mealLog, reason: 'ארוחה נרשמה' }));
   });
 
@@ -387,8 +397,10 @@ export function daysToScore({ today, startDate, checkedThrough }) {
 // ledger: the existing entries ({ id, date, rule, points, raw }). Returns
 // the entries to write, each with `before` (its points until now). Upward
 // only: an entry's points never drop, a missing award deletes nothing.
-// The daily cap counts capped rules only; perDay limits a rule's entries.
-export function planLedgerWrites(awards, ledger) {
+// The daily cap counts capped rules only; perDay limits a rule's entries
+// (`maxMeals`: the user's own meals a day, in place of REWARDS.perDay's).
+export function planLedgerWrites(awards, ledger, { maxMeals } = {}) {
+  const perDay = Number.isInteger(maxMeals) ? { ...REWARDS.perDay, 'meal-log': maxMeals } : REWARDS.perDay;
   const byId = new Map((ledger || []).map((e) => [e.id, e]));
   const daySum = new Map();
   const dayRuleCount = new Map();
@@ -402,7 +414,7 @@ export function planLedgerWrites(awards, ledger) {
   for (const a of awards) {
     const existing = byId.get(a.id);
     const countKey = `${a.date}|${a.rule}`;
-    const limit = REWARDS.perDay[a.rule];
+    const limit = perDay[a.rule];
     if (!existing && limit !== undefined && (dayRuleCount.get(countKey) || 0) >= limit) continue;
     const base = existing?.points || 0;
     let points;

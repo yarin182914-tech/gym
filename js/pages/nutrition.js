@@ -22,7 +22,8 @@ import { confirmDialog } from '../ui/confirm-dialog.js';
 import { showToast } from '../ui/toast.js';
 import { handleQuickActions } from '../ui/quick-add.js';
 import { NUTRITION } from '../lib/rules.js';
-import { nutritionGoals } from '../lib/rewards.js';
+import { nutritionGoals, mealsPerDay } from '../lib/rewards.js';
+import { clampMeals } from '../lib/onboarding.js';
 import { countHe } from '../lib/plural.js';
 import { userBaseKcal } from '../lib/body-burn.js';
 import { openBodySheet } from '../ui/body-sheet.js';
@@ -37,9 +38,10 @@ const DEFAULT_GOALS = NUTRITION.defaults;
 const MAX_KCAL = 9999;
 // Enough for the trend card's month and then some, at several meals a day.
 const MEALS_TO_LOAD = 400;
-// The eating plan is lunch and dinner only (intermittent fasting); a third
-// entry in a day — a snack, a shake — is flagged on the in-vs-out card.
-const MAX_MEALS = NUTRITION.maxMeals;
+// Meals a day in the user's plan (users/{uid}.mealsPerDay, M10a; default
+// NUTRITION.maxMeals — ירין's lunch and dinner). One more in a day — a
+// snack, a shake — is flagged on the in-vs-out card.
+let maxMeals = NUTRITION.maxMeals;
 // 'snack' is kept only so older entries saved under it still display a
 // label instead of falling back to the raw key — the form itself now
 // offers three presets plus free text instead of a fixed 4th category.
@@ -129,6 +131,7 @@ export async function mountNutrition(rootEl) {
   activities = acts;
   goals = goalsFrom(settings);
   baseKcal = userBaseKcal(settings);
+  maxMeals = mealsPerDay(settings);
   weightsForTrend = weights;
   let wasWeighed = weighedToday();
   bodyWeightCard = createBodyWeightCard(weights, {
@@ -209,7 +212,7 @@ const signed = (n) => `<bdi dir="ltr">${n > 0 ? '+' : n < 0 ? '−' : '±'}${fmt
 const balanceColor = (n) => (n > 0 ? 'var(--danger)' : 'var(--success)');
 // Within the plan's meal count: a green check; over it: an amber warning.
 const mealCountMark = (n) => {
-  const [color, name] = n <= MAX_MEALS ? ['var(--success)', 'check'] : ['var(--gold)', 'triangle-alert'];
+  const [color, name] = n <= maxMeals ? ['var(--success)', 'check'] : ['var(--gold)', 'triangle-alert'];
   return `<span style="color:${color}; display:inline-flex; vertical-align:-2px;">${icon(name, { className: 'icon--sm' })}</span>`;
 };
 
@@ -237,7 +240,7 @@ function energyCard(kcalIn, mealCount) {
         <div style="flex:1;"><div class="text-muted" style="font-size:0.75rem;">${balance === null ? 'מאזן' : balance > 0 ? 'עודף' : 'גירעון'}</div><div class="num" style="font-weight:var(--weight-bold); color:${balance === null ? 'inherit' : balanceColor(balance)};">${balance === null ? '—' : signed(balance)}</div></div>
       </div>
       ${parts ? `<div class="text-muted" style="font-size:0.75rem; margin-top:8px; text-align:center;">${esc(parts)}</div>` : ''}
-      ${mealCount ? `<div style="font-size:0.8rem; margin-top:8px; text-align:center;">${mealCountMark(mealCount)}${countHe(mealCount, 'ארוחה', 'ארוחות', { feminine: true })}<span class="text-muted"> · יעד: צהריים וערב בלבד</span></div>` : ''}
+      ${mealCount ? `<div style="font-size:0.8rem; margin-top:8px; text-align:center;">${mealCountMark(mealCount)}${countHe(mealCount, 'ארוחה', 'ארוחות', { feminine: true })}<span class="text-muted"> · יעד: עד ${maxMeals}</span></div>` : ''}
       ${week ? `<div class="text-muted" style="font-size:0.8rem; margin-top:10px; padding-top:8px; border-top:1px solid var(--border); text-align:center;">
         ${week.days === 7 ? 'ממוצע שבועי' : week.days === 1 ? 'יום אחד עם נתונים' : `ממוצע ${week.days} ימים אחרונים`}: נכנס <span class="num">${fmt(week.in)}</span> · יוצא <span class="num">${fmt(week.out)}</span> · מאזן <span class="num" style="color:${balanceColor(week.balance)};">${signed(week.balance)}</span>
       </div>` : ''}
@@ -318,6 +321,7 @@ async function reloadGoals() {
   if (settings) {
     goals = goalsFrom(settings);
     baseKcal = userBaseKcal(settings);
+    maxMeals = mealsPerDay(settings);
   }
   if (acts) activities = acts;
   render();
@@ -326,7 +330,7 @@ async function reloadGoals() {
 // The ring's "יעדים" button: every daily goal — the calorie deficit, the
 // fallback calorie target, and the three macros — in one sheet.
 function openTargetSheet() {
-  const draft = { ...goals, baseKcal };
+  const draft = { ...goals, baseKcal, meals: maxMeals };
   const out = totalOut(activityOn(selectedDay));
   openBottomSheet({
     ariaLabel: 'יעדים',
@@ -344,6 +348,8 @@ function openTargetSheet() {
           ${field(BASE_FIELD)}
           <button type="button" class="btn btn-outline nut-base-calc" data-body-calc>חישוב מהגוף</button>
         </div>
+        <div class="sheet-field-label">ארוחות ביום</div>
+        <div class="nut-meals-row" data-meals-host></div>
         <div class="nut-macro-grid">${GOAL_FIELDS.slice(0, 2).map(field).join('')}</div>
         <div class="nut-macro-grid nut-macro-grid--3">${GOAL_FIELDS.slice(2).map(field).join('')}</div>
         <div class="sheet-actions">
@@ -359,6 +365,15 @@ function openTargetSheet() {
           onCommit: (v) => { draft[f.key] = v; },
         });
       }
+      const mealsHost = body.querySelector('[data-meals-host]');
+      const paintMeals = () => {
+        mealsHost.innerHTML = stepper({ decAttrs: 'type="button" data-meals="-1" aria-label="פחות ארוחות"', incAttrs: 'type="button" data-meals="1" aria-label="יותר ארוחות"', value: draft.meals });
+        mealsHost.querySelectorAll('[data-meals]').forEach((b) => b.addEventListener('click', () => {
+          draft.meals = clampMeals(draft.meals + Number(b.dataset.meals));
+          paintMeals();
+        }));
+      };
+      paintMeals();
       body.querySelector('[data-target-cancel]').addEventListener('click', () => sheetApi.close());
       // "הגוף שלי" works out the base and the targets; this sheet closes
       // and the screen shows what it saved.
@@ -382,8 +397,11 @@ function openTargetSheet() {
         // The base is written only when it changed, so ירין's 1950 stays a
         // default rather than becoming a stored number.
         const baseChanged = newBase !== baseKcal;
+        // Meals a day, likewise, only when it changed (ירין keeps the default).
+        const mealsChanged = draft.meals !== maxMeals;
+        const patch = { ...next, ...(baseChanged ? { baseKcal: newBase } : {}), ...(mealsChanged ? { mealsPerDay: draft.meals } : {}) };
         try {
-          await updateUserSettings(baseChanged ? { ...next, baseKcal: newBase } : next);
+          await updateUserSettings(patch);
           if (baseChanged) {
             baseKcal = newBase;
             const patch = await rebaseDay(todayKey(), newBase);
@@ -395,6 +413,7 @@ function openTargetSheet() {
           return;
         }
         goals = next;
+        maxMeals = draft.meals;
         sheetApi.close();
         render();
       });

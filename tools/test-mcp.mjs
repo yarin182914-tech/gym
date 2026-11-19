@@ -11,7 +11,7 @@ process.env.TZ = 'Asia/Jerusalem';
 const { generateKey, isKeyShaped, hashKey, keyPreview, connectorUrl } = await import('../js/lib/mcp-keys.js');
 const { validateArgs } = await import('../api/_lib/schema.js');
 const { TOOLS, callTool, buildMark } = await import('../api/_lib/tools.js');
-const { handleBody } = await import('../api/_lib/rpc.js');
+const { handleBody, INSTRUCTIONS } = await import('../api/_lib/rpc.js');
 const { normalizeHabit } = await import('../js/lib/habits.js');
 
 let failed = 0;
@@ -203,6 +203,21 @@ await run(s, 'log_daily_activity', { date: '2026-11-09', steps: 5000 });
 check('new day takes the user own base (M16a)', s.docs.get('users/user-a/dailyActivity/2026-11-09').totalOutKcal, 1584 + 200);
 check('get_profile shows the base burn', (await run(s, 'get_profile', {})).baseKcal, 1584);
 check('get_profile: no body yet → null', (await run(s, 'get_profile', {})).body, null);
+check('get_profile: meals a day default', (await run(s, 'get_profile', {})).mealsPerDay, 2);
+
+// get_brief (M10a): the instructions page from the user's own settings.
+s = makeStore({
+  'users/user-a': { onboarding: { skipped: ['sleep'] }, mealsPerDay: 3, calorieTarget: 1650, proteinTarget: 100, calorieDeficit: 250, weeklyWorkoutGoal: 3, workoutKinds: ['pilates'] },
+  'users/user-a/habits/h1': { name: 'מים', measure: 'quantity', unit: 'כוסות', full: 8, short: 5, active: true, order: 0 },
+  'users/user-b/habits/x': { name: 'של מישהו אחר', active: true },
+});
+const brief = await run(s, 'get_brief', {});
+check('get_brief: areas', brief.areas, { body: false, workouts: true, sleep: false, food: true, habits: true });
+check('get_brief: daily food, workouts, the habit', ['עד 3 ארוחות', '3 בשבוע (פילאטיס)', '"מים"'].every((t) => brief.brief.includes(t)), true);
+check('get_brief: sleep not needed', brief.brief.split('## לא נדרש')[1].includes('שינה (לא הוגדר)'), true);
+check('get_brief: only this user\'s habits', brief.brief.includes('של מישהו אחר'), false);
+check('get_brief: read-only', [...s.uids], ['user-a']);
+check('instructions point to get_brief first', INSTRUCTIONS.split('\n')[1].includes('get_brief'), true);
 
 // ---------- reads ----------
 
@@ -239,7 +254,7 @@ r = await handleBody({ jsonrpc: '2.0', id: 2, method: 'initialize', params: { pr
 check('unknown version → latest', r.result.protocolVersion, '2025-11-25');
 check('notification → no body', await handleBody({ jsonrpc: '2.0', method: 'notifications/initialized' }, ctx), null);
 r = await handleBody({ jsonrpc: '2.0', id: 3, method: 'tools/list' }, ctx);
-check('tools listed', r.result.tools.length, 14);
+check('tools listed', r.result.tools.length, 15);
 check('tool shape', Object.keys(r.result.tools[0]), ['name', 'title', 'description', 'inputSchema', 'annotations']);
 r = await handleBody({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'nope', arguments: {} } }, ctx);
 check('unknown tool', r.error.code, -32602);

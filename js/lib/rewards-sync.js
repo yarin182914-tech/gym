@@ -120,7 +120,7 @@ async function reconcile() {
   });
   lastCtx = ctx;
   const awards = days.flatMap((key) => scoreDay(key, ctx, { closed: key < today }));
-  const writes = planLedgerWrites(awards, ledger);
+  const writes = planLedgerWrites(awards, ledger, { maxMeals: ctx.maxMeals });
   if (writes.length) {
     await writeLedger(writes.map(({ before, ...e }) => e));
     ledger = applyWrites(ledger, writes);
