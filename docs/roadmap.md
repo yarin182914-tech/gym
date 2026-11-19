@@ -284,7 +284,7 @@ Asked by ירין 2026-11-17, settled 2026-11-18. Spec: `docs/specs/onboarding.m
 - Coach: `get_brief`, a page worked out from the settings — what to log every day, what is not needed, body and targets; the connector's instructions say to read it first.
 - Done when: a new account answers in about 3 minutes, a skipped area stays "לא הוגדר" and its coach page says not to ask about it, saving it later from its own screen sets it up, 3 meals a day score 3, ירין's app and points don't change, offline and at 390px in every theme.
 
-### M10e ☐ Life areas and a 3-month goal — `feature/m10e-life-plan`
+### M10e ◐ Life areas and a 3-month goal — `feature/m10e-life-plan`
 The second part of ירין's 2026-11-17 request. Plan: "שאלון חיים ותכנית אב", level 2 ("מטרות"). Split by ירין on 2026-11-19: level 3 is M10f. Spec: `docs/specs/life-goals.md`.
 - Data: `lifePlan` on the user doc (`planDepth`, `offer`, `areas` by id with `score`, `wish3m`, `successMetric`, `dueDate`, `order`); habits and tasks made from an idea get `planArea` (habits also `source: 'plan'`). No `firestore.rules` change.
 - UI: "רוצים גם להגדיר מטרות?" (עכשיו / אחר כך / אף פעם) on the questionnaire's last screen; a full screen: pick from eight areas or one of your own, then per area "איפה אני היום" 1–10, the one thing to change in 3 months, how you'll know and a date, and ready ideas (`js/lib/plan-templates.js`) that open the habit wizard or the task form filled in. Every screen has "דלג". A "מטרות לחיים" section in "התכנית שלי".

@@ -274,6 +274,27 @@ The coach reads all of this as one page through the MCP tool `get_brief`
 (not set up: don't ask, don't remind), body and targets. Worked out on every
 call, never stored.
 
+Life goals, "מטרות לחיים" (M10e, `docs/specs/life-goals.md`): the plan's
+level 2 — the life areas that matter, where the user is today in each, the
+one thing to change in 3 months and how they'll know. Offered on the
+questionnaire's last screen and in "התכנית שלי". **A skipped area writes
+nothing.** Written by the app only; the coach reads it (`get_brief`, and
+`get_profile`'s `lifePlan`).
+
+| Field | Type | Notes |
+|---|---|---|
+| `lifePlan` | map | Missing = never opened (every account before M10e, ירין's included). Fields below. Writes merge, so saving one area never touches another. |
+| `lifePlan.planDepth` | string | `basic` · `goals` (written when an area is saved; `full` comes with M10f). Read it through `planDepth()` in `js/lib/life-plan.js`, which works it out from the active areas. |
+| `lifePlan.offer` | string | The answer to "רוצים גם להגדיר מטרות?": `later` · `never`. Missing = not asked yet. With `never` and no areas, the coach doesn't offer goals; areas saved later win. |
+| `lifePlan.offerAt` | Timestamp | When `offer` was answered. |
+| `lifePlan.areas` | map | Area id → `{ score: number 1–10 \| null, wish3m: string, successMetric: string, dueDate: Timestamp (local noon) \| null, removed: boolean, createdAt: Timestamp, updatedAt: Timestamp, name?: string, icon?: string }`. Ids: `health`, `relationship`, `family`, `career`, `money`, `growth`, `fun`, `home` (`js/lib/plan-templates.js`), or `custom-<n>` for an area of the user's own (then `name` and `icon` are set; at most `LIFE_PLAN.maxCustomAreas` on at once). Empty strings are fine. `removed: true` = turned off; the answers stay and come back when it is picked again. `dueDate` defaults to `LIFE_PLAN.horizonMonths` from the day it was filled. |
+| `lifePlan.order` | string[] | Area ids in the order chosen. Ids here without an entry in `areas` (picked, then skipped) are ignored. |
+| `lifePlan.updatedAt` | Timestamp | Last write. |
+
+Habits and tasks made from an area's ideas carry `planArea` (see Habits and
+Tasks). Which areas are active, and what is linked to each, is worked out,
+never stored.
+
 Points (M4 — see Points ledger). Only `weeklyWorkoutGoal` and
 `rewardGoal` are the user's to set; the `rewards…` fields are the app's
 bookkeeping — never write them.
@@ -657,6 +678,7 @@ picks its own in the questionnaire (`source: 'onboarding'`).
 | `name` | string | Hebrew, short — `"קריאה"` |
 | `icon` | string | A Lucide icon name the app knows (`book-open`, `footprints`, `phone-off`, `smartphone`, `droplet`, `brain`, `heart`, `languages`, `apple`, `leaf`, `moon`, `sun`, `dumbbell`, `pencil`, `sparkles`, `check`). Unknown → a check mark. |
 | `area` | string | `body` (גוף) · `personal` (אישי) · `relationship` (זוגיות) · `career` (קריירה) |
+| `planArea` | string | Optional (M10e). The life area (`lifePlan.areas` id) a habit made from "מטרות לחיים" serves. Missing = not linked. |
 | `schedule` | map | `{ "type": "daily" }` · `{ "type": "weekly", "perWeek": 3 }` (any 3 days a week) · `{ "type": "days", "days": [1, 3] }` (fixed weekdays, `0` Sunday … `6` Saturday) |
 | `kind` | string | `good` (something to do) · `bad` (something to quit — see "Bad habits" below). **Missing = `good`**: every habit before M5 is a good one, and the app never converts one. |
 | `measure` | string | Good: `yesno` · `quantity` (at least N) · `limit` (at most N) · `steps` (a routine checklist). Bad: `clean` (a reported clean day) · `limit` (at most N, e.g. minutes) · `slips` (a slip counter). |
@@ -678,7 +700,7 @@ picks its own in the questionnaire (`source: 'onboarding'`).
 | `parts` | string[] | Only on `quantity` / `limit`, optional, at most 6 — the habit is entered as one number per part (`["אינסטגרם", "פייסבוק"]`) and the day's `value` is their sum. `[]` or missing = one number. |
 | `active` | boolean | `false` = paused (kept, not counted). |
 | `order` | number | Position on the screen, smallest first. |
-| `source` | string | `manual` (added in the app) · `example` (the starter habits) · `coach` (written from outside) · `library` (from "להפוך להרגל" in ללמוד) |
+| `source` | string | `manual` (added in the app) · `example` (the starter habits) · `coach` (written from outside) · `library` (from "להפוך להרגל" in ללמוד) · `onboarding` (the first-login questionnaire, M10a) · `plan` (an idea in "מטרות לחיים", M10e) |
 | `createdAt` | Timestamp | First saved |
 | `updatedAt` | Timestamp | Last saved |
 
@@ -1163,6 +1185,7 @@ one (`daily`) and a repeating one (`recurring`, weekly or monthly) are
 | `type` | string | `once` · `daily` · `recurring` |
 | `recurrence` | map \| null | `daily`: `{ "days": [0, 1, 2, 3, 4, 5, 6] }` (weekdays, `0` Sunday … `6` Saturday; missing = every day). `recurring`: `{ "every": "week", "day": 5 }` (weekday) or `{ "every": "month", "day": 1 }` (date, `1`–`28`). `null` on a one-off. |
 | `area` | string \| null | `body` · `personal` · `relationship` · `career` (as on habits), or `null` |
+| `planArea` | string | Optional (M10e). The life area (`lifePlan.areas` id) a task made from an idea in "מטרות לחיים" serves. Its `source` stays `manual` (the form). Missing = not linked. |
 | `owner` | string | `me` · `assistant` · `shared` (e.g. with Maya) |
 | `complexity` | string | `S` (up to 15 min) · `M` (up to an hour) · `L` (more). Sets the points. |
 | `important` | boolean | Marked important. At most 3 important tasks a day (the form warns). |

@@ -1,5 +1,5 @@
 # מטרות לחיים — תחומים ומטרה ל-3 חודשים
-Milestone: M10e · Branch: feature/m10e-life-plan · Status: draft
+Milestone: M10e · Branch: feature/m10e-life-plan · Status: built 2026-11-19, PR open
 Requested by ירין on 2026-11-17: "שאלון התחברות מלא שמבין את הצרכים של המשתמש … אם הוא לא יגדיר משהו … הוא יכול להמשיך הלאה". The second part of that request, after the basics (M10a).
 Answers on 2026-11-19:
 - Split in two: this PR is the plan's level 2 ("מטרות"); level 3 ("תכנית חיים מלאה": a picture of a win in a year, why, 2–3 goals per area with horizons, A/B/C, weekly steps) is M10f.
@@ -17,7 +17,7 @@ Answers on 2026-11-19:
 ## איך זה נראה
 מסך מלא מעל האפליקציה, כמו שאלון הפתיחה (אותה מסגרת, פסי התקדמות, ›, ✕). 390px, RTL, בכל ערכות הצבעים. פנייה ברבים.
 - **פתיחה:** אייקון מטרה, "מטרות לחיים", "בוחרים מה חשוב לכם, ולכל תחום שלוש שאלות קצרות. כ-10 דקות, וכל שאלה אפשר לדלג." כפתורים: "מתחילים" · "אחר כך".
-- **מה חשוב לכם עכשיו?** שמונה תחומים כאריחים לבחירה (בריאות וגוף, זוגיות, משפחה וחברים, קריירה ולימודים, כסף, התפתחות אישית, פנאי ותרבות, בית), ו"תחום משלי" שפותח שדה לשם. שורה קטנה: "מומלץ להתחיל ב-2–3". "הבא" פעיל רק אחרי בחירה של תחום אחד לפחות; "דלג" סוגר בלי לשמור.
+- **מה חשוב לכם עכשיו?** שמונה תחומים כאריחים לבחירה (בריאות וגוף, זוגיות, משפחה וחברים, קריירה ולימודים, כסף, התפתחות אישית, פנאי ותרבות, בית), ו"תחום משלי" שפותח שדה לשם. שורה קטנה: "מומלץ להתחיל ב-2 או 3". "הבא" פעיל רק אחרי בחירה של תחום אחד לפחות; "דלג" סוגר בלי לשמור.
 - **מסך לכל תחום שנבחר** (אייקון ושם התחום בכותרת):
   1. "איפה אני היום?" — עשרה כפתורים קטנים 1–10 בשורה אחת. בלי צבעים של טוב/רע.
   2. "מה הדבר האחד שהייתם רוצים לשנות ב-3 החודשים הקרובים?" — שדה טקסט, ומתחתיו 3 דוגמאות לתחום שלחיצה ממלאת.
@@ -25,12 +25,14 @@ Answers on 2026-11-19:
   4. "רעיונות שיעזרו" — 2–4 שורות של הרגל או משימה לתחום. לחיצה פותחת את אשף ההרגלים או את טופס המשימה, ממולאים. אחרי שמירה השורה מסומנת "נוסף ✓". מה שכבר קיים (באותו שם) לא מוצע.
   - למטה "דלג" (לא שומר כלום לתחום הזה) · "הבא" (שומר מה שמולא; גם שדה ריק בסדר).
 - **סיום:** "התכנית מוכנה!" ושורה לכל תחום: השם, "6/10" והמשפט של 3 החודשים (תחום שדילגו עליו לא מופיע). "תכנית חיים מלאה, עם חזון ומטרות לטווח ארוך: בקרוב". כפתור "סיום".
-- **מסך הסיום של שאלון הפתיחה:** במקום "בקרוב" — כרטיס "רוצים גם להגדיר מטרות לחיים? כ-10 דקות" עם "עכשיו" · "אחר כך" · "אף פעם". "עכשיו" פותח את המטרות. "אף פעם" מחליף את הכרטיס בשורה אפורה "בסדר, לא נציע שוב. אפשר תמיד ב'התכנית שלי'".
+- **בחירה מחדש:** תחום שהיה מסומן וירד ממנו הסימון במסך הבחירה כבה (כמו "להסיר", התשובות נשמרות).
+- **מסך הסיום של שאלון הפתיחה:** במקום "בקרוב" — כרטיס "רוצים גם להגדיר מטרות לחיים? כ-10 דקות" עם "עכשיו" · "אחר כך" · "אף פעם". "עכשיו" פותח את המטרות. "אחר כך" ו"אף פעם" מחליפים את הכרטיס בשורה "אפשר תמיד ב'התכנית שלי'" (ב"אף פעם" לפניה "בסדר, לא נציע שוב."). מי שכבר הגדיר מטרות רואה שורה "מטרות לחיים: כבר הוגדרו".
 - **התכנית שלי:** חלק חדש "מטרות לחיים" מתחת לחמשת התחומים של השאלון.
   - בלי מטרות: שורה "תחומים ומטרה ל-3 חודשים · כ-10 דקות" עם "להגדיר". אם נבחר "אף פעם": אותה שורה באפור, "בחרתם לא להגדיר" ו"להגדיר בכל זאת".
   - עם מטרות: שורה לכל תחום (אייקון, שם, "6/10", המשפט של 3 החודשים, והתאריך). לחיצה פותחת רק את המסך של התחום, עם "שמירה" · "ביטול", ולמטה "להסיר את התחום" (התשובות נשמרות, וחוזרות אם בוחרים בו שוב). מתחת: "+ תחום" שפותח את מסך הבחירה.
   - השורה "בקרוב" משתנה ל"בקרוב: תכנית חיים מלאה ושאר ההגדרות".
   - ב-`?dev` "מה הקלוד רואה" מראה גם את המטרות.
+- **"+ תחום":** פותח את מסך הבחירה, ואחריו רק את התחומים החדשים.
 - **מצבים:** בלי אינטרנט — הכול נשמר מקומית ונשלח אחר כך, כמו השאלון. טעינה — "טוען את התכנית…" הקיים. אין מצב שגיאה חדש: שמירה שנכשלת נרשמת בקונסול כמו היום (הודעה גלויה מגיעה ב-M10c).
 
 ## זרימה
@@ -43,7 +45,7 @@ Answers on 2026-11-19:
 
 ## חוקים ומספרים
 In `js/lib/rules.js`, a new `LIFE_PLAN` block:
-- `suggestedAreas`: 3 ("מומלץ להתחיל ב-2–3"; a hint only, no hard limit).
+- `suggestedAreas`: 3 ("מומלץ להתחיל ב-2 או 3"; a hint only, no hard limit).
 - `maxCustomAreas`: 3 areas of your own.
 - `horizonMonths`: 3 (the default target date, local noon).
 - `scoreRange`: [1, 10].
@@ -63,6 +65,7 @@ On `users/{uid}` (the user doc), written by the app only; the coach reads it thr
   - `updatedAt`: Timestamp.
   - Writes merge (`setDoc` merge), so saving one area never touches another.
 - Habits (`users/{uid}/habits`) and tasks (`users/{uid}/tasks`) made from an idea get a new optional `planArea: string` (the area id). Habits also get `source: 'plan'`; their `area` (body · personal · relationship · career) comes from the area's mapping. Missing `planArea` = not linked, like every habit and task today.
+- `offer` with areas: the areas win (the coach gets the goals, not "don't offer").
 - Derived, never stored: which areas are active (not `removed`), whether the plan has goals, the linked habits and tasks of an area.
 
 ## Server / outside the app
@@ -89,6 +92,14 @@ On `users/{uid}` (the user doc), written by the app only; the coach reads it thr
 - דף הקלוד (`get_brief`) מראה את המטרות, ואומר לא להציע כשנבחר "אף פעם".
 - ירין (בלי `lifePlan`) רואה את אותה אפליקציה, ורק שורה חדשה ב"התכנית שלי".
 - עובד בלי אינטרנט, ב-390px, ב-DARK, BRIGHT ובחמש הערכות האקראיות.
+
+## Built (2026-11-19)
+- `js/lib/plan-templates.js` (areas and ideas), `js/lib/life-plan.js` (pure helpers, the coach's section), `LIFE_PLAN` in `js/lib/rules.js`, test `tools/test-life-plan.mjs`.
+- `js/ui/life-plan.js` (the screen, in the questionnaire's frame and styles), the offer in `js/ui/onboarding.js`, the section in `js/pages/plan.js`.
+- `openHabitWizard({ template })` opens a new habit on its first question, filled in; `openTaskSheet` keeps `prefill.planArea` on a new task.
+- `saveLifePlan()` in `js/lib/firestore.js`. The `?dev` sandbox now merges nested maps like Firestore's `setDoc` merge.
+- Six Lucide icons: users, briefcase, wallet, sprout, music, house. No new colour tokens.
+- `get_profile` adds `lifePlan` (`planForCoach`), `get_brief` adds `planDepth`. Service worker cache v22. `privacy.html` lists goals among what is saved.
 
 ## שאלות פתוחות
 - הקלוד לא יכול לרשום "סירוב" (אין לו כלי כתיבה עד M11b), אז "2 סירובים" נשען על הזיכרון של הצ׳אט. לרשום את זה ב-M11c (זיכרון המאמן)?
