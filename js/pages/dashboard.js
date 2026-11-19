@@ -8,7 +8,8 @@ import { dateKey } from '../lib/sleep.js';
 import { mountProgressSummary } from '../ui/progress-summary.js';
 import { mountProgressRows } from '../ui/progress-rows.js';
 import { mountWorkoutTypeStats } from '../ui/workout-type-stats.js';
-import { renderProgressChart, heaviestSet } from '../lib/charts.js';
+import { renderProgressChart } from '../lib/charts.js';
+import { buildExerciseSeries } from '../lib/weight-series.js';
 import { esc } from '../core/dom.js';
 import { formatDayMonthHe as shortDate, unitLabel, round1 } from '../lib/format.js';
 import { beginMount, isStale, renderLoading } from '../core/page.js';
@@ -186,20 +187,11 @@ function mountWorkoutsTab(host) {
   render();
 }
 
+// One unit for the whole series (the latest workout's), so kg and lb days
+// don't mix on one axis — js/lib/weight-series.js.
 async function loadSeries(exerciseName) {
   const history = await getExerciseHistory(exerciseName);
-  return history.map((point) => {
-    const maxWeightSet = heaviestSet(point.sets);
-    const volume = point.sets.reduce((sum, s) => sum + s.weight * s.reps, 0);
-    return {
-      date: point.date,
-      maxWeight: maxWeightSet.weight,
-      reps: maxWeightSet.reps,
-      unit: maxWeightSet.weightUnit || 'kg',
-      mode: maxWeightSet.weightMode || 'total',
-      volume,
-    };
-  });
+  return buildExerciseSeries(history).points;
 }
 
 function withRunningPR(values) {

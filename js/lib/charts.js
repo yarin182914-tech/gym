@@ -5,6 +5,7 @@
 // tooltip by default, recessive gridlines.
 
 import { round1, unitLabel, formatDayMonthHe } from './format.js';
+import { heaviestSet, buildExerciseSeries } from './weight-series.js';
 
 // Read from the active colour theme (css/01-tokens.css) each time a chart is
 // drawn, so it always matches whichever theme is on — a canvas can't use
@@ -67,24 +68,15 @@ function loadChartLib() {
   return chartLib;
 }
 
-// The heaviest single set in one workout's sets array — the one bit of math
-// both this module and js/pages/dashboard.js's own (richer) series-building
-// need, so it lives here rather than being computed twice.
-export function heaviestSet(sets) {
-  return (sets || []).reduce((best, s) => (s.weight > (best?.weight ?? -1) ? s : best), null);
-}
+// Kept as a re-export so existing callers' imports stay as they are.
+export { heaviestSet };
 
 // Turns getExerciseHistory()'s raw output into exactly what renderProgressChart
 // needs for a weight-only series — what Active Session's per-set progress
-// graph wants. Dashboard needs a richer per-point shape (volume/reps/mode
-// too, for its table view and metric toggle) so it builds its own via
-// heaviestSet() above rather than calling this; this is for a caller that
-// only ever wants the weight line.
+// graph wants. Every point is in one unit (js/lib/weight-series.js), so an
+// exercise logged in kg some days and lb on others doesn't jump.
 export function buildWeightSeries(history) {
-  const points = history.filter((point) => heaviestSet(point.sets)).map((point) => {
-    const top = heaviestSet(point.sets);
-    return { date: point.date, maxWeight: top.weight, unit: top.weightUnit || 'kg' };
-  });
+  const { points } = buildExerciseSeries(history);
   const values = points.map((p) => p.maxWeight);
   let max = -Infinity;
   const prFlags = values.map((v) => {
