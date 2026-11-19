@@ -171,7 +171,7 @@ export async function openLifePlan({ only = null, pick = false, onClose } = {}) 
       el.innerHTML = `
         <span class="onboarding-step-icon">${icon('target')}</span>
         <h2 class="onboarding-title">מה חשוב לכם עכשיו?</h2>
-        <p class="onboarding-lead">מומלץ להתחיל ב-2–${LIFE_PLAN.suggestedAreas}. תמיד אפשר להוסיף אחר כך.</p>
+        <p class="onboarding-lead">מומלץ להתחיל ב-2 או ${LIFE_PLAN.suggestedAreas}. תמיד אפשר להוסיף אחר כך.</p>
         <div class="lifeplan-areas">
           ${LIFE_AREAS.map((a) => tile(a.id)).join('')}
           ${own().map(tile).join('')}
@@ -273,7 +273,7 @@ export async function openLifePlan({ only = null, pick = false, onClose } = {}) 
 
     const ideasEl = el.querySelector('[data-lp-ideas]');
     const paintIdeas = () => {
-      const ideas = ideasFor(id, { habits, tasks: tasks.filter((t) => !added.has(t.title)) });
+      const ideas = ideasFor(id, { habits, tasks });
       const shown = [...ideas, ...[...added].map((name) => ({ name, done: true }))];
       if (!shown.length) {
         ideasEl.innerHTML = '';

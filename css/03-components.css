@@ -7283,10 +7283,11 @@ body.onboarding-open {
 }
 
 .lifeplan-score-btn {
+  min-width: 0;
   min-height: var(--tap-min);
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 10px);
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
   font: inherit;

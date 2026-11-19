@@ -113,7 +113,7 @@ export const ONBOARDING = {
 // "מטרות לחיים" (M10e, docs/specs/life-goals.md): the plan's level 2.
 // The areas and their ideas are content, in js/lib/plan-templates.js.
 export const LIFE_PLAN = {
-  // "מומלץ להתחיל ב-2–3": a hint on the picker, not a limit.
+  // "מומלץ להתחיל ב-2 או 3": a hint on the picker, not a limit.
   suggestedAreas: 3,
   // Areas of your own ("תחום משלי") at most.
   maxCustomAreas: 3,
