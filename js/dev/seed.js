@@ -50,6 +50,8 @@ const WORKOUTS = [
       { name: 'דדליפט', category: 'גב', sets: sets([['working', 26.125, 8], ['working', 26.125, 8]], 'perSide', 'kg') },
       { name: 'חתירה למעלה', category: 'גב', sets: sets([['working', 220, 7], ['working', 215, 7]], 'total', 'lb') },
       { name: 'בטן מיטה בשיפוע', category: 'בטן', sets: sets([['working', 10, 15], ['working', 10, 15]], 'total', 'kg') },
+      // Logged in kg on 20.7 and in lb here: the progress chart must not jump.
+      { name: 'רגליים 4 ראשי', category: 'רגליים', sets: sets([['working', 165, 10], ['working', 165, 10]], 'total', 'lb') },
     ],
   },
   {
