@@ -17,9 +17,11 @@ import { mountNumericField } from './numeric-input.js';
 import { mountBodyFields } from './body-fields.js';
 import { mountSleepFields, sleepPatch } from './sleep-fields.js';
 import { openHabitWizard } from './habit-wizard.js';
+import { openLifePlan } from './life-plan.js';
 import {
-  getUserSettings, updateUserSettings, bodyKgOn, saveBodyProfile, listHabits, setHabit, newHabitId,
+  getUserSettings, updateUserSettings, bodyKgOn, saveBodyProfile, listHabits, setHabit, newHabitId, saveLifePlan,
 } from '../lib/firestore.js';
+import { hasGoals, planOffer } from '../lib/life-plan.js';
 import {
   STEPS, STEP_NAMES, WORKOUT_KINDS, workoutKindsOf, resumeStep, nextStep, markStep,
   clampMeals, quickTemplates, quickHabit, stepSummary,
@@ -384,7 +386,7 @@ export async function openOnboarding({ only = null, persist = !isOlderAccount(),
             </li>`;
           }).join('')}
         </ul>
-        <p class="onboarding-note">תחומי חיים, חזון ותכנית אב: בקרוב.</p>
+        ${goalsOffer()}
       </div>
       <div class="onboarding-foot onboarding-foot--one">
         <button type="button" class="btn btn-primary" data-ob-finish>לעבור להיום</button>
@@ -393,7 +395,41 @@ export async function openOnboarding({ only = null, persist = !isOlderAccount(),
       close();
       if (location.hash !== '#/today') location.hash = '#/today';
     });
+    wireGoalsOffer(body);
     return null;
+  }
+
+  // "מטרות לחיים" (M10e): offered once the basics are done. "אחר כך" and
+  // "אף פעם" are kept (lifePlan.offer) so the coach knows; "עכשיו" opens it.
+  const OFFER_LATER = 'אפשר תמיד ב"התכנית שלי".';
+  function goalsOffer() {
+    if (hasGoals(user)) return '<p class="onboarding-note">מטרות לחיים: כבר הוגדרו. אפשר לשנות ב"התכנית שלי".</p>';
+    if (planOffer(user) === 'never') return `<p class="onboarding-note">מטרות לחיים: ${OFFER_LATER}</p>`;
+    return `
+      <div class="card onboarding-goals" data-ob-goals>
+        <p class="onboarding-goals-q">רוצים גם להגדיר מטרות לחיים?</p>
+        <p class="onboarding-note">תחומים שחשובים לכם ומטרה ל-3 חודשים. כ-10 דקות.</p>
+        <div class="onboarding-goals-actions">
+          <button type="button" class="btn btn-primary" data-ob-goals-now>עכשיו</button>
+          <button type="button" class="btn btn-secondary" data-ob-goals-offer="later">אחר כך</button>
+          <button type="button" class="btn btn-secondary" data-ob-goals-offer="never">אף פעם</button>
+        </div>
+      </div>`;
+  }
+
+  function wireGoalsOffer(body) {
+    const box = body.querySelector('[data-ob-goals]');
+    if (!box) return;
+    box.querySelector('[data-ob-goals-now]').addEventListener('click', () => {
+      close();
+      openLifePlan({ onClose });
+    });
+    box.querySelectorAll('[data-ob-goals-offer]').forEach((b) => b.addEventListener('click', () => {
+      const offer = b.dataset.obGoalsOffer;
+      user = { ...user, lifePlan: { ...(user.lifePlan || {}), offer } };
+      saveLifePlan({ offer, offerAt: new Date() }).catch((err) => console.error('[onboarding] offer save failed', err));
+      box.outerHTML = `<p class="onboarding-note">${offer === 'never' ? 'בסדר, לא נציע שוב. ' : ''}${OFFER_LATER}</p>`;
+    }));
   }
 
   const STEP_VIEWS = { body: bodyStep, workouts: workoutsStep, sleep: sleepStep, food: foodStep, habits: habitsStep };

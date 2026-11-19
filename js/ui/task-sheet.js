@@ -232,6 +232,8 @@ export function openTaskSheet({ task = null, prefill = {}, tasks = [], newId, in
           ...(isNew ? {
             doneAt: null, doneDates: [], stuckReason: null, startedAt: null, calendarEventId: null,
             source: prefill.source || 'manual',
+            // An idea from "מטרות לחיים" (M10e): the life area it serves.
+            ...(prefill.planArea ? { planArea: prefill.planArea } : {}),
           } : {}),
         };
         sheet.close();

@@ -106,6 +106,8 @@ check('no plan → may offer once', has(none, 'אפשר להציע פעם אחת
 const never = coachBrief({ user: { lifePlan: { offer: 'never' } }, habits: [], today: '2026-11-19' });
 check('never → don\'t offer', has(never, 'לא מציעים, אלא אם ביקש/ה'), true);
 check('never → not "may offer"', has(never, 'אפשר להציע פעם אחת, ברגע טבעי'), false);
+const later = coachBrief({ user: { lifePlan: { offer: 'never', areas: { money: { score: 3 } } } }, habits: [], today: '2026-11-19' });
+check('goals set after "never" → the goals win', [has(later, '**כסף**'), has(later, 'לא מציעים, אלא אם')], [true, false]);
 
 if (failed) {
   console.log(`\n${failed} failed`);

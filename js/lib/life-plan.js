@@ -151,6 +151,23 @@ export function ideaTaskPrefill(idea, areaId) {
 // Habits linked to an area (planArea), active only.
 export const linkedHabits = (areaId, habits = []) => (habits || []).filter((h) => h?.planArea === areaId && h.active !== false);
 
+// The plan as plain JSON for the coach (get_profile): active areas only,
+// dates as 'yyyy-mm-dd'.
+export function planForCoach(user) {
+  return {
+    planDepth: planDepth(user),
+    offer: planOffer(user),
+    areas: activeAreas(user).map((a) => ({
+      id: a.id,
+      name: a.info.name,
+      score: Number.isFinite(a.score) ? a.score : null,
+      wish3m: a.wish3m || '',
+      successMetric: a.successMetric || '',
+      dueDate: dueKeyOf(a.dueDate) || null,
+    })),
+  };
+}
+
 // The coach's section (js/lib/coach-brief.js). Returns markdown lines.
 export function briefLines(user, habits = []) {
   const areas = activeAreas(user);
@@ -171,10 +188,11 @@ export function briefLines(user, habits = []) {
     }
   }
   const how = [];
-  if (offer === 'never') how.push('- מטרות לחיים: בחר/ה לא להגדיר. לא מציעים, אלא אם ביקש/ה.');
-  else if (areas.length) {
+  // Goals set later win over an earlier "אף פעם".
+  if (areas.length) {
     how.push('- לקשור הצעות למטרות שלמעלה. לא להוסיף מטרות שלא נבחרו.');
     how.push(`- להעמיק לתכנית מלאה מציעים לכל היותר פעם ב-${LIFE_PLAN.coachOfferDays} יום, ברגע טבעי (אחרי שבוע טוב, בסיכום חודשי, כשמשהו גדול קורה). אחרי ${LIFE_PLAN.coachMaxDeclines} סירובים מפסיקים עד שמבקשים.`);
-  } else how.push('- מטרות לחיים: עוד לא הוגדרו. אפשר להציע פעם אחת, ברגע טבעי, להגדיר ב"התכנית שלי". לא לדחוף.');
+  } else if (offer === 'never') how.push('- מטרות לחיים: בחר/ה לא להגדיר. לא מציעים, אלא אם ביקש/ה.');
+  else how.push('- מטרות לחיים: עוד לא הוגדרו. אפשר להציע פעם אחת, ברגע טבעי, להגדיר ב"התכנית שלי". לא לדחוף.');
   return { goals: lines, how };
 }
