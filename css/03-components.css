@@ -7233,6 +7233,203 @@ body.onboarding-open {
   color: var(--text);
 }
 
+/* "מטרות לחיים" (M10e, js/ui/life-plan.js): in the questionnaire's frame.
+   Only existing tokens, so every theme (DARK, BRIGHT, RANDOM) follows. */
+.lifeplan-areas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.lifeplan-area {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-min);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+
+.lifeplan-area-icon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+
+.lifeplan-area-name {
+  font-weight: var(--weight-semibold);
+  min-width: 0;
+}
+
+.lifeplan-area--on {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.lifeplan-area--on .lifeplan-area-icon {
+  color: var(--accent);
+}
+
+.lifeplan-score {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.lifeplan-score-btn {
+  min-width: 0;
+  min-height: var(--tap-min);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.lifeplan-score-btn--on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.lifeplan-score-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 4px 0 var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.lifeplan-wishes {
+  margin: var(--space-2) 0;
+}
+
+.lifeplan-due {
+  margin-top: var(--space-2);
+}
+
+.lifeplan-ideas {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.lifeplan-idea {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.lifeplan-idea-icon {
+  display: inline-flex;
+  color: var(--accent);
+}
+
+.lifeplan-idea-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lifeplan-idea-kind {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.lifeplan-idea-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--text-sm);
+  color: var(--accent);
+}
+
+.lifeplan-idea--done {
+  cursor: default;
+}
+
+.lifeplan-idea--done .lifeplan-idea-go {
+  color: var(--text-muted);
+}
+
+.lifeplan-remove {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--tap-min);
+  margin-top: var(--space-3);
+  padding: 0 var(--space-3);
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+/* The questionnaire's last screen: "רוצים גם להגדיר מטרות?" */
+.onboarding-goals {
+  width: 100%;
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.onboarding-goals-q {
+  margin: 0;
+  color: var(--text);
+  font-weight: var(--weight-semibold);
+}
+
+.onboarding-goals-actions {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.onboarding-goals-actions .btn {
+  padding-inline: var(--space-2);
+}
+
+/* "התכנית שלי": the goals section. */
+.myplan-section {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+
+.myplan-add {
+  justify-content: center;
+  gap: 6px;
+}
+
 /* "יעדים": meals a day (M10a). */
 .nut-meals-row {
   display: flex;

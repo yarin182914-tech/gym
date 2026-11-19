@@ -90,6 +90,13 @@ export async function updateUserSettings(patch) {
   await setDoc(doc(db, 'users', uidOrThrow()), patch, { merge: true });
 }
 
+// "מטרות לחיים" (M10e, docs/specs/life-goals.md): a part of the user doc's
+// `lifePlan` map. The write merges, so saving one area never touches
+// another. Not awaited by the UI (works offline, like the questionnaire).
+export function saveLifePlan(patch) {
+  return updateUserSettings({ lifePlan: { ...patch, updatedAt: useCloud ? serverTimestamp() : new Date().toISOString() } });
+}
+
 // "לא עכשיו" on Today's "הגוף שלי" card: it comes back BODY.snoozeDays later.
 export async function snoozeBodyCard() {
   await updateUserSettings({ bodyCardSnoozedAt: useCloud ? serverTimestamp() : new Date().toISOString() });

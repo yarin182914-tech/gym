@@ -89,10 +89,12 @@ export function expectedWeekPoints(d) {
 
 const fmt = (n) => Number(n).toLocaleString('he-IL');
 
-export function openHabitWizard({ habit = null, onSave, onDelete }) {
-  let draft = draftFrom(habit || { name: '' });
+// template: a new habit's fields to start from (an idea from "מטרות
+// לחיים", M10e) — it opens on the first question, already filled in.
+export function openHabitWizard({ habit = null, template = null, onSave, onDelete }) {
+  let draft = draftFrom(habit || template || { name: '' });
   // 'start' (new only) · a step id · 'summary'.
-  let screen = habit ? 'summary' : 'start';
+  let screen = habit ? 'summary' : template ? 'what' : 'start';
   let editing = !!habit; // a step reached from the summary returns to it
   let startKind = 'good';
 
