@@ -277,15 +277,22 @@ Plan: "שלב 4", "שאלון חיים ותכנית אב" (level 1). **Moved int
 - Done when: a new account answers the questionnaire in about 3 minutes, gets its own burn and targets, and Today shows only the areas it chose.
 - **Split by ירין 2026-11-17** ("שאלון התחברות מלא שמבין את הצרכים של המשתמש … אם הוא לא יגדיר משהו … הוא יכול להמשיך הלאה"), and moved up to right after M16a: M10a the basic questionnaire, then M10e areas, vision and a master plan. The feature switches stay in M8: a skipped area is simply not set up, the app looks the same. Email sign-in and minimal mode stay here.
 
-### M10a ◐ First-login questionnaire — the basics — `feature/m10a-onboarding`
+### M10a ☑ First-login questionnaire — the basics — `feature/m10a-onboarding`
 Asked by ירין 2026-11-17, settled 2026-11-18. Spec: `docs/specs/onboarding.md`.
 - Data: `onboarding` (`startedAt`, `step`, `skipped`, `doneAt`, `snoozedAt`), `mealsPerDay` and `workoutKinds` on the user doc; new habits with `source: 'onboarding'`. "Set up" is read from the data, never stored. No `firestore.rules` change.
 - UI: a full screen on a new account's first visit: welcome, body (M16a's fields), workouts a week and kinds, sleep, meals a day and targets, habits (one tap, a typed name, or the full wizard), a summary. Every step has "דלג", which writes nothing. "התכנית שלי" lists the five areas ("הוגדר" / "לא הוגדר") and opens the whole questionnaire or one step. A Today card resumes an unfinished one. New accounts get no example habits. "ארוחות ביום" in "יעדים"; the points follow it.
 - Coach: `get_brief`, a page worked out from the settings — what to log every day, what is not needed, body and targets; the connector's instructions say to read it first.
 - Done when: a new account answers in about 3 minutes, a skipped area stays "לא הוגדר" and its coach page says not to ask about it, saving it later from its own screen sets it up, 3 meals a day score 3, ירין's app and points don't change, offline and at 390px in every theme.
 
-### M10e ☐ Areas, vision and a master plan — `feature/m10e-life-plan`
-The second part of ירין's 2026-11-17 request, from the questionnaire's last screen and "התכנית שלי". Plan: "שאלון חיים ותכנית אב", levels 2–3: the life areas that matter, a vision per area, goals with horizons and A/B/C, weekly steps and habits, ready templates per area (`js/lib/plan-templates.js`), every question skippable. Data: `users/{uid}/lifePlan`. `get_brief` adds the goals.
+### M10e ☐ Life areas and a 3-month goal — `feature/m10e-life-plan`
+The second part of ירין's 2026-11-17 request. Plan: "שאלון חיים ותכנית אב", level 2 ("מטרות"). Split by ירין on 2026-11-19: level 3 is M10f. Spec: `docs/specs/life-goals.md`.
+- Data: `lifePlan` on the user doc (`planDepth`, `offer`, `areas` by id with `score`, `wish3m`, `successMetric`, `dueDate`, `order`); habits and tasks made from an idea get `planArea` (habits also `source: 'plan'`). No `firestore.rules` change.
+- UI: "רוצים גם להגדיר מטרות?" (עכשיו / אחר כך / אף פעם) on the questionnaire's last screen; a full screen: pick from eight areas or one of your own, then per area "איפה אני היום" 1–10, the one thing to change in 3 months, how you'll know and a date, and ready ideas (`js/lib/plan-templates.js`) that open the habit wizard or the task form filled in. Every screen has "דלג". A "מטרות לחיים" section in "התכנית שלי".
+- Coach: `get_brief` adds the goals and when to offer more (at most once in 30 days, stop after 2 refusals, never after "אף פעם"); it writes nothing.
+- Done when: two areas take about 5 minutes and show in "התכנית שלי", a skipped area writes nothing, an idea becomes a habit linked to its area, "אף פעם" stops the offers in the coach page, ירין's app doesn't change, offline and at 390px in every theme.
+
+### M10f ☐ A full life plan — `feature/m10f-full-plan`
+Plan: "שאלון חיים ותכנית אב", level 3, after M10e (ירין 2026-11-19). Per area: a picture of a win in a year and why, 2–3 goals with a horizon (3 months, a year, 3–5 years) and an A/B/C check (at least one C recommended), a measurable target, weekly steps and daily habits; the review rhythm (15 minutes a week, an hour a month, a reset each quarter). `lifePlan.planDepth: 'full'`, `goals` list, `reviewRhythm`. `get_brief` gives the full plan to the coach.
 
 ## M10b ☐ Account and privacy — `feature/m10b-account`
 Growth review, phase "עכשיו". Health data is "especially sensitive" under Israel's privacy law (Amendment 13, in force since 2025-08-14).
