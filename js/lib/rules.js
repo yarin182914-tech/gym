@@ -110,6 +110,25 @@ export const ONBOARDING = {
   maxHabits: 5,
 };
 
+// "מטרות לחיים" (M10e, docs/specs/life-goals.md): the plan's level 2.
+// The areas and their ideas are content, in js/lib/plan-templates.js.
+export const LIFE_PLAN = {
+  // "מומלץ להתחיל ב-2 או 3": a hint on the picker, not a limit.
+  suggestedAreas: 3,
+  // Areas of your own ("תחום משלי") at most.
+  maxCustomAreas: 3,
+  // The default target date: this many months from today, local noon.
+  horizonMonths: 3,
+  // "איפה אני היום?"
+  scoreRange: [1, 10],
+  // The most ideas (habits and tasks) shown on an area's screen.
+  ideasPerArea: 4,
+  // The coach offers to go deeper at most once in this many days, and
+  // stops after this many refusals (the brief's text, get_brief).
+  coachOfferDays: 30,
+  coachMaxDeclines: 2,
+};
+
 // Steps from the iPhone: an iOS Shortcut opens #/import?steps=N&date=…
 // (js/pages/import.js) and the "חיבורים" page explains how to set it up.
 export const STEPS_IMPORT = {

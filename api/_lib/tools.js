@@ -17,6 +17,7 @@ import {
 import { nutritionGoals, weeklyWorkoutGoal, rewardsSummary, mealsPerDay } from '../../js/lib/rewards.js';
 import { coachBrief } from '../../js/lib/coach-brief.js';
 import { areasState, workoutKindsOf } from '../../js/lib/onboarding.js';
+import { planForCoach, planDepth } from '../../js/lib/life-plan.js';
 import { totalOut, stepsKcal } from '../../js/lib/daily-activity.js';
 import { israelDateKey } from '../../js/lib/steps-import.js';
 import { userBaseKcal } from '../../js/lib/body-burn.js';
@@ -284,6 +285,8 @@ async function getProfile(_args, ctx) {
     // From the first-login questionnaire (M10a) and the screens since.
     mealsPerDay: mealsPerDay(userDoc),
     workoutKinds: workoutKindsOf(userDoc),
+    // "מטרות לחיים" (M10e): the areas chosen and their 3-month goal.
+    lifePlan: planForCoach(userDoc),
     rewardGoal: userDoc.rewardGoal ?? null,
     exerciseNames: library.map((e) => e.name).sort(),
   };
@@ -300,6 +303,7 @@ async function getBrief(_args, ctx) {
   return {
     today,
     areas: areasState(userDoc, habits.map(normalizeHabit)),
+    planDepth: planDepth(userDoc),
     brief: coachBrief({ user: userDoc, habits, today }),
   };
 }
@@ -546,7 +550,7 @@ export const TOOLS = [
   {
     name: 'get_brief',
     title: 'דף הוראות',
-    description: 'Read first, at the start of every conversation: the user\'s own instructions page (Hebrew markdown) — what to log and ask about every day, what is not needed (areas they skipped or never set up: don\'t ask, don\'t remind), body and targets, and how to work. `areas` says which areas are set up. Built from their settings on every call.',
+    description: 'Read first, at the start of every conversation: the user\'s own instructions page (Hebrew markdown) — what to log and ask about every day, what is not needed (areas they skipped or never set up: don\'t ask, don\'t remind), body and targets, the life goals (M10e) and when to offer more, and how to work. `areas` says which areas are set up; `planDepth` is basic or goals. Built from their settings on every call.',
     inputSchema: obj({}),
     annotations: READ,
     run: getBrief,
@@ -554,7 +558,7 @@ export const TOOLS = [
   {
     name: 'get_profile',
     title: 'פרופיל',
-    description: 'The user\'s targets and settings: calories, deficit, protein, meals a day, base burn (baseKcal) and the body answers it came from, sleep rules, weekly workout goal and kinds, chosen reward, and exact exercise names. Also today\'s Israel date. For what to ask about, read get_brief.',
+    description: 'The user\'s targets and settings: calories, deficit, protein, meals a day, base burn (baseKcal) and the body answers it came from, sleep rules, weekly workout goal and kinds, the life plan (areas with a 3-month goal), chosen reward, and exact exercise names. Also today\'s Israel date. For what to ask about, read get_brief.',
     inputSchema: obj({}),
     annotations: READ,
     run: getProfile,

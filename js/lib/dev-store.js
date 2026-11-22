@@ -29,9 +29,18 @@ export async function devGetUserSettings() {
   return load().user || {};
 }
 
+// Nested maps merge, like Firestore's setDoc(…, { merge: true }); arrays
+// and everything else are replaced.
+const isMap = (v) => v && typeof v === 'object' && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
+function mergeDeep(into, patch) {
+  const out = { ...(isMap(into) ? into : {}) };
+  for (const [k, v] of Object.entries(patch)) out[k] = isMap(v) ? mergeDeep(out[k], v) : v;
+  return out;
+}
+
 export async function devUpdateUserSettings(patch) {
   const state = load();
-  state.user = { ...state.user, ...patch };
+  state.user = mergeDeep(state.user, patch);
   save(state);
 }
 

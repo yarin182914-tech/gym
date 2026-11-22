@@ -10,6 +10,7 @@ import { sleepSettings } from './sleep.js';
 import { nutritionGoals, mealsPerDay, weeklyWorkoutGoal } from './rewards.js';
 import { userBaseKcal } from './body-burn.js';
 import { normalizeHabit, PARTS_OF_DAY } from './habits.js';
+import { briefLines } from './life-plan.js';
 
 const LETTERS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
 const fmt = (n) => Math.round(n).toLocaleString('he-IL');
@@ -113,12 +114,16 @@ export function coachBrief({ user = {}, habits = [], today }) {
   }
   lines.push(`- שריפה בסיסית ${fmt(userBaseKcal(u))} קל׳ ביום${set.body ? '' : ' (ברירת המחדל — הגוף לא מולא)'}; צעדים ואימונים נוספים עליה.`);
   if (set.body) lines.push('- שקילה: כשיש — לרשום. אין חובה יומית.');
+  // "מטרות לחיים" (M10e): the goals, and when to offer more.
+  const plan = briefLines(u, active);
+  if (plan.goals.length) lines.push('', ...plan.goals);
   lines.push(
     '',
     '## איך לעבוד',
     '- לפני כל רישום: להראות בעברית בדיוק מה יישמר ולחכות ל"כן".',
     '- לשאול רק על מה שב"מה למלא כל יום", פעם אחת בבדיקת הערב.',
     '- נקודות ורמות האפליקציה מחשבת. לא להבטיח מספר נקודות.',
+    ...plan.how,
   );
   return lines.join('\n');
 }
